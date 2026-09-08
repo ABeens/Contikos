@@ -1,0 +1,129 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: C
+      - generic [ref=e7]: Contikos
+    - navigation [ref=e8]:
+      - link "Inicio" [ref=e9] [cursor=pointer]:
+        - /url: /
+      - paragraph [ref=e16]: Módulos
+      - link "Contabilidad" [ref=e18] [cursor=pointer]:
+        - /url: /conta
+      - generic [ref=e22]:
+        - link "Cuentas por cobrar" [ref=e23] [cursor=pointer]:
+          - /url: /cxc
+        - generic [ref=e28]:
+          - link "Saldos por cobrar" [ref=e29] [cursor=pointer]:
+            - /url: /cxc
+          - link "Facturas de venta" [ref=e30] [cursor=pointer]:
+            - /url: /cxc/facturas
+          - link "Clientes" [ref=e31] [cursor=pointer]:
+            - /url: /cxc/clientes
+      - link "Cuentas por pagar" [ref=e33] [cursor=pointer]:
+        - /url: /cxp
+      - link "Bancos" [ref=e40] [cursor=pointer]:
+        - /url: /bancos
+      - link "Activos fijos" [ref=e45] [cursor=pointer]:
+        - /url: /activos
+      - link "Recursos humanos" [ref=e52] [cursor=pointer]:
+        - /url: /rh
+      - link "Reportes" [ref=e60] [cursor=pointer]:
+        - /url: /reportes
+      - paragraph [ref=e64]: Empresa
+      - link "Configuración" [ref=e65] [cursor=pointer]:
+        - /url: /configuracion
+  - generic [ref=e70]:
+    - banner [ref=e71]:
+      - paragraph [ref=e72]: Soluciones Contikos S.A.
+      - generic [ref=e73]:
+        - generic [ref=e74]: Periodo
+        - combobox "Periodo" [ref=e75]:
+          - option "Enero 2026 — bloqueado"
+          - option "Febrero 2026 — bloqueado"
+          - option "Marzo 2026 — bloqueado"
+          - option "Abril 2026 — bloqueado"
+          - option "Mayo 2026 — bloqueado"
+          - option "Junio 2026 — bloqueado"
+          - option "Julio 2026 — cerrado"
+          - option "Agosto 2026" [selected]
+          - option "Setiembre 2026"
+          - option "Octubre 2026"
+          - option "Noviembre 2026"
+          - option "Diciembre 2026"
+    - main [ref=e76]:
+      - generic [ref=e77]:
+        - generic [ref=e78]:
+          - generic [ref=e79]:
+            - heading "Clientes" [level=1] [ref=e80]
+            - paragraph [ref=e81]: Condiciones de pago, límite de crédito y cuenta de ingreso propia.
+          - button "Nuevo cliente" [ref=e83]
+        - generic [ref=e85]:
+          - generic [ref=e86]:
+            - textbox "Buscar por nombre, código o identificación…" [ref=e90]
+            - generic [ref=e91]: 5 clientes
+          - table [ref=e93]:
+            - rowgroup [ref=e94]:
+              - row [ref=e95]:
+                - columnheader "Código" [ref=e96] [cursor=pointer]
+                - columnheader "Razón social" [ref=e101] [cursor=pointer]
+                - columnheader "Identificación" [ref=e106] [cursor=pointer]
+                - columnheader "Crédito" [ref=e111] [cursor=pointer]
+                - columnheader "Límite" [ref=e116] [cursor=pointer]
+                - columnheader "Saldo" [ref=e121] [cursor=pointer]
+                - columnheader "Estado" [ref=e126] [cursor=pointer]
+            - rowgroup [ref=e131]:
+              - row [ref=e132] [cursor=pointer]:
+                - cell "C-001" [ref=e133]
+                - cell [ref=e134]:
+                  - generic [ref=e135]:
+                    - paragraph [ref=e136]: Inversiones Tecnológicas del Valle S.A.
+                    - paragraph [ref=e137]: Valle Tech
+                - cell "3-101-456789" [ref=e138]
+                - cell "30 días" [ref=e139]
+                - cell "15.000.000,00" [ref=e140]
+                - cell "0,00" [ref=e141]
+                - cell "Activo" [ref=e144]
+              - row [ref=e146] [cursor=pointer]:
+                - cell "C-002" [ref=e147]
+                - cell [ref=e148]:
+                  - paragraph [ref=e150]: Comercial La Sabana S.A.
+                - cell "3-101-223344" [ref=e151]
+                - cell "30 días" [ref=e152]
+                - cell "8.000.000,00" [ref=e153]
+                - cell "1.356.000,00 1 factura" [ref=e154]:
+                  - generic [ref=e155]:
+                    - generic [ref=e156]: 1.356.000,00
+                    - generic [ref=e157]: 1 factura
+                - cell "Activo" [ref=e158]
+              - row [ref=e160] [cursor=pointer]:
+                - cell "C-003" [ref=e161]
+                - cell [ref=e162]:
+                  - generic [ref=e163]:
+                    - paragraph [ref=e164]: Servicios Médicos Escazú S.A.
+                    - paragraph [ref=e165]: Clínica Escazú
+                - cell "3-101-778899" [ref=e166]
+                - cell "30 días" [ref=e167]
+                - cell "5.000.000,00" [ref=e168]
+                - cell "832.000,00 1 factura" [ref=e169]:
+                  - generic [ref=e170]:
+                    - generic [ref=e171]: 832.000,00
+                    - generic [ref=e172]: 1 factura
+                - cell "Activo" [ref=e173]
+              - row [ref=e175] [cursor=pointer]:
+                - cell "C-004" [ref=e176]
+                - cell [ref=e177]:
+                  - paragraph [ref=e179]: Mauricio Vargas Rojas
+                - cell "1-0893-0456" [ref=e180]
+                - cell "Contado" [ref=e181]
+                - cell "Sin límite" [ref=e182]
+                - cell "0,00" [ref=e183]
+                - cell "Activo" [ref=e186]
+              - row [ref=e238] [cursor=pointer]:
+                - cell "C-900" [ref=e239]
+                - cell [ref=e240]:
+                  - paragraph [ref=e242]: Prueba de Persistencia S.A.
+                - cell "3-101-999888" [ref=e243]
+                - cell "30 días" [ref=e244]
+                - cell "Sin límite" [ref=e245]
+                - cell "0,00" [ref=e246]
+                - cell "Activo" [ref=e249]

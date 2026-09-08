@@ -1,0 +1,1694 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Guia campo por campo de las pantallas de Contikos, escrita para alguien sin formacion contable.">
+<title>Contikos en cristiano</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+/* ------------------------------------------------------------------ tokens */
+:root {
+  --paper:        #F5F8F4;
+  --surface:      #FFFFFF;
+  --band:         #E8F1E7;
+  --ink:          #16201A;
+  --ink-2:        #4C584F;
+  --ink-3:        #7A867D;
+  --rule:         #D3DDD3;
+  --rule-strong:  #B4C2B5;
+  --accent:       #1B6B4A;
+  --accent-ink:   #12563A;
+  --accent-soft:  #DCEDE1;
+  --danger:       #9E3220;
+  --danger-soft:  #F7E5E0;
+  --warn:         #7E540F;
+  --warn-soft:    #F6EAD1;
+  --shadow:       0 1px 2px rgba(22, 32, 26, .06), 0 8px 24px -16px rgba(22, 32, 26, .28);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:        #0E1411;
+    --surface:      #151D18;
+    --band:         #1A231D;
+    --ink:          #E5EDE6;
+    --ink-2:        #A3B0A6;
+    --ink-3:        #74827A;
+    --rule:         #26312A;
+    --rule-strong:  #38463C;
+    --accent:       #6FC996;
+    --accent-ink:   #8FDBB0;
+    --accent-soft:  #1B2E23;
+    --danger:       #E8886F;
+    --danger-soft:  #33201A;
+    --warn:         #D8AC61;
+    --warn-soft:    #2C2315;
+    --shadow:       0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper:        #0E1411;
+  --surface:      #151D18;
+  --band:         #1A231D;
+  --ink:          #E5EDE6;
+  --ink-2:        #A3B0A6;
+  --ink-3:        #74827A;
+  --rule:         #26312A;
+  --rule-strong:  #38463C;
+  --accent:       #6FC996;
+  --accent-ink:   #8FDBB0;
+  --accent-soft:  #1B2E23;
+  --danger:       #E8886F;
+  --danger-soft:  #33201A;
+  --warn:         #D8AC61;
+  --warn-soft:    #2C2315;
+  --shadow:       0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+}
+
+/* ------------------------------------------------------------------- base */
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { animation: none !important; transition: none !important; }
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  font-size: 16.5px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 {
+  font-family: "Zilla Slab", Georgia, "Times New Roman", serif;
+  color: var(--ink);
+  text-wrap: balance;
+  margin: 0;
+  line-height: 1.18;
+}
+
+a { color: var(--accent-ink); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:focus-visible, button:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+code, .mono { font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace; }
+
+/* ------------------------------------------------------------------ shell */
+.shell {
+  display: grid;
+  grid-template-columns: 268px minmax(0, 1fr);
+  gap: 0;
+  max-width: 1280px;
+  margin: 0 auto;
+  align-items: start;
+}
+
+.toc {
+  position: sticky;
+  top: 0;
+  max-height: 100vh;
+  overflow-y: auto;
+  padding: 34px 22px 48px 28px;
+  border-right: 1px solid var(--rule);
+}
+
+.toc-brand {
+  font-family: "Zilla Slab", Georgia, serif;
+  font-weight: 700;
+  font-size: 19px;
+  letter-spacing: -.01em;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 4px;
+}
+.toc-brand .mark {
+  width: 22px; height: 22px;
+  flex: none;
+  border-radius: 3px;
+  background: var(--accent);
+  color: var(--surface);
+  display: grid; place-items: center;
+  font-size: 12px; font-weight: 700;
+  font-family: "IBM Plex Mono", monospace;
+}
+.toc-sub { font-size: 12.5px; color: var(--ink-3); margin: 0 0 24px; }
+
+.toc-group { margin-bottom: 20px; }
+.toc-group > p {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 7px;
+}
+.toc a {
+  display: block;
+  font-size: 14px;
+  line-height: 1.4;
+  padding: 3.5px 0 3.5px 11px;
+  border-left: 2px solid var(--rule);
+  color: var(--ink-2);
+  text-decoration: none;
+}
+.toc a:hover { color: var(--accent-ink); border-left-color: var(--accent); }
+
+.main { padding: 34px 44px 120px; min-width: 0; }
+
+@media (max-width: 940px) {
+  .shell { grid-template-columns: 1fr; }
+  .toc {
+    position: static;
+    max-height: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+    padding: 24px 22px 28px;
+  }
+  .main { padding: 28px 22px 90px; }
+}
+
+/* ------------------------------------------------------------------- hero */
+.hero { max-width: 74ch; margin-bottom: 52px; }
+.eyebrow {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11.5px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+  margin: 0 0 14px;
+}
+.hero h1 {
+  font-size: clamp(38px, 5.6vw, 58px);
+  font-weight: 700;
+  letter-spacing: -.022em;
+  margin-bottom: 18px;
+}
+.hero .lede { font-size: 19px; color: var(--ink-2); margin: 0 0 14px; max-width: 66ch; }
+.hero p:last-child { margin-bottom: 0; }
+
+/* ---------------------------------------------------------------- sections */
+section { scroll-margin-top: 20px; }
+.part { margin-top: 64px; }
+.part-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--ink);
+  margin-bottom: 30px;
+}
+.part-head h2 {
+  font-size: 27px;
+  font-weight: 600;
+  letter-spacing: -.015em;
+}
+.part-head .part-note {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-left: auto;
+  text-align: right;
+  letter-spacing: .02em;
+}
+
+/* ------------------------------------------------------------------ prose */
+.prose { max-width: 70ch; }
+.prose p { margin: 0 0 15px; }
+.prose p + h3 { margin-top: 26px; }
+.prose ul, .prose ol { margin: 0 0 16px; padding-left: 22px; }
+.prose li { margin-bottom: 7px; }
+.prose h3 { font-size: 20px; font-weight: 600; margin-bottom: 10px; }
+.prose strong { font-weight: 700; color: var(--ink); }
+
+/* ------------------------------------------------------------------ cards */
+.screen {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+  margin-bottom: 30px;
+  overflow: hidden;
+}
+.screen-head {
+  padding: 18px 22px 16px;
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 14px;
+}
+.screen-head h3 {
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -.012em;
+}
+.route {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  padding: 2.5px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.screen-head .gist {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+  color: var(--ink-2);
+  font-size: 15.5px;
+  max-width: 72ch;
+}
+.screen-body { padding: 18px 22px 20px; }
+.screen-body > *:first-child { margin-top: 0; }
+.screen-body > *:last-child { margin-bottom: 0; }
+.screen-body p { margin: 0 0 14px; max-width: 72ch; }
+.screen-body h4 {
+  font-size: 12px;
+  font-family: "Source Sans 3", sans-serif;
+  font-weight: 700;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 24px 0 10px;
+}
+.screen-body h4:first-child { margin-top: 0; }
+
+/* ------------------------------------------------------- greenbar tables */
+.tw { overflow-x: auto; margin: 0 0 6px; }
+table.fields {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+  min-width: 460px;
+}
+table.fields th {
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding: 0 12px 7px 0;
+  border-bottom: 1px solid var(--rule-strong);
+  white-space: nowrap;
+}
+table.fields td {
+  padding: 9px 12px 9px 0;
+  vertical-align: top;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink-2);
+}
+/* la banda verde del papel de contabilidad: ayuda a seguir la fila */
+table.fields tbody tr:nth-child(even) td { background: var(--band); }
+table.fields tbody tr:nth-child(even) td:first-child { box-shadow: -10px 0 0 var(--band); }
+table.fields td:first-child {
+  color: var(--ink);
+  font-weight: 600;
+  width: 27%;
+  min-width: 148px;
+  padding-right: 20px;
+}
+table.fields td.num { font-variant-numeric: tabular-nums; }
+table.fields code {
+  font-size: 12.5px;
+  background: none;
+  color: var(--ink-3);
+  font-weight: 500;
+  display: block;
+  margin-top: 1px;
+}
+
+/* --------------------------------------------------------------- callouts */
+.note {
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  padding: 12px 16px;
+  border-radius: 0 4px 4px 0;
+  margin: 18px 0;
+  font-size: 15px;
+  color: var(--ink-2);
+  max-width: 74ch;
+}
+.note.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+.note.stop { border-left-color: var(--danger); background: var(--danger-soft); }
+.note strong { color: var(--ink); }
+.note p { margin: 0 0 8px; }
+.note p:last-child { margin-bottom: 0; }
+.note .tag {
+  display: block;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+  color: var(--accent-ink);
+}
+.note.warn .tag { color: var(--warn); }
+.note.stop .tag { color: var(--danger); }
+
+/* ---------------------------------------------------------------- glossary */
+.gloss { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+.gloss > div { background: var(--surface); padding: 16px 20px; }
+.gloss dt {
+  font-family: "Zilla Slab", Georgia, serif;
+  font-size: 18.5px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.gloss dd { margin: 0; color: var(--ink-2); font-size: 15.5px; max-width: 74ch; }
+.gloss .alias {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  letter-spacing: .02em;
+  font-weight: 500;
+}
+
+/* -------------------------------------------------------------- T account */
+.tacct {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  max-width: 460px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 5px;
+  overflow: hidden;
+  font-size: 14.5px;
+  margin: 18px 0 20px;
+}
+.tacct div { padding: 12px 16px; background: var(--surface); }
+.tacct div:first-child { border-right: 1px solid var(--rule-strong); }
+.tacct .hd {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  display: block;
+  margin-bottom: 6px;
+}
+.tacct b { display: block; font-size: 16px; color: var(--ink); }
+.tacct span.sub { color: var(--ink-2); }
+
+/* ------------------------------------------------------------------- pills */
+.pill {
+  display: inline-block;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 1.5px 7px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  vertical-align: 1px;
+}
+.p-ok   { background: var(--accent-soft); color: var(--accent-ink); border-color: var(--accent); }
+.p-warn { background: var(--warn-soft);   color: var(--warn);       border-color: var(--warn); }
+.p-bad  { background: var(--danger-soft); color: var(--danger);     border-color: var(--danger); }
+.p-mute { background: var(--band);        color: var(--ink-2);      border-color: var(--rule-strong); }
+
+/* --------------------------------------------------------------- entry map */
+.flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 10px;
+  margin: 18px 0 22px;
+}
+.flow .step {
+  flex: 1 1 180px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  padding: 13px 15px;
+  font-size: 14.5px;
+  color: var(--ink-2);
+}
+.flow .step b {
+  display: block;
+  font-family: "Zilla Slab", Georgia, serif;
+  font-size: 16px;
+  color: var(--ink);
+  margin-bottom: 3px;
+}
+.flow .arrow {
+  align-self: center;
+  color: var(--rule-strong);
+  font-size: 20px;
+  flex: none;
+}
+@media (max-width: 700px) { .flow .arrow { display: none; } }
+
+/* ---------------------------------------------------------------- closing */
+.closing {
+  margin-top: 64px;
+  padding-top: 22px;
+  border-top: 1px solid var(--rule);
+  font-size: 14px;
+  color: var(--ink-3);
+  max-width: 70ch;
+}
+</style>
+
+<style>
+/* ---------------------------------------------------------------- extras
+   Solo para la version standalone: reset minimo (que en el visor de
+   artifacts venia dado) y hoja de impresion. */
+img, svg { max-width: 100%; }
+dl { margin: 0 0 18px; }
+
+@media print {
+  /* La impresion siempre sale en claro, aunque el sistema este en oscuro. */
+  :root, :root[data-theme="dark"] {
+    --paper: #FFFFFF; --surface: #FFFFFF; --band: #EEF4ED;
+    --ink: #16201A; --ink-2: #3F4A43; --ink-3: #6B776F;
+    --rule: #CDD8CD; --rule-strong: #A8B7A9;
+    --accent: #1B6B4A; --accent-ink: #12563A; --accent-soft: #E4F0E7;
+    --danger: #8E2C1C; --danger-soft: #F7E5E0;
+    --warn: #6F4A0D; --warn-soft: #F6EAD1;
+    --shadow: none;
+  }
+  .toc { display: none; }
+  .shell { display: block; max-width: none; }
+  .main { padding: 0; }
+  body { background: #FFFFFF; font-size: 11pt; }
+  .screen, .gloss, .tacct, .flow .step { box-shadow: none; break-inside: avoid; }
+  .part { break-before: page; }
+  .part:first-of-type { break-before: auto; }
+  section { break-inside: avoid-page; }
+  a { color: inherit; text-decoration: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+<nav class="toc" aria-label="Contenido">
+  <p class="toc-brand"><span class="mark">C</span> Contikos</p>
+  <p class="toc-sub">Guía de lectura para quien no es contador</p>
+
+  <div class="toc-group">
+    <p>Antes de empezar</p>
+    <a href="#idea">La idea en 90 segundos</a>
+    <a href="#glosario">Las 14 palabras</a>
+    <a href="#libros">Fiscal y corporativa</a>
+    <a href="#marco">La barra y el menú</a>
+  </div>
+
+  <div class="toc-group">
+    <p>Contabilidad</p>
+    <a href="#inicio">Inicio</a>
+    <a href="#cuentas">Catálogo de cuentas</a>
+    <a href="#clasificaciones">Clasificación NIIF y notas</a>
+    <a href="#asientos">Asientos</a>
+    <a href="#nuevo-asiento">Nuevo asiento</a>
+    <a href="#balanza">Balanza de comprobación</a>
+  </div>
+
+  <div class="toc-group">
+    <p>Cuentas por cobrar</p>
+    <a href="#cxc-saldos">Saldos por cobrar</a>
+    <a href="#cxc-facturas">Facturas de venta</a>
+    <a href="#cxc-nueva">Nueva factura de venta</a>
+    <a href="#cxc-clientes">Clientes</a>
+  </div>
+
+  <div class="toc-group">
+    <p>Cuentas por pagar</p>
+    <a href="#cxp-saldos">Saldos por pagar</a>
+    <a href="#cxp-facturas">Facturas de gasto</a>
+    <a href="#cxp-nueva">Nueva factura de gasto</a>
+    <a href="#cxp-proveedores">Proveedores</a>
+  </div>
+
+  <div class="toc-group">
+    <p>Activos fijos</p>
+    <a href="#act-inventario">Inventario de activos</a>
+    <a href="#act-nuevo">Registrar activo</a>
+    <a href="#act-categorias">Categorías</a>
+  </div>
+
+  <div class="toc-group">
+    <p>Empresa</p>
+    <a href="#configuracion">Configuración</a>
+    <a href="#monedas">Monedas</a>
+    <a href="#pendientes">Módulos por construir</a>
+  </div>
+
+  <div class="toc-group">
+    <p>Referencia</p>
+    <a href="#tabla-estados">Estados y colores</a>
+    <a href="#tabla-iva">Tarifas de IVA</a>
+    <a href="#tabla-cubetas">Cubetas de antigüedad</a>
+  </div>
+</nav>
+
+<main class="main">
+
+<header class="hero">
+  <p class="eyebrow">Manual de campo</p>
+  <h1>Contikos en cristiano</h1>
+  <p class="lede">Qué significa, palabra por palabra, cada pantalla y cada columna del sistema. Escrito para quien tiene que entender la aplicación sin haber llevado nunca un libro contable.</p>
+  <p>La contabilidad tiene mala fama por su vocabulario, no por su dificultad. Debajo del idioma hay una idea sola, y casi todo lo que verá en pantalla es esa idea repetida con distinta ropa. Empiece por las tres primeras secciones: son quince minutos que hacen que las veinte pantallas siguientes se lean casi solas.</p>
+</header>
+
+<!-- ================================================== PARTE 1: FUNDAMENTOS -->
+<div class="part">
+  <div class="part-head">
+    <h2>Antes de empezar</h2>
+    <span class="part-note">el modelo mental</span>
+  </div>
+
+  <section id="idea" class="prose">
+    <h3>La idea en 90 segundos</h3>
+    <p>Toda la contabilidad sale de una sola observación: <strong>el dinero no aparece ni desaparece, solo cambia de lugar</strong>. Si a la empresa le entran cien mil colones, tuvieron que salir de algún sitio. Si compró una computadora, algo la pagó.</p>
+    <p>De ahí sale el registro por <strong>partida doble</strong>: cada hecho económico se anota siempre dos veces, una vez en el lugar de donde salió el valor y otra en el lugar a donde llegó. Las dos anotaciones son por el mismo monto. Por eso, si suma todo lo anotado de un lado y todo lo anotado del otro, tienen que dar exactamente igual. Cuando no dan igual, hay un error, y esa es la única prueba automática que tiene el sistema de que sus números son coherentes.</p>
+    <p>Los dos lados se llaman <strong>cargo</strong> (o débito) y <strong>abono</strong> (o crédito). El error más común de quien empieza es traducirlos como "suma" y "resta". No lo son. Son simplemente la columna izquierda y la columna derecha. Qué efecto tiene cada una depende del tipo de cosa que esté anotando:</p>
+
+    <div class="tacct">
+      <div>
+        <span class="hd">Cargo · columna izquierda</span>
+        <b>Aumenta</b>
+        <span class="sub">lo que la empresa tiene (activos) y lo que gasta (gastos y costos)</span>
+      </div>
+      <div>
+        <span class="hd">Abono · columna derecha</span>
+        <b>Aumenta</b>
+        <span class="sub">lo que la empresa debe (pasivos), lo que aportaron los dueños (patrimonio) y lo que vende (ingresos)</span>
+      </div>
+    </div>
+
+    <p>Ejemplo completo, el que va a ver una y otra vez en Contikos. La empresa factura un servicio de 100.000 colones más IVA a un cliente que paga a 30 días:</p>
+    <ul>
+      <li><strong>Cargo</strong> a "Clientes" por 113.000: ahora el cliente le debe ese dinero, y una deuda a su favor es algo que la empresa tiene.</li>
+      <li><strong>Abono</strong> a "Ingresos por servicios" por 100.000: la empresa vendió.</li>
+      <li><strong>Abono</strong> a "IVA por pagar" por 13.000: ese impuesto no es suyo, lo cobró para entregárselo a Hacienda, así que es una deuda.</li>
+    </ul>
+    <p>Izquierda 113.000, derecha 100.000 más 13.000. Cuadra. Ese conjunto de tres renglones es un <strong>asiento</strong>, y es la unidad básica de todo el sistema: cada factura, cada pago, cada depreciación, todo termina convertido en un asiento que cuadra.</p>
+
+    <div class="note">
+      <span class="tag">Por qué importa para leer el código</span>
+      <p>Contikos está construido alrededor de esa unidad. Los módulos (facturación, compras, activos, planilla) no escriben en la contabilidad: <strong>producen asientos y se los entregan al núcleo contable</strong>, que es el único que sabe escribir en el libro. Por eso cada pantalla de captura le muestra el asiento antes de confirmar. No es un adorno: es literalmente lo que se va a guardar.</p>
+    </div>
+  </section>
+
+  <section id="glosario" style="margin-top:38px;">
+    <h3 class="prose" style="font-family:'Zilla Slab',Georgia,serif;font-size:20px;font-weight:600;margin-bottom:6px;">Las 14 palabras que hay que saber</h3>
+    <p class="prose" style="margin-bottom:18px;color:var(--ink-2);">Con estas basta. El resto del vocabulario que aparezca es combinación de ellas.</p>
+
+    <dl class="gloss">
+      <div>
+        <dt>Cuenta</dt>
+        <dd>Una gaveta donde se acumula un tipo de valor. "Banco Nacional colones" es una cuenta. "Ventas de servicios" es otra. "Salarios" es otra. Anotar en contabilidad es siempre meter o sacar de gavetas.</dd>
+      </div>
+      <div>
+        <dt>Catálogo de cuentas <span class="alias">= plan de cuentas</span></dt>
+        <dd>La lista de todas las gavetas que existen en la empresa, con un código numérico jerárquico. Nadie puede inventarse una cuenta al vuelo: o está en el catálogo o no se puede usar.</dd>
+      </div>
+      <div>
+        <dt>Asiento <span class="alias">= partida, movimiento contable</span></dt>
+        <dd>El registro de un hecho económico. Tiene fecha, un concepto y dos o más renglones (líneas), cada uno con su cuenta y su monto en la columna de cargo o en la de abono. Los totales de las dos columnas siempre coinciden.</dd>
+      </div>
+      <div>
+        <dt>Cargo y abono <span class="alias">= débito y crédito, debe y haber</span></dt>
+        <dd>Las dos columnas de un asiento. Izquierda y derecha. Ver la explicación de arriba: no son "más" y "menos".</dd>
+      </div>
+      <div>
+        <dt>Naturaleza <span class="alias">deudora / acreedora</span></dt>
+        <dd>De qué lado vive normalmente el saldo de una cuenta. Las cuentas de lo que la empresa tiene y de lo que gasta son <em>deudoras</em> (viven a la izquierda). Las de lo que debe, lo que aportaron los socios y lo que vende son <em>acreedoras</em> (viven a la derecha). Sirve para detectar rarezas: una cuenta de banco con saldo acreedor significa que está sobregirada.</dd>
+      </div>
+      <div>
+        <dt>Libro mayor <span class="alias">= el mayor</span></dt>
+        <dd>El acumulado de todas las cuentas después de aplicar todos los asientos. Si el asiento es el movimiento, el mayor es el estado de cuenta. En Contikos el mayor es "el hub": ningún módulo escribe directamente en él.</dd>
+      </div>
+      <div>
+        <dt>Saldo</dt>
+        <dd>Cuánto hay en una gaveta en un momento dado. Saldo inicial es con cuánto arrancó el mes, saldo final es con cuánto lo terminó.</dd>
+      </div>
+      <div>
+        <dt>Cuadrar</dt>
+        <dd>Que el total de cargos sea igual al total de abonos. Es la verificación de que no se perdió nada por el camino. En la aplicación aparece como una franja verde cuando todo está bien y roja cuando no.</dd>
+      </div>
+      <div>
+        <dt>Periodo <span class="alias">= periodo contable, mes</span></dt>
+        <dd>Cada mes del año fiscal. Un periodo se abre, se usa y se cierra. Una vez cerrado nadie puede escribir en él, ni siquiera para arreglar un error: eso se corrige con un asiento nuevo en el mes abierto. Se elige en la barra superior.</dd>
+      </div>
+      <div>
+        <dt>Ejercicio</dt>
+        <dd>El año contable completo. En Costa Rica normalmente coincide con el año calendario.</dd>
+      </div>
+      <div>
+        <dt>Auxiliar</dt>
+        <dd>El detalle de "quién". La cuenta "Clientes" le dice cuánto le deben en total; el auxiliar le dice cuánto le debe cada cliente. La suma de todos los auxiliares tiene que dar el saldo de la cuenta, siempre.</dd>
+      </div>
+      <div>
+        <dt>Cuenta de control</dt>
+        <dd>Una cuenta que solo puede mover su módulo dueño, nunca una persona a mano. "Clientes" la mueve el módulo de cuentas por cobrar, "Proveedores" la mueve el de cuentas por pagar. Es lo que garantiza que el detalle y el total nunca se separen. En la captura manual ni siquiera aparecen en el selector.</dd>
+      </div>
+      <div>
+        <dt>Moneda funcional</dt>
+        <dd>La moneda en la que se lleva el libro. En estas empresas, el colón. Se puede facturar en dólares, pero todo se convierte a la funcional con el tipo de cambio del día, y ese tipo de cambio queda congelado en el documento para siempre.</dd>
+      </div>
+      <div>
+        <dt>Devengo</dt>
+        <dd>La regla de cuándo se anota algo: en el momento en que ocurre, no cuando se paga. Una factura emitida a 30 días es venta de hoy, aunque el dinero llegue el mes que viene. Por eso existen las cuentas por cobrar y por pagar.</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section id="libros" class="prose" style="margin-top:38px;">
+    <h3>Fiscal y corporativa: por qué hay dos contabilidades</h3>
+    <p>Esta es la particularidad más importante de Contikos y la que más confunde de entrada. La empresa lleva <strong>dos versiones del mismo libro al mismo tiempo</strong>:</p>
+    <ul>
+      <li><strong>Fiscal</strong>: lo que se le declara a Hacienda. Sigue las reglas tributarias de Costa Rica, que a veces son arbitrarias pero son ley.</li>
+      <li><strong>Corporativa</strong>: lo que mide de verdad cómo va el negocio. Sigue las NIIF para PYMES, la norma contable internacional, y es la que ven socios, bancos y auditores.</li>
+    </ul>
+    <p>No son dos sistemas ni dos catálogos de cuentas. Comparten todo: las mismas cuentas, los mismos periodos, la misma numeración de asientos, la misma pantalla de captura. <strong>Lo único que las separa es qué líneas llegan a cada una.</strong></p>
+    <p>La regla por omisión es que <strong>todo entra en las dos</strong>. Cuando captura un asiento, las dos casillas vienen marcadas. Desmarcar una es la excepción y tiene que ser un acto deliberado, porque es exactamente ahí donde las dos contabilidades empiezan a diferir.</p>
+    <p>Ejemplo típico: Hacienda permite depreciar un vehículo más rápido de lo que la norma contable considera razonable. La parte de depreciación que solo acepta Hacienda entra únicamente al libro fiscal. Todo lo demás del asiento entra en los dos.</p>
+    <div class="note">
+      <p>En la interfaz los dos libros aparecen abreviados como <span class="mono">F</span> y <span class="mono">C</span> en las columnas estrechas, y como <span class="pill p-mute">Fiscal</span> <span class="pill p-mute">Corporativa</span> en las listas. Cada libro cuadra por separado: un asiento puede cuadrar en fiscal y no en corporativa, y el sistema lo rechaza igual.</p>
+    </div>
+  </section>
+
+  <section id="marco" style="margin-top:38px;">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>La barra superior y el menú</h3>
+        <span class="route">en todas las pantallas</span>
+        <p class="gist">Tres datos gobiernan todo lo que haga en el sistema, y los tres viven aquí arriba.</p>
+      </div>
+      <div class="screen-body">
+        <h4>Barra superior</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Lo que ve</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Nombre de la empresa</td><td>Todo el sistema es multiempresa. Los datos de una empresa nunca se cruzan con los de otra: lo que ve en pantalla pertenece a la que dice aquí.</td></tr>
+            <tr><td>Céd. jurídica</td><td>La cédula jurídica, el identificador fiscal de la empresa ante Hacienda de Costa Rica. Es el equivalente empresarial de la cédula de una persona.</td></tr>
+            <tr><td>Moneda funcional</td><td>La moneda del libro, con su símbolo. Todos los reportes se expresan en ella.</td></tr>
+            <tr><td>Periodo <code>selector</code></td><td>El mes contable en el que está trabajando. Cambia lo que ven casi todas las pantallas: la balanza, la lista de asientos y los indicadores de inicio se recalculan para el periodo elegido.</td></tr>
+            <tr><td><span class="pill p-warn">Solo lectura</span></td><td>Aparece cuando el periodo elegido ya está cerrado o bloqueado. Puede consultarlo, pero nadie puede contabilizar nada en él.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Menú lateral</h4>
+        <p>Los siete módulos del sistema. Seis alimentan asientos al núcleo contable y uno solo lee de él:</p>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Módulo</th><th>De qué se ocupa</th></tr></thead>
+          <tbody>
+            <tr><td>Contabilidad <code>/conta</code></td><td>El núcleo. Cuentas, asientos, periodos, balanza. Es el único que escribe en el libro mayor.</td></tr>
+            <tr><td>Cuentas por cobrar <code>/cxc</code></td><td>Lo que le deben los clientes. Facturas emitidas y su cobranza.</td></tr>
+            <tr><td>Cuentas por pagar <code>/cxp</code></td><td>Lo que la empresa le debe a sus proveedores. Facturas de gasto y su pago.</td></tr>
+            <tr><td>Bancos <code>/bancos</code></td><td>Movimientos de las cuentas bancarias y conciliación. <span class="pill p-mute">Por construir</span></td></tr>
+            <tr><td>Activos fijos <code>/activos</code></td><td>Lo que la empresa compró para usar durante años: equipo, vehículos, edificios. Su desgaste contable.</td></tr>
+            <tr><td>Recursos humanos <code>/rh</code></td><td>Empleados y planilla. <span class="pill p-mute">Por construir</span></td></tr>
+            <tr><td>Reportes <code>/reportes</code></td><td>Los estados financieros. El único módulo que lee del mayor en lugar de escribir en él. <span class="pill p-mute">Por construir</span></td></tr>
+            <tr><td>Configuración <code>/configuracion</code></td><td>Parámetros de la empresa: monedas, periodos, usuarios. No es un módulo contable, es de lo que todos dependen.</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ============================================== PARTE 2: CONTABILIDAD -->
+<div class="part">
+  <div class="part-head">
+    <h2>Contabilidad</h2>
+    <span class="part-note">/conta · el núcleo</span>
+  </div>
+
+  <section id="inicio">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>Inicio</h3>
+        <span class="route">/</span>
+        <p class="gist">La portada. Contesta una sola pregunta: ¿los números de este mes están sanos?</p>
+      </div>
+      <div class="screen-body">
+        <h4>Los cuatro indicadores</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Indicador</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Asientos del periodo</td><td>Cuántos hechos económicos se registraron en el mes elegido. Un número muy bajo a fin de mes normalmente significa que falta contabilizar cosas.</td></tr>
+            <tr><td>Movimientos · fiscal</td><td>La suma de todo lo que se movió en el libro fiscal durante el mes. No es la utilidad ni las ventas: es el volumen total de anotaciones.</td></tr>
+            <tr><td>Movimientos · corporativa</td><td>Lo mismo para el libro corporativo. Si los dos números difieren mucho, es que hubo bastantes movimientos con tratamiento distinto entre libros.</td></tr>
+            <tr><td>Cuadre de las dos <span class="pill p-ok">Cuadran</span></td><td>La prueba de coherencia. Verifica que en los dos libros el total de cargos sea igual al total de abonos. Si dice <span class="pill p-bad">No cuadra</span>, hay un problema en el núcleo contable, no un error de digitación de alguien.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Los dos paneles</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Panel</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Arquitectura</td><td>El diagrama de cómo se alimentan los módulos. Las flechas apuntan hacia contabilidad porque los módulos le entregan asientos. La única flecha que sale es la de reportes, que solo lee.</td></tr>
+            <tr><td>Periodos del ejercicio</td><td>Los doce meses del año con su estado: <span class="pill p-ok">Abierto</span> se puede usar, <span class="pill p-mute">Cerrado</span> ya se contabilizó y se selló, <span class="pill p-mute">Bloqueado</span> está sellado de forma definitiva.</td></tr>
+          </tbody>
+        </table></div>
+        <p>Abajo hay atajos a las siete acciones más frecuentes. No hacen nada distinto de lo que hace el menú lateral, solo ahorran clics.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="cuentas">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>Catálogo de cuentas</h3>
+        <span class="route">/conta/cuentas</span>
+        <p class="gist">La lista de todas las gavetas donde se puede anotar algo. Es la pantalla de la que dependen todas las demás: si una cuenta no existe aquí, no se puede usar en ninguna parte.</p>
+      </div>
+      <div class="screen-body">
+        <p>Costa Rica no obliga a usar un catálogo uniforme, así que Contikos trae una plantilla basada en NIIF para PYMES que cada empresa ajusta.</p>
+
+        <h4>Columnas</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Columna</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Código</td><td>El número de la cuenta, jerárquico y con sangría según su nivel. <span class="mono">1</span> es el gran grupo de activos, <span class="mono">1.1</span> los activos corrientes, <span class="mono">1.1.02</span> las cuentas por cobrar, <span class="mono">1.1.02.001</span> la cuenta concreta de clientes. Cuanto más largo el código, más específica la cuenta.</td></tr>
+            <tr><td>Nombre</td><td>Cómo se llama. En negrita si es una cuenta que solo agrupa, en gris si es una donde sí se anota.</td></tr>
+            <tr><td>Tipo</td><td>A qué familia pertenece, y esto determina cómo se comporta. Son siete: <strong>Activo</strong> (lo que tiene), <strong>Pasivo</strong> (lo que debe), <strong>Patrimonio</strong> (lo que es de los dueños), <strong>Ingreso</strong> (lo que vende), <strong>Costo</strong> (lo que le cuesta producir lo que vende), <strong>Gasto</strong> (lo que le cuesta operar) y <strong>Orden</strong> (registros de control que no afectan el patrimonio, como garantías recibidas).</td></tr>
+            <tr><td>Naturaleza</td><td><em>Deudora</em> o <em>acreedora</em>: de qué lado vive normalmente su saldo. Ver el glosario.</td></tr>
+            <tr><td>Presentación</td><td>En qué renglón del estado financiero se muestra esta cuenta y en qué nota se explica. Si dice "Suma sus hijas", es una cuenta que solo agrupa y no lleva renglón propio. Si dice <span class="pill p-warn">Sin clasificar</span>, esa cuenta todavía no aparecería en ningún estado financiero, y eso hay que arreglarlo antes de emitirlos.</td></tr>
+            <tr><td>Marcas</td><td>Las etiquetas de colores. Ver la tabla siguiente.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Las marcas</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Marca</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td><span class="pill p-mute">Acumulativa</span></td><td>Es una carpeta, no una gaveta. Solo agrupa a las que cuelgan de ella y no acepta anotaciones directas. Su saldo es la suma de sus hijas.</td></tr>
+            <tr><td><span class="pill p-warn">Control · cxc</span></td><td>Cuenta de control: solo la mueve el módulo indicado. Nadie puede tocarla a mano. Es lo que impide que el total del mayor se separe del detalle por cliente.</td></tr>
+            <tr><td><span class="pill p-mute">Auxiliar: cliente</span></td><td>Cada vez que se anota en esta cuenta hay que decir de quién se trata. Sin ese dato no se puede guardar el movimiento.</td></tr>
+            <tr><td><span class="pill p-mute">USD</span></td><td>La cuenta lleva además el control en esa moneda extranjera, aparte de su equivalente en colones.</td></tr>
+            <tr><td><span class="pill p-bad">Inactiva</span></td><td>Ya no se usa para movimientos nuevos, pero se conserva porque tiene historia.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Controles</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Control</th><th>Qué hace</th></tr></thead>
+          <tbody>
+            <tr><td>Buscar</td><td>Filtra por código o por nombre.</td></tr>
+            <tr><td>Solo sin clasificar (n)</td><td>Deja a la vista únicamente las cuentas de detalle a las que todavía no se les dijo en qué renglón del estado financiero se presentan. Es la lista de pendientes antes de cerrar el mes.</td></tr>
+            <tr><td>n cuentas · n de detalle</td><td>Cuántas hay en total y cuántas de ellas aceptan anotaciones. La diferencia son las acumulativas.</td></tr>
+            <tr><td>Clic en una fila</td><td>Abre el diálogo <em>Presentación</em>, donde se le asigna a esa cuenta su clasificación NIIF y su nota.</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="clasificaciones">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>Clasificación NIIF y notas</h3>
+        <span class="route">/conta/clasificaciones</span>
+        <p class="gist">El catálogo de cuentas dice <em>dónde se registra</em> cada cosa. Esta pantalla dice <em>dónde se muestra</em>.</p>
+      </div>
+      <div class="screen-body">
+        <p>Un estado financiero no lista trescientas cuentas: lista veinte renglones. "Efectivo y equivalentes", "Cuentas por cobrar comerciales", "Propiedad, planta y equipo". Cada uno de esos renglones agrupa muchas cuentas del catálogo. Y cada renglón se explica en una <strong>nota</strong>, que es el desglose al final del informe donde se detalla cómo se compone esa cifra.</p>
+        <p>Los dos catálogos viven en la misma pantalla porque son jerárquicos: la nota siempre cuelga de un renglón. Se despliega el renglón para ver sus notas.</p>
+
+        <h4>Un renglón (clasificación NIIF)</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Campo</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Código</td><td>El identificador del renglón, por ejemplo <span class="mono">A.07</span>. Solo sirve para referirse a él sin ambigüedad.</td></tr>
+            <tr><td>Orden</td><td>En qué posición aparece dentro de su estado financiero. Los estados tienen un orden convencional (primero lo más líquido, después lo menos) y esto lo controla.</td></tr>
+            <tr><td>Nombre del renglón</td><td>El texto que se va a imprimir en el estado financiero. "Activos intangibles", por ejemplo.</td></tr>
+            <tr><td>Estado financiero</td><td>En cuál de los cuatro informes aparece. Ver la tabla de abajo.</td></tr>
+            <tr><td>Sección NIIF para PYMES</td><td>Referencia opcional a la sección de la norma que regula ese renglón. Es documentación para el auditor, no afecta ningún cálculo.</td></tr>
+            <tr><td>Tipos de cuenta</td><td>Qué familias de cuenta pueden asignarse a este renglón. Impide errores como poner un gasto en un renglón del balance.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Los cuatro estados financieros</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Estado</th><th>Qué cuenta</th></tr></thead>
+          <tbody>
+            <tr><td>Estado de Situación Financiera <code>= balance general</code></td><td>Una foto a una fecha: qué tiene la empresa, qué debe y qué queda para los dueños. La ecuación que siempre se cumple es activo igual a pasivo más patrimonio.</td></tr>
+            <tr><td>Estado de Resultados</td><td>Una película de un periodo: cuánto vendió, cuánto le costó y cuánto ganó o perdió.</td></tr>
+            <tr><td>Estado de Cambios en el Patrimonio</td><td>Qué pasó con la parte de los dueños: aportes nuevos, utilidades del año, dividendos repartidos.</td></tr>
+            <tr><td>Estado de Flujos de Efectivo</td><td>De dónde entró y a dónde salió dinero de verdad. Se diferencia del estado de resultados porque una venta a crédito es utilidad pero todavía no es efectivo.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Una nota</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Campo</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Número</td><td>La numeración corrida con la que se cita la nota en el estado financiero ("ver nota 7").</td></tr>
+            <tr><td>Clasificación NIIF que desglosa</td><td>De qué renglón cuelga. Es lo que hace que el desglose de la nota cuadre exactamente contra la cifra del renglón que explica.</td></tr>
+            <tr><td>Título</td><td>El encabezado de la nota en el informe.</td></tr>
+            <tr><td>Qué revela</td><td>El guion de lo que la nota debe contar, no los importes. Los importes los calcula el reporte; aquí se escribe la instrucción, por ejemplo "importe en libros por categoría, amortización acumulada y vida útil aplicada".</td></tr>
+          </tbody>
+        </table></div>
+
+        <div class="note warn">
+          <span class="tag">Por qué el sistema no deja borrar libremente</span>
+          <p>No se puede eliminar un renglón que tenga cuentas asignadas o notas colgando, ni una nota en uso. Si se pudiera, cuentas enteras desaparecerían silenciosamente de los estados financieros.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="asientos">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>Asientos contables</h3>
+        <span class="route">/conta/asientos</span>
+        <p class="gist">El diario. Todo lo que se registró en el mes, venga de donde venga, en orden y con su origen a la vista.</p>
+      </div>
+      <div class="screen-body">
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Columna</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>N.º</td><td>El consecutivo del asiento. Es correlativo y sin huecos por exigencia legal: un salto en la numeración es una señal de alarma para un auditor.</td></tr>
+            <tr><td>Fecha</td><td>La fecha del hecho económico, que manda sobre la fecha en que alguien lo digitó. Es la que determina en qué periodo cae.</td></tr>
+            <tr><td>Concepto</td><td>La descripción de qué pasó. Es lo que va a leer alguien dentro de tres años tratando de entender el movimiento.</td></tr>
+            <tr><td>Origen</td><td>Quién generó el asiento. <span class="pill p-mute">cxc · factura</span> significa que lo produjo automáticamente el módulo de cuentas por cobrar al emitir una factura. "Manual" significa que lo digitó una persona en la pantalla de captura. La trazabilidad importa: un asiento con origen se puede rastrear hasta el documento que lo causó.</td></tr>
+            <tr><td>Contabilidad</td><td>A qué libros entró. Si solo dice uno de los dos, ese asiento tiene tratamiento diferenciado y conviene entender por qué.</td></tr>
+            <tr><td>Importe</td><td>El total del asiento. <strong>Si los dos libros llevan montos distintos aparecen los dos</strong>, cada uno con su letra, en vez de elegir uno y esconder que difieren.</td></tr>
+            <tr><td>Estado</td><td>En qué punto de su ciclo está. Ver la tabla de estados al final de esta guía.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Controles</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Control</th><th>Qué hace</th></tr></thead>
+          <tbody>
+            <tr><td>Buscar</td><td>Filtra por concepto, origen o número.</td></tr>
+            <tr><td>Ambas contabilidades</td><td>Por omisión se ven las dos juntas. Es la única pantalla donde conviven, y por eso es donde se detecta que un asiento entró a un solo libro. También se puede filtrar a uno solo.</td></tr>
+            <tr><td>Clic en una fila</td><td>Abre el detalle línea a línea: cuenta por cuenta, con sus cargos y abonos y a qué libros afecta cada renglón.</td></tr>
+          </tbody>
+        </table></div>
+        <p>Los filtros quedan en la dirección del navegador a propósito, para que alguien pueda enviar por correo el enlace exacto de lo que está mirando.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="nuevo-asiento">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>Nuevo asiento</h3>
+        <span class="route">/conta/asientos/nuevo</span>
+        <p class="gist">Captura manual. Se usa para lo que ningún módulo produce solo: ajustes, reclasificaciones, apertura del ejercicio, correcciones.</p>
+      </div>
+      <div class="screen-body">
+        <h4>Encabezado</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Campo</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Fecha</td><td>Cuándo ocurrió el hecho. Determina el periodo. Si el periodo de esa fecha está cerrado, el sistema rechaza el asiento.</td></tr>
+            <tr><td>Moneda</td><td>En qué moneda está expresado el documento original. Se elige del catálogo configurado, no de una lista fija.</td></tr>
+            <tr><td>Tipo de cambio</td><td>A cuántos colones equivale una unidad de esa moneda. Se propone el de referencia del Banco Central y se ajusta al del día. Queda congelado en el asiento: si mañana el dólar sube, este asiento no cambia. Si la moneda es la funcional, el campo se bloquea en 1.</td></tr>
+            <tr><td>Contabilidades</td><td>Las dos casillas maestras. Vienen marcadas y aplican a todas las líneas de golpe. Debajo se lee si el asiento tiene tratamiento uniforme o si hay líneas que difieren entre libros.</td></tr>
+            <tr><td>Concepto</td><td>La descripción del asiento completo.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Movimientos, columna por columna</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Columna</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>#</td><td>El número de línea. Sirve para localizar los errores, que se reportan como "Línea 3: ...".</td></tr>
+            <tr><td>Cuenta</td><td>La gaveta que se mueve. <strong>Las cuentas de control no aparecen aquí</strong>: solo las mueve su módulo dueño. Debajo se muestra el nombre de la cuenta elegida como confirmación.</td></tr>
+            <tr><td>Concepto</td><td>Descripción específica de esa línea, cuando el concepto general no basta.</td></tr>
+            <tr><td>Auxiliar</td><td>Solo se habilita si la cuenta elegida lo exige. Es el "de quién": qué cliente, qué proveedor, qué empleado.</td></tr>
+            <tr><td>Cargo</td><td>Monto en la columna izquierda. Al escribir aquí se limpia el abono: una línea es cargo o abono, nunca las dos.</td></tr>
+            <tr><td>Abono</td><td>Monto en la columna derecha.</td></tr>
+            <tr><td><span class="mono">F</span> y <span class="mono">C</span></td><td>A qué libro entra <em>esa línea</em>. Marcadas las dos por omisión. Desmarcar las dos es un error, no un valor por defecto: la línea no iría a ninguna parte, y el sistema la señala en rojo.</td></tr>
+            <tr><td>Papelera</td><td>Elimina la línea. Se deshabilita cuando quedan solo dos, porque un asiento con una sola línea no puede cuadrar.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Pie de la tabla: los totales</h4>
+        <p>Es la parte que hay que mirar mientras se captura. Muestra el total de cargos, el total de abonos y la diferencia. Cuando la diferencia es cero aparece un visto verde; mientras no lo sea, el monto que falta en rojo.</p>
+        <p><strong>Hay una fila de totales por libro</strong>, porque cada contabilidad tiene que cuadrar por su cuenta. Si todas las líneas van a los dos libros, los totales serían idénticos y el sistema muestra una sola fila para no obligarle a comparar dos números iguales.</p>
+
+        <h4>Atajos de teclado</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Tecla</th><th>Qué hace</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">Tab</td><td>Avanza al siguiente campo en el orden de captura.</td></tr>
+            <tr><td class="mono">Enter</td><td>En la última línea, agrega otra. La nueva hereda el tratamiento de libros de la anterior.</td></tr>
+            <tr><td class="mono">Ctrl + Enter</td><td>Contabiliza.</td></tr>
+          </tbody>
+        </table></div>
+
+        <div class="note stop">
+          <span class="tag">Por qué se puede rechazar un asiento</span>
+          <p>Mínimo dos líneas. Cada línea con cuenta válida, de detalle y activa. Cargo o abono, no ambos ni ninguno. Auxiliar presente si la cuenta lo exige. Al menos un libro marcado por línea. Cada libro cuadrado por separado. Fecha dentro de un periodo abierto. Los errores aparecen en un bloque rojo al pie, numerados por línea.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="balanza">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>Balanza de comprobación</h3>
+        <span class="route">/conta/balanza</span>
+        <p class="gist">La radiografía del mes. Todas las cuentas con cuánto tenían, cuánto se movieron y cuánto quedaron.</p>
+      </div>
+      <div class="screen-body">
+        <p>Es el reporte que un contador mira primero. Su nombre viene de que sirve para <em>comprobar</em>: si el total de cargos no coincide con el total de abonos, algo está roto y no tiene sentido seguir.</p>
+
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Columna</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Código y Cuenta</td><td>La cuenta, con la misma sangría jerárquica del catálogo. Las acumulativas en negrita.</td></tr>
+            <tr><td>Saldo inicial</td><td>Con cuánto arrancó la cuenta el periodo, es decir, el saldo final del mes anterior.</td></tr>
+            <tr><td>Cargos</td><td>Todo lo que se anotó en la columna izquierda de esa cuenta durante el mes.</td></tr>
+            <tr><td>Abonos</td><td>Todo lo que se anotó en la columna derecha durante el mes.</td></tr>
+            <tr><td>Saldo final</td><td>Con cuánto quedó. Es el saldo inicial más el movimiento del mes, aplicado según la naturaleza de la cuenta.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Controles y avisos</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Elemento</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Selector de libro</td><td>Fiscal o corporativa. Son dos balanzas distintas y hay que mirarlas por separado. La elección queda en la dirección del navegador para poder compartir el enlace.</td></tr>
+            <tr><td><span class="pill p-ok">La balanza cuadra</span></td><td>Total de cargos igual a total de abonos en ese libro. Es lo normal y lo esperado.</td></tr>
+            <tr><td><span class="pill p-bad">La balanza no cuadra</span></td><td>Un problema del núcleo contable, no de quien capturó: la aplicación nunca deja guardar un asiento descuadrado. Si aparece, es un defecto del sistema.</td></tr>
+            <tr><td>Solo cuentas de detalle</td><td>Esconde las acumulativas y deja solo las gavetas donde de verdad se anotó algo. Es la vista para revisar; la otra es para presentar.</td></tr>
+            <tr><td>Totales del periodo</td><td>La fila del pie. Suma únicamente las cuentas de detalle, porque incluir las acumulativas contaría cada monto dos veces.</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- =============================================== PARTE 3: POR COBRAR -->
+<div class="part">
+  <div class="part-head">
+    <h2>Cuentas por cobrar</h2>
+    <span class="part-note">/cxc · lo que le deben</span>
+  </div>
+
+  <div class="prose" style="margin-bottom:26px;">
+    <p>El módulo se ocupa del dinero que la empresa ya ganó pero todavía no cobró. Nace de la regla del devengo: si emite una factura a 30 días, la venta es de hoy, y mientras el cliente no pague queda registrada una deuda a su favor.</p>
+    <div class="flow">
+      <div class="step"><b>Cliente</b>Se registra una vez, con sus condiciones de pago.</div>
+      <span class="arrow">&rarr;</span>
+      <div class="step"><b>Factura de venta</b>Se emite. En ese momento se genera el asiento.</div>
+      <span class="arrow">&rarr;</span>
+      <div class="step"><b>Cuenta por cobrar</b>Nace de la factura y vive hasta que se cobre.</div>
+      <span class="arrow">&rarr;</span>
+      <div class="step"><b>Antigüedad</b>Cuánto lleva vencido cada saldo.</div>
+    </div>
+  </div>
+
+  <section id="cxc-saldos">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>Saldos por cobrar</h3>
+        <span class="route">/cxc</span>
+        <p class="gist">Lo que deben los clientes a una fecha, repartido por qué tan atrasado está.</p>
+      </div>
+      <div class="screen-body">
+        <div class="note">
+          <p>El total de esta pantalla <strong>tiene que coincidir con el saldo de la cuenta de control en el libro mayor</strong>. Si no coinciden, el detalle y el total se separaron, y eso es de las cosas más graves que le pueden pasar a una contabilidad. Es exactamente la razón por la que las cuentas de control no se pueden tocar a mano.</p>
+        </div>
+
+        <h4>Cabecera</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Elemento</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Fecha de corte</td><td>La fecha a la que se calcula todo. No es siempre hoy a propósito: la antigüedad de un cierre pasado tiene que poder reproducirse igual meses después.</td></tr>
+            <tr><td>Total por cobrar</td><td>La suma de todos los saldos pendientes a esa fecha.</td></tr>
+            <tr><td>Vencido</td><td>La parte de ese total cuya fecha de pago ya pasó. Es el número que preocupa: lo que debería estar cobrado y no lo está.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Antigüedad de saldos</h4>
+        <p>Es un reporte estándar. Cada fila es un cliente y cada columna es un tramo de atraso. En vez de un total plano, muestra <em>desde cuándo</em> le deben, que es lo que decide si hay que llamar, suspender crédito o mandar a cobro judicial.</p>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Columna</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Cliente</td><td>A quién corresponde el saldo.</td></tr>
+            <tr><td>Por vencer</td><td>Todavía no llega la fecha de pago. Es saldo sano.</td></tr>
+            <tr><td>1 a 30</td><td>Vencido hace un mes o menos. Normalmente se resuelve con una llamada.</td></tr>
+            <tr><td>31 a 60</td><td>Vencido entre uno y dos meses. Hay un problema.</td></tr>
+            <tr><td>61 a 90</td><td>Vencido entre dos y tres meses.</td></tr>
+            <tr><td>Más de 90</td><td>Más de tres meses. Estadísticamente, buena parte de esto ya no se cobra.</td></tr>
+            <tr><td>Total</td><td>La suma de la fila. Todo se expresa en la moneda funcional aunque la factura original fuera en dólares.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Facturas pendientes</h4>
+        <p>El mismo saldo, pero documento a documento y ordenado por vencimiento.</p>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Columna</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Comprobante</td><td>El número consecutivo de la factura electrónica.</td></tr>
+            <tr><td>Vence</td><td>La fecha límite de pago, calculada con los días de crédito del cliente.</td></tr>
+            <tr><td>Días</td><td>Cuántos días faltan o cuántos pasaron. "12 por vencer" en gris está bien; "45 vencidos" en rojo no.</td></tr>
+            <tr><td>Saldo</td><td>Lo que queda pendiente de esa factura, que puede ser menos que el total si hubo un pago parcial.</td></tr>
+            <tr><td>Estado</td><td><span class="pill p-warn">Pendiente</span> si aún no vence, <span class="pill p-bad">Vencido</span> si ya pasó la fecha.</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="cxc-facturas">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>Facturas de venta</h3>
+        <span class="route">/cxc/facturas</span>
+        <p class="gist">Todas las facturas emitidas. Cada una creó una cuenta por cobrar y un asiento.</p>
+      </div>
+      <div class="screen-body">
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Columna</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Comprobante</td><td>El consecutivo de la factura electrónica, el número con el que Hacienda la identifica.</td></tr>
+            <tr><td>Emisión</td><td>Cuándo se emitió. Es la fecha con la que entra a la contabilidad.</td></tr>
+            <tr><td>Cliente</td><td>A quién se le facturó.</td></tr>
+            <tr><td>Vence</td><td>Fecha límite de pago.</td></tr>
+            <tr><td>Total</td><td>El monto facturado, impuestos incluidos.</td></tr>
+            <tr><td>Por cobrar</td><td>Lo que queda pendiente. Igual al total si nadie ha pagado nada, cero si ya se cobró completa.</td></tr>
+            <tr><td>Estado</td><td>Dónde está en su ciclo: contabilizada, con pago parcial, pagada o anulada.</td></tr>
+          </tbody>
+        </table></div>
+        <p>Al hacer clic en una factura se abre su detalle: las líneas con descripción, cantidad, precio, tarifa de IVA, cuenta y total, y debajo <strong>el asiento que generó</strong>. Ese panel es la prueba visible de la arquitectura del sistema: el módulo no escribió en el libro, produjo un asiento y lo entregó.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="cxc-nueva">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>Nueva factura de venta</h3>
+        <span class="route">/cxc/facturas/nueva</span>
+        <p class="gist">Emitir la factura hace tres cosas de una vez: crea el documento, crea la cuenta por cobrar del cliente y contabiliza el asiento.</p>
+      </div>
+      <div class="screen-body">
+        <h4>Encabezado</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Campo</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Cliente</td><td>A quién se factura. Al elegirlo se traen sus condiciones: días de crédito, moneda habitual y su cuenta de ingreso si tiene una propia.</td></tr>
+            <tr><td>Fecha de emisión</td><td>Cuándo se emite. Determina el periodo contable.</td></tr>
+            <tr><td>Vencimiento</td><td>Se calcula solo sumando los días de crédito del cliente a la fecha de emisión, y se puede corregir a mano. Si el cliente es de contado, coincide con la emisión.</td></tr>
+            <tr><td>Moneda</td><td>En qué moneda se factura.</td></tr>
+            <tr><td>Tipo de cambio</td><td>Se propone el de referencia del Banco Central. Queda congelado en la factura para siempre.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Detalle, línea por línea</h4>
+        <p>El impuesto se calcula por línea y nunca sobre el total del documento, porque una misma factura puede combinar productos con tarifas distintas.</p>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Columna</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Descripción</td><td>Qué se vendió. Es lo que va a leer el cliente.</td></tr>
+            <tr><td>Cantidad</td><td>Cuántas unidades u horas.</td></tr>
+            <tr><td>Precio</td><td>El precio unitario antes de impuesto.</td></tr>
+            <tr><td>Descuento</td><td>Rebaja aplicada a esa línea. Se resta antes de calcular el IVA, porque el impuesto se paga sobre lo que realmente se cobró.</td></tr>
+            <tr><td>IVA</td><td>La tarifa que aplica a esa línea. Ver la tabla de tarifas al final.</td></tr>
+            <tr><td>Cuenta de ingreso</td><td>En qué gaveta de ventas entra el dinero. Permite separar, por ejemplo, ingresos por servicios de ingresos por producto.</td></tr>
+            <tr><td>Total</td><td>Cantidad por precio, menos descuento, más impuesto.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Totales</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Total</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Subtotal</td><td>La venta antes de impuestos.</td></tr>
+            <tr><td>Descuentos</td><td>Lo rebajado en total, si hubo.</td></tr>
+            <tr><td>IVA</td><td>El impuesto sumado de todas las líneas. Este dinero no es de la empresa: se le cobra al cliente para entregárselo a Hacienda.</td></tr>
+            <tr><td>Total por cobrar</td><td>Lo que el cliente tiene que pagar.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>El asiento que se generará</h4>
+        <p>Se muestra antes de confirmar, para que nadie contabilice a ciegas. Siempre tiene la misma forma:</p>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Línea</th><th>Por qué está ahí</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Cargo</strong> a Clientes <code>1.1.02.001</code></td><td>Por el total de la factura. El cliente ahora le debe ese dinero, y una deuda a favor es algo que la empresa tiene. Es una cuenta de control con auxiliar por cliente.</td></tr>
+            <tr><td><strong>Abono</strong> a Ingresos <code>4.1.01.001</code></td><td>Por el subtotal. Es la venta propiamente dicha, lo único de todo esto que es ingreso real.</td></tr>
+            <tr><td><strong>Abono</strong> a IVA por pagar <code>2.1.02.001</code></td><td>Por el impuesto. Es una deuda con Hacienda, no un ingreso. Se llama "trasladado" porque la empresa solo lo traslada del cliente al fisco.</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="cxc-clientes">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>Clientes</h3>
+        <span class="route">/cxc/clientes</span>
+        <p class="gist">A quién se le vende y bajo qué condiciones. Lo que se define aquí gobierna después cada factura.</p>
+      </div>
+      <div class="screen-body">
+        <h4>Columnas de la lista</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Columna</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Código</td><td>El identificador corto interno, tipo <span class="mono">C-001</span>.</td></tr>
+            <tr><td>Razón social</td><td>El nombre legal, el que va en la factura. Puede diferir del nombre comercial con que se le conoce.</td></tr>
+            <tr><td>Identificación</td><td>Cédula física, jurídica, DIMEX (extranjeros residentes) o NITE. Es obligatoria para facturar electrónicamente.</td></tr>
+            <tr><td>Crédito</td><td>Los días de plazo que se le dan para pagar.</td></tr>
+            <tr><td>Límite</td><td>El máximo que se le permite deber al mismo tiempo. Es una herramienta de riesgo: evita seguir vendiéndole a quien ya debe demasiado.</td></tr>
+            <tr><td>Saldo</td><td>Cuánto debe hoy.</td></tr>
+            <tr><td>Estado</td><td>Activo o inactivo. Los inactivos no se pueden seleccionar en facturas nuevas pero conservan su historia.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Campos del formulario</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Campo</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Nombre comercial</td><td>Con qué nombre se le conoce en la práctica. Solo sirve para buscarlo más fácil.</td></tr>
+            <tr><td>Tipo de identificación</td><td>Física, jurídica, DIMEX o NITE. Cada tipo tiene su formato y el sistema valida que cuadre.</td></tr>
+            <tr><td>Correo de cobros</td><td>A dónde se mandan la factura y los recordatorios. Suele ser distinto del contacto comercial.</td></tr>
+            <tr><td>Días de crédito <code>0 = contado</code></td><td>Cuántos días tiene para pagar desde la emisión.</td></tr>
+            <tr><td>Límite de crédito <code>0 = sin límite</code></td><td>El tope de deuda simultánea.</td></tr>
+            <tr><td>Moneda habitual</td><td>En qué moneda se le suele facturar. Solo precarga el campo; se puede cambiar factura a factura.</td></tr>
+            <tr><td>Cuenta de ingreso</td><td>Si este cliente debe registrarse en una cuenta de ventas específica. Dejarlo vacío usa la cuenta general del módulo.</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ================================================ PARTE 4: POR PAGAR -->
+<div class="part">
+  <div class="part-head">
+    <h2>Cuentas por pagar</h2>
+    <span class="part-note">/cxp · lo que debe</span>
+  </div>
+
+  <div class="prose" style="margin-bottom:26px;">
+    <p>Es el espejo del módulo anterior. Mismo mecanismo, misma antigüedad de saldos, misma lógica de cuenta de control. Cambia quién debe a quién, y aparecen dos conceptos nuevos: el IVA que la empresa <em>recupera</em> y las retenciones que le hace a sus proveedores.</p>
+  </div>
+
+  <section id="cxp-saldos">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>Saldos por pagar</h3>
+        <span class="route">/cxp</span>
+        <p class="gist">Lo que la empresa les debe a sus proveedores a una fecha, repartido por antigüedad.</p>
+      </div>
+      <div class="screen-body">
+        <p>Funciona exactamente igual que <a href="#cxc-saldos">saldos por cobrar</a>: fecha de corte, tarjetas de total y vencido, antigüedad por cubetas y detalle documento a documento. Su total también debe coincidir con la cuenta de control en el mayor.</p>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Diferencia</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Proveedor</td><td>Ocupa el lugar del cliente.</td></tr>
+            <tr><td>Folio</td><td>El número de factura que trae el comprobante del proveedor, no uno propio.</td></tr>
+            <tr><td>Por pagar</td><td>Lo que queda pendiente de ese documento.</td></tr>
+            <tr><td>"Es la base de la propuesta de pago"</td><td>La lista ordenada por vencimiento es de donde sale la decisión de a quién se le paga esta semana.</td></tr>
+          </tbody>
+        </table></div>
+        <div class="note">
+          <p>Aquí la lectura es la contraria a la de cuentas por cobrar. Un saldo vencido por cobrar es un problema. Un saldo vencido por pagar es dinero que la empresa se está quedando, a costa de su relación con el proveedor.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="cxp-facturas">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>Facturas de gasto</h3>
+        <span class="route">/cxp/facturas</span>
+        <p class="gist">Las facturas que la empresa recibió de sus proveedores.</p>
+      </div>
+      <div class="screen-body">
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Columna</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Folio</td><td>El número que trae la factura del proveedor. Es <em>su</em> numeración, no la de la empresa.</td></tr>
+            <tr><td>Interno</td><td>El consecutivo propio con el que la empresa la registró. Existen los dos porque el sistema necesita un número que controle él y otro que le permita cruzar con el documento físico.</td></tr>
+            <tr><td>Emisión</td><td>La fecha de la factura del proveedor.</td></tr>
+            <tr><td>Proveedor</td><td>Quién la emitió.</td></tr>
+            <tr><td>Vence</td><td>Cuándo hay que pagarla.</td></tr>
+            <tr><td>Total</td><td>Lo facturado, impuestos incluidos.</td></tr>
+            <tr><td>Por pagar</td><td>Lo que queda pendiente. Puede ser menor que el total si hubo retención o pago parcial.</td></tr>
+            <tr><td>Estado</td><td>Su punto en el ciclo del documento.</td></tr>
+          </tbody>
+        </table></div>
+        <div class="note warn">
+          <span class="tag">Control de duplicados</span>
+          <p>El sistema no deja registrar dos veces el mismo folio del mismo proveedor. Pagar dos veces la misma factura es uno de los errores más caros y más frecuentes en cuentas por pagar.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="cxp-nueva">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>Nueva factura de gasto</h3>
+        <span class="route">/cxp/facturas/nueva</span>
+        <p class="gist">Registrarla crea la cuenta por pagar del proveedor y contabiliza el asiento. Además, es una de las dos puertas por las que nace un activo fijo.</p>
+      </div>
+      <div class="screen-body">
+        <h4>Encabezado</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Campo</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Proveedor</td><td>Al elegirlo se traen sus condiciones: días de crédito, cuenta de gasto habitual y el porcentaje de retención que se le aplica.</td></tr>
+            <tr><td>Folio del proveedor</td><td>El número que trae su comprobante. Es el campo con el que el sistema detecta duplicados.</td></tr>
+            <tr><td>Fecha de emisión</td><td>La de la factura recibida, no la del día en que se digita.</td></tr>
+            <tr><td>Vencimiento</td><td>Calculado con los días de crédito del proveedor, ajustable a mano.</td></tr>
+            <tr><td>Moneda y Tipo de cambio</td><td>Igual que en venta. Se congela en el documento.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Detalle</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Columna</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Descripción</td><td>Qué se compró.</td></tr>
+            <tr><td>Cantidad y Precio</td><td>Igual que en venta.</td></tr>
+            <tr><td>IVA</td><td>La tarifa del comprobante. Aquí el IVA es <strong>acreditable</strong>: ver la nota de abajo.</td></tr>
+            <tr><td>Cuenta de cargo</td><td>Dónde entra lo comprado. Si se elige una cuenta de activo fijo, se despliegan los campos para crear su ficha en la misma captura.</td></tr>
+            <tr><td>Total</td><td>Cantidad por precio más impuesto.</td></tr>
+          </tbody>
+        </table></div>
+
+        <div class="note">
+          <span class="tag">IVA acreditable, en cristiano</span>
+          <p>Cuando la empresa vende, cobra IVA y se lo debe a Hacienda. Cuando compra, paga IVA y Hacienda se lo debe a ella. A fin de mes se restan y solo se entrega la diferencia. Por eso el IVA de una compra <strong>no es un gasto</strong>: es una cuenta por cobrar contra el fisco. De ahí que se cargue a una cuenta de activo y no se sume al costo.</p>
+        </div>
+
+        <h4>Capitalizar una línea como activo fijo</h4>
+        <p>Si la línea carga una cuenta de activo fijo, aparecen cuatro campos extra para crear la ficha del activo en el mismo momento:</p>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Campo</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Categoría</td><td>Define cuántos años dura el activo y con qué método se deprecia.</td></tr>
+            <tr><td>Nombre del activo</td><td>Cómo se llamará en el inventario. Por omisión toma la descripción de la línea.</td></tr>
+            <tr><td>Inicio de depreciación</td><td>Cuándo queda disponible para su uso, que no siempre es la fecha de compra: una máquina comprada en marzo e instalada en mayo empieza a depreciarse en mayo.</td></tr>
+            <tr><td>Número de serie</td><td>Para identificar el bien físico. Opcional pero muy útil en un inventario.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Totales</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Total</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Subtotal</td><td>La compra antes de impuestos.</td></tr>
+            <tr><td>IVA acreditable</td><td>El impuesto que la empresa va a recuperar.</td></tr>
+            <tr><td>Total facturado</td><td>Lo que dice la factura del proveedor.</td></tr>
+            <tr><td>Retención</td><td>La parte que la empresa <em>no</em> le entrega al proveedor porque tiene que depositarla directamente en Hacienda a nombre de él. En servicios profesionales suele ser el 2% del subtotal.</td></tr>
+            <tr><td>Total por pagar</td><td>Lo que efectivamente se le va a pagar al proveedor: el total facturado menos la retención.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>El asiento que se generará</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Línea</th><th>Por qué está ahí</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Cargo</strong> a la cuenta de gasto o activo <code>6.1.02.003</code></td><td>Por el subtotal. Es el consumo o el bien que se adquirió.</td></tr>
+            <tr><td><strong>Cargo</strong> a IVA acreditable <code>1.1.03.001</code></td><td>Por el impuesto. Es un derecho de cobro contra Hacienda.</td></tr>
+            <tr><td><strong>Abono</strong> a Retenciones por pagar <code>2.1.02.002</code></td><td>Por la retención, si aplica. Es una deuda con Hacienda, no con el proveedor.</td></tr>
+            <tr><td><strong>Abono</strong> a Proveedores <code>2.1.01.001</code></td><td>Por el neto. Es lo que de verdad se le debe al proveedor. Cuenta de control con auxiliar por proveedor.</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="cxp-proveedores">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>Proveedores</h3>
+        <span class="route">/cxp/proveedores</span>
+        <p class="gist">A quién se le compra y bajo qué condiciones.</p>
+      </div>
+      <div class="screen-body">
+        <p>Las columnas y el formulario son casi idénticos a los de <a href="#cxc-clientes">clientes</a>. Estas son las diferencias:</p>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Campo</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Retención de renta (%)</td><td>Qué porcentaje hay que retenerle y depositar en Hacienda a su nombre. En servicios profesionales es 2%. Un 0 significa que a ese proveedor no se le retiene nada.</td></tr>
+            <tr><td>Cuenta de gasto habitual</td><td>En qué cuenta suelen entrar sus facturas. Precarga el detalle de la captura. Vacío usa la cuenta general del módulo.</td></tr>
+            <tr><td>Saldo</td><td>Cuánto se le debe hoy.</td></tr>
+            <tr><td>No hay límite de crédito</td><td>El límite lo pone el proveedor, no la empresa. Por eso el campo no existe de este lado.</td></tr>
+          </tbody>
+        </table></div>
+        <div class="note">
+          <span class="tag">Retención, en cristiano</span>
+          <p>Hacienda no confía en cobrarle el impuesto sobre la renta a cada profesional independiente al final del año, así que obliga a quien le paga a adelantar una parte. Si le factura 100.000 más IVA, usted le paga 111.000 en vez de 113.000 y deposita los 2.000 restantes en Hacienda a nombre de él. Él después los descuenta de su declaración. Nadie pierde plata: cambia quién la deposita y cuándo.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ================================================== PARTE 5: ACTIVOS -->
+<div class="part">
+  <div class="part-head">
+    <h2>Activos fijos</h2>
+    <span class="part-note">/activos · lo que dura años</span>
+  </div>
+
+  <div class="prose" style="margin-bottom:26px;">
+    <p>Un activo fijo es algo que la empresa compró para <em>usar</em> durante varios años, no para revender: una computadora, un vehículo, un local. La regla contable es que su costo no puede cargarse todo al mes en que se compró, porque el beneficio se recibe durante toda su vida útil.</p>
+    <p>La solución se llama <strong>depreciación</strong>: repartir el costo en cuotas mensuales durante los años que se espera usarlo. Cada mes se registra un pedazo como gasto y se acumula ese mismo pedazo en una cuenta que va restando del valor del bien.</p>
+    <div class="flow">
+      <div class="step"><b>Costo</b>Lo que se pagó por el activo.</div>
+      <span class="arrow">&minus;</span>
+      <div class="step"><b>Depreciación acumulada</b>Todo el desgaste registrado hasta hoy.</div>
+      <span class="arrow">=</span>
+      <div class="step"><b>Valor en libros</b>Lo que vale contablemente hoy. No es su precio de mercado.</div>
+    </div>
+  </div>
+
+  <section id="act-inventario">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>Inventario de activos</h3>
+        <span class="route">/activos</span>
+        <p class="gist">Todo lo que la empresa tiene, con lo que costó y lo que vale hoy en libros.</p>
+      </div>
+      <div class="screen-body">
+        <h4>Las tres tarjetas de resumen</h4>
+        <p>Costo de adquisición, depreciación acumulada y valor en libros. La tercera es la resta de las dos primeras, y es la cifra que aparece en el balance general.</p>
+
+        <h4>Columnas</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Columna</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Código y Activo</td><td>El identificador y el nombre del bien.</td></tr>
+            <tr><td>Origen</td><td>Cómo entró: desde una factura de compra (con enlace al documento) o como "Alta directa".</td></tr>
+            <tr><td>Adquisición</td><td>Cuándo se compró.</td></tr>
+            <tr><td>Costo</td><td>Lo que se pagó, incluyendo lo necesario para ponerlo en funcionamiento (transporte, instalación).</td></tr>
+            <tr><td>Dep. acumulada</td><td>Cuánto desgaste se ha registrado desde que empezó a usarse.</td></tr>
+            <tr><td>Valor en libros</td><td>Costo menos depreciación acumulada. Es un número contable, no una tasación: un vehículo puede valer cero en libros y seguir sirviendo perfectamente.</td></tr>
+            <tr><td>Estado</td><td><span class="pill p-ok">Activo</span> en uso, <span class="pill p-mute">Depreciado</span> ya se depreció por completo pero se sigue usando, <span class="pill p-bad">Dado de baja</span> se vendió, se donó o se descartó.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Panel de detalle</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Dato</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Categoría</td><td>El grupo al que pertenece, que define su vida útil y su método.</td></tr>
+            <tr><td>Vida útil</td><td>Cuántos meses se espera usarlo. Es una estimación con criterio, no un dato del fabricante.</td></tr>
+            <tr><td>Método</td><td><em>Línea recta</em>: la misma cuota todos los meses, que es lo habitual. <em>Saldos decrecientes</em>: cuotas mayores al principio, para bienes que pierden valor más rápido al inicio.</td></tr>
+            <tr><td>Cuota mensual</td><td>Cuánto gasto por depreciación genera este activo cada mes.</td></tr>
+            <tr><td>Inicio de depreciación</td><td>Desde cuándo se deprecia, que es cuando quedó disponible para su uso.</td></tr>
+            <tr><td>Valor residual</td><td>Cuánto se estima que valdrá al final de su vida útil. Ese pedazo no se deprecia: si un vehículo de 10 millones tendrá residual de 1 millón, se reparten 9.</td></tr>
+            <tr><td>Ubicación y Responsable</td><td>Dónde está y quién responde por él. No afecta la contabilidad; sirve para la toma física del inventario.</td></tr>
+            <tr><td>Número de serie</td><td>Para identificar el bien concreto.</td></tr>
+            <tr><td>Asiento propio</td><td>Si el alta generó su propio asiento o no. Ver la pantalla siguiente.</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="act-nuevo">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>Registrar activo fijo</h3>
+        <span class="route">/activos/nuevo</span>
+        <p class="gist">Un activo entra por una de dos puertas, y la diferencia entre ellas es la parte que más confunde de este módulo.</p>
+      </div>
+      <div class="screen-body">
+        <h4>Puerta 1: desde una factura de compra</h4>
+        <p>La compra ya se registró en cuentas por pagar y su asiento ya reconoció el activo en el libro. Lo que falta es la ficha con sus datos de gestión. Por eso <strong>esta alta no genera ningún asiento</strong>: contabilizarlo otra vez duplicaría el activo.</p>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Elemento</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Compras pendientes de ficha</td><td>Líneas de factura que cargaron una cuenta de activo fijo y todavía no tienen ficha. <strong>Mientras esta lista no esté vacía, el inventario de activos no cuadra contra el mayor</strong>: el libro dice que la empresa tiene un bien del que no hay registro.</td></tr>
+            <tr><td>Ficha del activo</td><td>Nombre, categoría, inicio de depreciación, ubicación, responsable y número de serie. Datos de gestión, ninguno afecta el libro.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Puerta 2: alta directa</h4>
+        <p>Para activos que no llegaron por una compra: un aporte de los socios, una donación recibida o algo que la empresa construyó. Como no hay factura previa, no hay asiento previo, así que <strong>esta alta sí genera su asiento</strong>.</p>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Campo</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Costo de adquisición</td><td>El valor por el que entra. Si fue donación o aporte, es el valor razonable estimado.</td></tr>
+            <tr><td>Valor residual</td><td>Lo que se estima que valdrá al final. Se resta antes de calcular las cuotas.</td></tr>
+            <tr><td>Cuenta de contrapartida</td><td>El otro lado del asiento: de dónde vino el activo. Capital si lo aportaron los socios, una cuenta de donación si se recibió, o construcciones en proceso si se fabricó.</td></tr>
+            <tr><td>Asiento que se generará</td><td>Cargo a la cuenta de activo de la categoría, abono a la contrapartida. Se muestra antes de confirmar.</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="act-categorias">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>Categorías de activo</h3>
+        <span class="route">/activos/categorias</span>
+        <p class="gist">Las plantillas. Cada categoría define cómo se comportan todos los activos que pertenezcan a ella.</p>
+      </div>
+      <div class="screen-body">
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Columna</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Categoría</td><td>El grupo: equipo de cómputo, vehículos, mobiliario, edificios.</td></tr>
+            <tr><td>Vida útil</td><td>Cuántos meses dura. Equipo de cómputo suele ser 36 o 60; un edificio, 600.</td></tr>
+            <tr><td>Método</td><td>Línea recta o saldos decrecientes.</td></tr>
+            <tr><td>Residual</td><td>Qué porcentaje del costo se estima que quedará al final y por lo tanto no se deprecia.</td></tr>
+            <tr><td>Tasa fiscal</td><td>El porcentaje anual que permite Hacienda, cuando difiere del criterio contable. "Igual a la contable" significa que no hay diferencia. <strong>Cuando difieren es exactamente donde se separan los dos libros</strong>: la depreciación fiscal entra solo al libro fiscal y la contable solo al corporativo.</td></tr>
+            <tr><td>Cuentas</td><td>Las tres cuentas que mueve el ciclo de vida del activo. Ver abajo.</td></tr>
+            <tr><td>Activos</td><td>Cuántos bienes hay en esta categoría.</td></tr>
+            <tr><td>Estado</td><td>Si se puede usar para activos nuevos.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Por qué son tres cuentas y no una</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Cuenta</th><th>Para qué</th></tr></thead>
+          <tbody>
+            <tr><td>Activo</td><td>Guarda el costo original y no se toca nunca más. Poder ver siempre lo que costó una máquina es información que se perdería si se le fuera restando el desgaste.</td></tr>
+            <tr><td>Depreciación acumulada</td><td>Acumula todo el desgaste registrado. Es una cuenta de activo con signo contrario: en el balance se resta de la anterior.</td></tr>
+            <tr><td>Gasto de depreciación</td><td>Recibe la cuota de cada mes. Es la que llega al estado de resultados y reduce la utilidad.</td></tr>
+          </tbody>
+        </table></div>
+        <p>El asiento mensual de depreciación es siempre el mismo: cargo al gasto, abono a la depreciación acumulada. La cuenta del activo no se mueve.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ================================================== PARTE 6: EMPRESA -->
+<div class="part">
+  <div class="part-head">
+    <h2>Configuración de la empresa</h2>
+    <span class="part-note">/configuracion</span>
+  </div>
+
+  <section id="configuracion">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>Configuración</h3>
+        <span class="route">/configuracion</span>
+        <p class="gist">Los parámetros de la empresa. Todo lo que se lista aquí es dato, no código: cambiarlo no requiere volver a desplegar la aplicación.</p>
+      </div>
+      <div class="screen-body">
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Sección</th><th>Qué contiene</th></tr></thead>
+          <tbody>
+            <tr><td>Monedas</td><td>Catálogo, moneda funcional, decimales y formato. La única construida.</td></tr>
+            <tr><td>Empresa <span class="pill p-mute">Fase 1</span></td><td>Razón social, cédula jurídica, actividad económica y en qué mes arranca el ejercicio contable.</td></tr>
+            <tr><td>Periodos contables <span class="pill p-mute">Fase 1</span></td><td>Apertura, cierre y bloqueo de meses. Hoy se manejan desde la barra superior.</td></tr>
+            <tr><td>Tipos de cambio <span class="pill p-mute">Fase 4</span></td><td>La serie diaria de compra y venta, con carga automática desde el Banco Central.</td></tr>
+            <tr><td>Usuarios y roles <span class="pill p-mute">Fase 7</span></td><td>Quién puede hacer qué, con el permiso asignado por empresa.</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="monedas">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>Monedas</h3>
+        <span class="route">/configuracion/monedas</span>
+        <p class="gist">El catálogo de monedas de la empresa y, sobre todo, cuál es la funcional.</p>
+      </div>
+      <div class="screen-body">
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Campo</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td>Código ISO 4217</td><td>El código internacional de tres letras: CRC para el colón, USD para el dólar, EUR para el euro. Es la llave y no se puede cambiar una vez que hay documentos grabados con ella.</td></tr>
+            <tr><td>Símbolo</td><td>Cómo se imprime en los reportes.</td></tr>
+            <tr><td>Nombre</td><td>El nombre legible de la moneda.</td></tr>
+            <tr><td>Decimales</td><td>Cuántos usa esa moneda. Casi todas usan 2, pero el yen usa 0. Determina cómo se redondea todo importe expresado en ella.</td></tr>
+            <tr><td>Tipo de cambio de referencia</td><td>El valor que se propone al capturar un documento en esa moneda. Es una sugerencia: el que queda guardado es el que se confirme en cada documento.</td></tr>
+            <tr><td>Ejemplo</td><td>Una vista previa de cómo se verá un importe con los separadores y la posición del símbolo configurados.</td></tr>
+            <tr><td>Separador de miles y decimal</td><td>Si se escribe 1.234,56 o 1,234.56. Es preferencia de presentación, no cambia ningún cálculo.</td></tr>
+            <tr><td>Posición del símbolo</td><td>Antes o después del número.</td></tr>
+            <tr><td><span class="pill p-ok">Funcional</span></td><td>La moneda del libro mayor. Solo puede haber una, y designar otra cambia la moneda en la que se expresa toda la contabilidad.</td></tr>
+          </tbody>
+        </table></div>
+        <div class="note warn">
+          <p>Una moneda con asientos o cuentas asociadas no se puede eliminar, y el botón lo dice al pasar por encima. Borrarla dejaría documentos históricos apuntando a una moneda inexistente.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="pendientes">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>Módulos por construir</h3>
+        <span class="route">/bancos · /rh · /reportes</span>
+        <p class="gist">Tres módulos son navegables pero todavía no hacen nada. Cada uno muestra su alcance previsto y los asientos que va a emitir.</p>
+      </div>
+      <div class="screen-body">
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Módulo</th><th>Qué hará</th></tr></thead>
+          <tbody>
+            <tr><td>Bancos <span class="pill p-mute">Fase 4</span></td><td>Tesorería y <strong>conciliación bancaria</strong>: comparar lo que dice el estado de cuenta del banco con lo que dice la contabilidad y explicar cada diferencia. También revaluación de saldos en dólares cuando cambia el tipo de cambio.</td></tr>
+            <tr><td>Recursos humanos <span class="pill p-mute">Fase 7</span></td><td>Planilla y cargas sociales. Es el módulo más pegado a la ley local: cálculo de CCSS, impuesto sobre la renta del trabajo, reporte a SICERE y las provisiones de aguinaldo, vacaciones y cesantía.</td></tr>
+            <tr><td>Reportes <span class="pill p-mute">Fase 5</span></td><td>Los estados financieros y las declaraciones fiscales (D-104, D-101). <strong>Es el único módulo que lee del mayor en lugar de escribir en él</strong>, y nunca emite asientos.</td></tr>
+          </tbody>
+        </table></div>
+        <div class="note">
+          <span class="tag">Provisión, en cristiano</span>
+          <p>El aguinaldo se paga en diciembre, pero se gana mes a mes durante todo el año. Cargarlo entero a diciembre haría que ese mes pareciera pésimo y los once anteriores mejores de lo que fueron. La provisión reconoce cada mes la doceava parte que corresponde, aunque el dinero no salga todavía.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- =============================================== PARTE 7: REFERENCIA -->
+<div class="part">
+  <div class="part-head">
+    <h2>Tablas de referencia</h2>
+    <span class="part-note">para consultar de vuelta</span>
+  </div>
+
+  <section id="tabla-estados">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>Estados y colores</h3>
+        <p class="gist">Un mismo estado se ve igual en todos los módulos. El color se lee antes que el texto, y eso es deliberado.</p>
+      </div>
+      <div class="screen-body">
+        <h4>Ciclo de vida de un documento</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Estado</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td><span class="pill p-mute">Borrador</span></td><td>Se está capturando. No afecta nada todavía y se puede modificar libremente.</td></tr>
+            <tr><td><span class="pill p-mute">Validado</span></td><td>Pasó todas las revisiones y está listo para contabilizarse, pero aún no entró al libro.</td></tr>
+            <tr><td><span class="pill p-ok">Contabilizado</span></td><td>Ya está en el libro mayor. A partir de aquí no se modifica: se corrige con otro asiento.</td></tr>
+            <tr><td><span class="pill p-bad">Cancelado</span></td><td>Se anuló antes de contabilizarse.</td></tr>
+            <tr><td><span class="pill p-bad">Reversado</span></td><td>Estaba contabilizado y se le hizo un asiento contrario que lo deja en cero. El original no se borra: en contabilidad no se borra nada.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Cobros y pagos</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Estado</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td><span class="pill p-warn">Pendiente</span></td><td>Todavía no se cobra o no se paga, y aún no vence.</td></tr>
+            <tr><td><span class="pill p-warn">Pago parcial</span></td><td>Se abonó una parte y queda saldo.</td></tr>
+            <tr><td><span class="pill p-ok">Pagado</span></td><td>Saldado por completo.</td></tr>
+            <tr><td><span class="pill p-bad">Vencido</span></td><td>Pasó la fecha límite y sigue con saldo.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Periodos contables</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Estado</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td><span class="pill p-ok">Abierto</span></td><td>Se puede contabilizar en él.</td></tr>
+            <tr><td><span class="pill p-mute">Cerrado</span></td><td>Se terminó de trabajar el mes. Solo lectura, aunque se puede reabrir con autorización.</td></tr>
+            <tr><td><span class="pill p-mute">Bloqueado</span></td><td>Sellado de forma definitiva, típicamente porque ya se declaró a Hacienda o lo auditaron.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h4>Comprobantes electrónicos ante Hacienda</h4>
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Estado</th><th>Qué significa</th></tr></thead>
+          <tbody>
+            <tr><td><span class="pill p-mute">Generado</span></td><td>Se creó el archivo XML de la factura.</td></tr>
+            <tr><td><span class="pill p-mute">Firmado</span></td><td>Se le aplicó la firma digital de la empresa.</td></tr>
+            <tr><td><span class="pill p-mute">Enviado a Hacienda</span></td><td>Va en camino, esperando respuesta.</td></tr>
+            <tr><td><span class="pill p-ok">Aceptado</span></td><td>Hacienda lo validó. Solo aquí la factura es legalmente válida.</td></tr>
+            <tr><td><span class="pill p-bad">Rechazado</span></td><td>Hacienda encontró un error y hay que corregir y reenviar.</td></tr>
+            <tr><td><span class="pill p-warn">Contingencia</span></td><td>El servicio de Hacienda estaba caído y se facturó bajo el procedimiento alterno que la ley permite. Hay que regularizarlo después.</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tabla-iva">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>Tarifas de IVA de Costa Rica</h3>
+        <p class="gist">Las siete opciones del selector de IVA en las facturas. Se elige por línea, no por documento.</p>
+      </div>
+      <div class="screen-body">
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Tarifa</th><th>Cuándo aplica</th></tr></thead>
+          <tbody>
+            <tr><td>General 13%</td><td>La tarifa normal. Todo lo que no tenga una regla especial.</td></tr>
+            <tr><td>Reducida 4%</td><td>Servicios de salud privados y pasajes aéreos.</td></tr>
+            <tr><td>Reducida 2%</td><td>Medicamentos, primas de seguros y educación privada.</td></tr>
+            <tr><td>Reducida 1%</td><td>Canasta básica tributaria e insumos agropecuarios.</td></tr>
+            <tr><td>Tarifa 0%</td><td>Exportaciones. Se grava a cero, lo cual no es lo mismo que estar exento: quien vende a tarifa cero sí puede recuperar el IVA que pagó en sus compras.</td></tr>
+            <tr><td>Exento</td><td>La ley dispensa del impuesto a esa operación concreta.</td></tr>
+            <tr><td>No sujeto</td><td>La operación queda fuera del alcance del impuesto. La diferencia con exento es jurídica, pero ambas generan cero impuesto.</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tabla-cubetas">
+    <div class="screen">
+      <div class="screen-head">
+        <h3>Cubetas de antigüedad</h3>
+        <p class="gist">Los cinco tramos del reporte de antigüedad. Son idénticos por cobrar y por pagar: cambia quién debe, no cómo se reparte.</p>
+      </div>
+      <div class="screen-body">
+        <div class="tw"><table class="fields">
+          <thead><tr><th>Tramo</th><th>Días respecto a la fecha de vencimiento</th></tr></thead>
+          <tbody>
+            <tr><td>Por vencer</td><td>Todavía no llega la fecha.</td></tr>
+            <tr><td>1 a 30</td><td>Vencido hasta un mes.</td></tr>
+            <tr><td>31 a 60</td><td>Vencido entre uno y dos meses.</td></tr>
+            <tr><td>61 a 90</td><td>Vencido entre dos y tres meses.</td></tr>
+            <tr><td>Más de 90</td><td>Vencido hace más de tres meses.</td></tr>
+          </tbody>
+        </table></div>
+        <p>Los tramos se calculan siempre contra la <strong>fecha de corte</strong> elegida en la pantalla, no contra hoy, para que la antigüedad de un cierre pasado se pueda reproducir tal cual meses después.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<p class="closing">Esta guía documenta el frontend de Contikos tal como está construido hoy: núcleo contable, cuentas por cobrar, cuentas por pagar y activos fijos. Los datos que ve la aplicación provienen de simulaciones que aplican las mismas validaciones que aplicará la API real. La documentación técnica del sistema vive en la carpeta <span class="mono">docs/</span> del repositorio.</p>
+
+</main>
+</div>
+
+</body>
+</html>

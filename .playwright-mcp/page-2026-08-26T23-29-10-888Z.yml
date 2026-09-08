@@ -1,0 +1,215 @@
+- generic [ref=f22e3]:
+  - complementary [ref=f22e4]:
+    - generic [ref=f22e5]:
+      - generic [ref=f22e6]: C
+      - generic [ref=f22e7]: Contikos
+    - navigation [ref=f22e8]:
+      - link "Inicio" [ref=f22e9] [cursor=pointer]:
+        - /url: /
+      - paragraph [ref=f22e16]: Módulos
+      - link "Contabilidad" [ref=f22e18] [cursor=pointer]:
+        - /url: /conta
+      - link "Cuentas por cobrar" [ref=f22e23] [cursor=pointer]:
+        - /url: /cxc
+      - generic [ref=f22e28]:
+        - link "Cuentas por pagar" [ref=f22e29] [cursor=pointer]:
+          - /url: /cxp
+        - generic [ref=f22e35]:
+          - link "Saldos por pagar" [ref=f22e36] [cursor=pointer]:
+            - /url: /cxp
+          - link "Facturas de gasto" [ref=f22e37] [cursor=pointer]:
+            - /url: /cxp/facturas
+          - link "Proveedores" [ref=f22e38] [cursor=pointer]:
+            - /url: /cxp/proveedores
+      - link "Bancos" [ref=f22e40] [cursor=pointer]:
+        - /url: /bancos
+      - link "Activos fijos" [ref=f22e45] [cursor=pointer]:
+        - /url: /activos
+      - link "Recursos humanos" [ref=f22e52] [cursor=pointer]:
+        - /url: /rh
+      - link "Reportes" [ref=f22e60] [cursor=pointer]:
+        - /url: /reportes
+      - paragraph [ref=f22e64]: Empresa
+      - link "Configuración" [ref=f22e65] [cursor=pointer]:
+        - /url: /configuracion
+  - generic [ref=f22e70]:
+    - banner [ref=f22e71]:
+      - paragraph [ref=f22e72]: Soluciones Contikos S.A.
+      - generic [ref=f22e73]:
+        - generic [ref=f22e74]: Periodo
+        - combobox "Periodo" [ref=f22e75]:
+          - option "Enero 2026 — bloqueado"
+          - option "Febrero 2026 — bloqueado"
+          - option "Marzo 2026 — bloqueado"
+          - option "Abril 2026 — bloqueado"
+          - option "Mayo 2026 — bloqueado"
+          - option "Junio 2026 — bloqueado"
+          - option "Julio 2026 — cerrado"
+          - option "Agosto 2026" [selected]
+          - option "Setiembre 2026"
+          - option "Octubre 2026"
+          - option "Noviembre 2026"
+          - option "Diciembre 2026"
+    - main [ref=f22e76]:
+      - generic [ref=f22e77]:
+        - generic [ref=f22e78]:
+          - generic [ref=f22e79]:
+            - heading "Facturas de gasto" [level=1] [ref=f22e80]
+            - paragraph [ref=f22e81]: Cada factura registrada crea la cuenta por pagar del proveedor y su asiento.
+          - link [ref=f22e83] [cursor=pointer]:
+            - /url: /cxp/facturas/nueva
+            - button "Nueva factura" [ref=f22e84]
+        - generic [ref=f22e86]:
+          - generic [ref=f22e87]:
+            - textbox "Buscar por folio o proveedor…" [ref=f22e91]
+            - generic [ref=f22e92]: 4 facturas
+          - table [ref=f22e94]:
+            - rowgroup [ref=f22e95]:
+              - row [ref=f22e96]:
+                - columnheader "Folio" [ref=f22e97] [cursor=pointer]
+                - columnheader "Interno" [ref=f22e102] [cursor=pointer]
+                - columnheader "Emisión" [ref=f22e107] [cursor=pointer]
+                - columnheader "Proveedor" [ref=f22e112] [cursor=pointer]
+                - columnheader "Vence" [ref=f22e117] [cursor=pointer]
+                - columnheader "Total" [ref=f22e122] [cursor=pointer]
+                - columnheader "Por pagar" [ref=f22e127] [cursor=pointer]
+                - columnheader "Estado" [ref=f22e132] [cursor=pointer]
+            - rowgroup [ref=f22e137]:
+              - row [ref=f22e138] [cursor=pointer]:
+                - cell "8010" [ref=f22e139]
+                - cell "CXP-000048" [ref=f22e140]
+                - cell "14/08/2026" [ref=f22e141]
+                - cell "Suministros de Oficina Delta S.A." [ref=f22e142]
+                - cell "29/08/2026" [ref=f22e143]
+                - cell "6.780.000,00" [ref=f22e144]
+                - cell "6.780.000,00" [ref=f22e145]
+                - cell "Contabilizado" [ref=f22e146]
+              - row [ref=f22e148] [cursor=pointer]:
+                - cell "9001" [ref=f22e149]
+                - cell "CXP-000047" [ref=f22e150]
+                - cell "12/08/2026" [ref=f22e151]
+                - cell "Ingeniería y Sistemas Vega S.A." [ref=f22e152]
+                - cell "11/09/2026" [ref=f22e153]
+                - cell "2.712.000,00" [ref=f22e154]
+                - cell "2.664.000,00" [ref=f22e155]
+                - cell "Contabilizado" [ref=f22e156]
+              - row [ref=f22e158] [cursor=pointer]:
+                - cell "7788" [ref=f22e159]
+                - cell "CXP-000046" [ref=f22e160]
+                - cell "10/08/2026" [ref=f22e161]
+                - cell "Suministros de Oficina Delta S.A." [ref=f22e162]
+                - cell "25/08/2026" [ref=f22e163]
+                - cell "203.400,00" [ref=f22e164]
+                - cell "203.400,00" [ref=f22e165]
+                - cell "Contabilizado" [ref=f22e166]
+              - row [ref=f22e168] [cursor=pointer]:
+                - cell "4521" [ref=f22e169]
+                - cell "CXP-000045" [ref=f22e170]
+                - cell "20/07/2026" [ref=f22e171]
+                - cell "Despacho Contable Arias & Asociados" [ref=f22e172]
+                - cell "19/08/2026" [ref=f22e173]
+                - cell "508.500,00" [ref=f22e174]
+                - cell "0,00" [ref=f22e175]
+                - cell "Pagado" [ref=f22e176]
+        - generic [ref=f22e178]:
+          - generic [ref=f22e179]:
+            - generic [ref=f22e180]:
+              - heading "Factura 9001" [level=2] [ref=f22e181]
+              - paragraph [ref=f22e182]: Ingeniería y Sistemas Vega S.A. · vence el 11/09/2026
+            - button "Cerrar" [ref=f22e184]
+          - table [ref=f22e185]:
+            - rowgroup [ref=f22e186]:
+              - row [ref=f22e187]:
+                - columnheader "Descripción" [ref=f22e188]
+                - columnheader "Cantidad" [ref=f22e189]
+                - columnheader "Precio" [ref=f22e190]
+                - columnheader "IVA" [ref=f22e191]
+                - columnheader "Cuenta" [ref=f22e192]
+                - columnheader "Total" [ref=f22e193]
+            - rowgroup [ref=f22e194]:
+              - row [ref=f22e195]:
+                - cell [ref=f22e196]:
+                  - text: Servidor de aplicaciones Dell PowerEdge
+                  - link "ver activo" [ref=f22e197] [cursor=pointer]:
+                    - /url: /activos?activo=act-030
+                - cell "1" [ref=f22e202]
+                - cell "2.400.000,00" [ref=f22e203]
+                - cell "General 13%" [ref=f22e204]
+                - cell "1.2.01.002" [ref=f22e205]
+                - cell "2.712.000,00" [ref=f22e206]
+            - rowgroup [ref=f22e207]:
+              - row [ref=f22e208]:
+                - cell "Subtotal" [ref=f22e209]
+                - cell "2.400.000,00" [ref=f22e210]
+              - row [ref=f22e211]:
+                - cell "IVA acreditable" [ref=f22e212]
+                - cell "312.000,00" [ref=f22e213]
+              - row [ref=f22e214]:
+                - cell "Retención de renta" [ref=f22e215]
+                - cell "48.000,00" [ref=f22e216]
+              - row [ref=f22e217]:
+                - cell "Por pagar" [ref=f22e218]
+                - cell "2.664.000,00" [ref=f22e219]
+        - generic [ref=f22e220]:
+          - heading "Asiento generado" [level=2] [ref=f22e223]
+          - generic [ref=f22e224]:
+            - generic [ref=f22e225]:
+              - generic [ref=f22e226]:
+                - text: Asiento
+                - paragraph [ref=f22e227]: "00014"
+              - generic [ref=f22e228]:
+                - text: Fecha
+                - paragraph [ref=f22e229]: 12/08/2026
+              - generic [ref=f22e230]:
+                - text: Origen
+                - paragraph [ref=f22e231]: cxp · factura · fpr-9001
+              - generic [ref=f22e232]:
+                - text: Contabilidad
+                - paragraph [ref=f22e233]:
+                  - generic [ref=f22e234]: Ambas
+              - generic [ref=f22e235]: Contabilizado
+            - paragraph [ref=f22e237]: "Factura proveedor 9001: servidor de aplicaciones"
+            - table [ref=f22e238]:
+              - rowgroup [ref=f22e239]:
+                - row [ref=f22e240]:
+                  - columnheader "Cuenta" [ref=f22e241]
+                  - columnheader "Nombre" [ref=f22e242]
+                  - columnheader "Concepto / auxiliar" [ref=f22e243]
+                  - columnheader "Cargo" [ref=f22e244]
+                  - columnheader "Abono" [ref=f22e245]
+              - rowgroup [ref=f22e246]:
+                - row [ref=f22e247]:
+                  - cell "1.2.01.002" [ref=f22e248]
+                  - cell "Equipo de cómputo" [ref=f22e249]
+                  - 'cell "Servidor de aplicaciones Dell PowerEdgeactivo: Servidor de aplicaciones Dell PowerEdge" [ref=f22e250]':
+                    - text: Servidor de aplicaciones Dell PowerEdge
+                    - generic [ref=f22e251]: "activo: Servidor de aplicaciones Dell PowerEdge"
+                  - cell "2.400.000,00" [ref=f22e252]
+                  - cell [ref=f22e253]
+                - row [ref=f22e254]:
+                  - cell "1.1.03.001" [ref=f22e255]
+                  - cell "IVA acreditable" [ref=f22e256]
+                  - cell "IVA acreditable 13%" [ref=f22e257]
+                  - cell "312.000,00" [ref=f22e258]
+                  - cell [ref=f22e259]
+                - row [ref=f22e260]:
+                  - cell "2.1.02.002" [ref=f22e261]
+                  - cell "Retenciones de renta por pagar" [ref=f22e262]
+                  - cell "Retención de renta 2%" [ref=f22e263]
+                  - cell [ref=f22e264]
+                  - cell "48.000,00" [ref=f22e265]
+                - row [ref=f22e266]:
+                  - cell "2.1.01.001" [ref=f22e267]
+                  - cell "Proveedores" [ref=f22e268]
+                  - 'cell "Ingeniería y Sistemas Vega S.A.proveedor: Ingeniería y Sistemas Vega S.A." [ref=f22e269]':
+                    - text: Ingeniería y Sistemas Vega S.A.
+                    - generic [ref=f22e270]: "proveedor: Ingeniería y Sistemas Vega S.A."
+                  - cell [ref=f22e271]
+                  - cell "2.664.000,00" [ref=f22e272]
+              - rowgroup [ref=f22e273]:
+                - row [ref=f22e274]:
+                  - cell "Totales· ambas contabilidades" [ref=f22e275]:
+                    - text: Totales
+                    - generic [ref=f22e276]: · ambas contabilidades
+                  - cell "2.712.000,00" [ref=f22e277]
+                  - cell "2.712.000,00" [ref=f22e278]

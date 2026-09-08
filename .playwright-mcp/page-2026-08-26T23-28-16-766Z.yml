@@ -1,0 +1,188 @@
+- generic:
+  - generic:
+    - generic:
+      - complementary:
+        - generic:
+          - generic: C
+          - generic: Contikos
+        - navigation:
+          - link:
+            - /url: /
+            - generic: Inicio
+          - paragraph: Módulos
+          - generic:
+            - link:
+              - /url: /conta
+              - generic: Contabilidad
+          - generic:
+            - link:
+              - /url: /cxc
+              - generic: Cuentas por cobrar
+          - generic:
+            - link:
+              - /url: /cxp
+              - generic: Cuentas por pagar
+          - generic:
+            - link:
+              - /url: /bancos
+              - generic: Bancos
+          - generic:
+            - link:
+              - /url: /activos
+              - generic: Activos fijos
+            - generic:
+              - link:
+                - /url: /activos
+                - text: Inventario de activos
+              - link:
+                - /url: /activos/nuevo
+                - text: Registrar activo
+              - link:
+                - /url: /activos/categorias
+                - text: Categorías
+          - generic:
+            - link:
+              - /url: /rh
+              - generic: Recursos humanos
+          - generic:
+            - link:
+              - /url: /reportes
+              - generic: Reportes
+          - paragraph: Empresa
+          - link:
+            - /url: /configuracion
+            - generic: Configuración
+      - generic:
+        - banner:
+          - paragraph: Soluciones Contikos S.A.
+          - generic:
+            - generic: Periodo
+            - combobox
+        - main:
+          - generic:
+            - generic:
+              - generic:
+                - heading [level=1]: Categorías de activo
+                - paragraph: Vida útil, método de depreciación y las tres cuentas que mueve el ciclo de vida del activo.
+              - generic:
+                - button: Nueva categoría
+            - generic:
+              - generic:
+                - table:
+                  - rowgroup:
+                    - row:
+                      - columnheader:
+                        - generic: Categoría
+                      - columnheader:
+                        - generic: Vida útil
+                      - columnheader:
+                        - generic: Método
+                      - columnheader:
+                        - generic: Residual
+                      - columnheader:
+                        - generic: Tasa fiscal
+                      - columnheader:
+                        - generic: Cuentas
+                      - columnheader:
+                        - generic: Activos
+                      - columnheader:
+                        - generic: Estado
+                  - rowgroup:
+                    - row:
+                      - cell: Mobiliario y equipo de oficina
+                      - cell: 120 meses
+                      - cell: Línea recta
+                      - cell: 0%
+                      - cell:
+                        - generic: 10% anual
+                      - cell:
+                        - generic:
+                          - paragraph: Activo 1.2.01.001
+                          - paragraph: Depreciación 1.2.02.001
+                          - paragraph: Gasto 6.1.02.010
+                      - cell: "1"
+                      - cell:
+                        - generic: Activo
+                    - row:
+                      - cell: Equipo de cómputo
+                      - cell: 60 meses
+                      - cell: Línea recta
+                      - cell: 0%
+                      - cell:
+                        - generic: 25% anual
+                      - cell:
+                        - generic:
+                          - paragraph: Activo 1.2.01.002
+                          - paragraph: Depreciación 1.2.02.002
+                          - paragraph: Gasto 6.1.02.010
+                      - cell: "2"
+                      - cell:
+                        - generic: Activo
+                    - row:
+                      - cell: Vehículos
+                      - cell: 120 meses
+                      - cell: Línea recta
+                      - cell: 10%
+                      - cell:
+                        - generic: 10% anual
+                      - cell:
+                        - generic:
+                          - paragraph: Activo 1.2.01.003
+                          - paragraph: Depreciación 1.2.02.003
+                          - paragraph: Gasto 6.1.02.010
+                      - cell: "0"
+                      - cell:
+                        - generic: Activo
+  - dialog [ref=f20e2]:
+    - generic [ref=f20e3]:
+      - generic [ref=f20e4]:
+        - heading "Nueva categoría de activo" [level=2] [ref=f20e5]
+        - paragraph [ref=f20e6]: Vida útil, método y las tres cuentas que mueve el ciclo de vida del activo.
+      - button "Cerrar" [active] [ref=f20e7]
+    - generic [ref=f20e11]:
+      - generic [ref=f20e12]:
+        - generic [ref=f20e13]:
+          - generic [ref=f20e14]: Nombre*
+          - textbox "Nombre*" [ref=f20e15]:
+            - /placeholder: Equipo de cómputo
+        - generic [ref=f20e16]:
+          - generic [ref=f20e17]: Vida útil (meses)*
+          - spinbutton "Vida útil (meses)*" [ref=f20e18]: "60"
+          - paragraph [ref=f20e19]: La heredan los activos de la categoría
+        - generic [ref=f20e20]:
+          - generic [ref=f20e21]: Método de depreciación*
+          - combobox "Método de depreciación*" [ref=f20e22]:
+            - option "Línea recta" [selected]
+            - option "Saldos decrecientes"
+        - generic [ref=f20e23]:
+          - generic [ref=f20e24]: Porcentaje residual
+          - textbox "Porcentaje residual" [ref=f20e25]: "0"
+          - paragraph [ref=f20e26]: Parte del costo que no se deprecia
+        - generic [ref=f20e27]:
+          - generic [ref=f20e28]: Tasa fiscal anual
+          - textbox "Tasa fiscal anual" [ref=f20e29]:
+            - /placeholder: Sin diferencia
+          - paragraph [ref=f20e30]: "Vacía: la cédula fiscal sigue a la contable"
+      - generic [ref=f20e31]:
+        - paragraph [ref=f20e32]: Mapeo contable de la categoría
+        - paragraph [ref=f20e33]: "Se resuelve por categoría y nunca por activo: es lo que evita que dos equipos iguales terminen en cuentas distintas."
+        - generic [ref=f20e34]:
+          - generic [ref=f20e35]:
+            - generic [ref=f20e36]: Activo*
+            - combobox "Cuenta de activo" [ref=f20e37]
+            - paragraph [ref=f20e38]: Recibe el costo
+          - generic [ref=f20e39]:
+            - generic [ref=f20e40]: Depreciación acumulada*
+            - combobox "Cuenta de depreciación acumulada" [ref=f20e41]
+            - paragraph [ref=f20e42]: Abate el costo
+          - generic [ref=f20e43]:
+            - generic [ref=f20e44]: Gasto por depreciación*
+            - combobox "Cuenta de gasto por depreciación" [ref=f20e45]
+            - paragraph [ref=f20e46]: Cuota del periodo
+      - generic [ref=f20e47]:
+        - checkbox "Categoría activa Inactiva deja de admitir altas; los activos que ya tiene siguen depreciándose" [checked] [ref=f20e48]
+        - text: Categoría activa
+        - generic [ref=f20e49]: Inactiva deja de admitir altas; los activos que ya tiene siguen depreciándose
+    - generic [ref=f20e50]:
+      - button "Cancelar" [ref=f20e51]
+      - button "Guardar" [ref=f20e52]

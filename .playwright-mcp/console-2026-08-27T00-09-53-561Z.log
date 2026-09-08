@@ -1,0 +1,22 @@
+[    3629ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5175/node_modules/.vite/deps/react-dom_client.js?v=c2461904:20102
+[   58144ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5175/@vite/client:864
+[74806617ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5175/node_modules/.vite/deps/react-dom_client.js?v=c2461904:20102
+[76004675ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5175/@vite/client:864
+[76008010ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5175/node_modules/.vite/deps/react-dom_client.js?v=c2461904:20102
+[76011520ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5175/@vite/client:864
+[76603057ms] [ERROR] Failed to load resource: net::ERR_NETWORK_IO_SUSPENDED @ http://localhost:5175/src/modules/cxp/pages/ProveedoresPage.tsx:0
+[76603058ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5175/@vite/client:864
+[76603063ms] [ERROR] Failed to load resource: net::ERR_NETWORK_IO_SUSPENDED @ http://localhost:5175/src/modules/cxp/pages/CuentasPorPagarPage.tsx:0
+[76603063ms] [ERROR] Failed to load resource: net::ERR_NETWORK_IO_SUSPENDED @ http://localhost:5175/src/modules/cxc/pages/FacturaVentaPage.tsx:0
+[76603119ms] [ERROR] Failed to load resource: net::ERR_NETWORK_IO_SUSPENDED @ http://localhost:5175/src/modules/cxp/pages/FacturaCompraPage.tsx:0
+[76603119ms] [ERROR] Failed to load resource: net::ERR_NETWORK_IO_SUSPENDED @ http://localhost:5175/src/modules/activos/pages/ActivosPage.tsx:0
+[76603132ms] [ERROR] Failed to load resource: net::ERR_NETWORK_IO_SUSPENDED @ http://localhost:5175/src/modules/activos/pages/AltaActivoPage.tsx:0
+[76603133ms] [ERROR] Failed to load resource: net::ERR_NETWORK_IO_SUSPENDED @ http://localhost:5175/src/modules/activos/pages/CategoriasPage.tsx:0
+[76603134ms] [ERROR] Failed to load resource: net::ERR_NETWORK_IO_SUSPENDED @ http://localhost:5175/src/modules/config/pages/ConfiguracionPage.tsx:0
+[76603134ms] [ERROR] Failed to load resource: net::ERR_NETWORK_IO_SUSPENDED @ http://localhost:5175/src/modules/config/pages/MonedasPage.tsx:0
+[76603225ms] [ERROR] Failed to load resource: net::ERR_NETWORK_IO_SUSPENDED @ http://localhost:5175/src/modules/conta/api/queries.ts:0
+[76603225ms] [ERROR] Failed to load resource: net::ERR_NETWORK_IO_SUSPENDED @ http://localhost:5175/src/modules/config/api/queries.ts:0
+[76603225ms] [ERROR] Failed to load resource: net::ERR_NETWORK_IO_SUSPENDED @ http://localhost:5175/src/app/empresa.ts:0
+[76603225ms] [ERROR] Failed to load resource: net::ERR_NETWORK_IO_SUSPENDED @ http://localhost:5175/vite.svg:0
+[84689339ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5175/node_modules/.vite/deps/react-dom_client.js?v=c2461904:20102
+[108547579ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5175/@vite/client:864

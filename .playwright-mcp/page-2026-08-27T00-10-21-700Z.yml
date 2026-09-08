@@ -1,0 +1,921 @@
+- generic [ref=f25e62]:
+  - complementary [ref=f25e63]:
+    - generic [ref=f25e64]:
+      - generic [ref=f25e65]: C
+      - generic [ref=f25e66]: Contikos
+    - navigation [ref=f25e67]:
+      - link "Inicio" [ref=f25e68] [cursor=pointer]:
+        - /url: /
+      - paragraph [ref=f25e75]: Módulos
+      - generic [ref=f25e76]:
+        - link "Contabilidad" [ref=f25e77] [cursor=pointer]:
+          - /url: /conta
+        - generic [ref=f25e81]:
+          - link "Catálogo de cuentas" [ref=f25e82] [cursor=pointer]:
+            - /url: /conta/cuentas
+          - link "Clasificación NIIF" [ref=f25e83] [cursor=pointer]:
+            - /url: /conta/clasificaciones
+          - link "Asientos" [ref=f25e84] [cursor=pointer]:
+            - /url: /conta/asientos
+          - link "Balanza de comprobación" [ref=f25e85] [cursor=pointer]:
+            - /url: /conta/balanza
+      - link "Cuentas por cobrar" [ref=f25e87] [cursor=pointer]:
+        - /url: /cxc
+      - link "Cuentas por pagar" [ref=f25e93] [cursor=pointer]:
+        - /url: /cxp
+      - link "Bancos" [ref=f25e100] [cursor=pointer]:
+        - /url: /bancos
+      - link "Activos fijos" [ref=f25e105] [cursor=pointer]:
+        - /url: /activos
+      - link "Recursos humanos" [ref=f25e112] [cursor=pointer]:
+        - /url: /rh
+      - link "Reportes" [ref=f25e120] [cursor=pointer]:
+        - /url: /reportes
+      - paragraph [ref=f25e124]: Empresa
+      - link "Configuración" [ref=f25e125] [cursor=pointer]:
+        - /url: /configuracion
+  - generic [ref=f25e130]:
+    - banner [ref=f25e131]:
+      - paragraph [ref=f25e132]: Soluciones Contikos S.A.
+      - generic [ref=f25e133]:
+        - generic [ref=f25e134]: Periodo
+        - combobox "Periodo" [ref=f25e135]:
+          - option "Enero 2026 — bloqueado"
+          - option "Febrero 2026 — bloqueado"
+          - option "Marzo 2026 — bloqueado"
+          - option "Abril 2026 — bloqueado"
+          - option "Mayo 2026 — bloqueado"
+          - option "Junio 2026 — bloqueado"
+          - option "Julio 2026 — cerrado"
+          - option "Agosto 2026" [selected]
+          - option "Setiembre 2026"
+          - option "Octubre 2026"
+          - option "Noviembre 2026"
+          - option "Diciembre 2026"
+    - main [ref=f25e136]:
+      - generic [ref=f25e137]:
+        - generic [ref=f25e138]:
+          - generic [ref=f25e139]:
+            - heading "Catálogo de cuentas" [level=1] [ref=f25e140]
+            - paragraph [ref=f25e141]: Pulse una cuenta para asignarle su clasificación NIIF y su nota, o el lápiz para editarla.
+          - button "Nueva cuenta" [ref=f25e143]
+        - generic [ref=f25e145]:
+          - generic [ref=f25e146]:
+            - textbox "Buscar por código o nombre…" [ref=f25e150]
+            - generic [ref=f25e151]:
+              - checkbox "Solo sin clasificar (2)" [ref=f25e152]
+              - text: Solo sin clasificar (2)
+            - generic [ref=f25e153]: 84 cuentas · 48 de detalle
+          - table [ref=f25e155]:
+            - rowgroup [ref=f25e156]:
+              - row [ref=f25e157]:
+                - columnheader "Código" [ref=f25e158] [cursor=pointer]
+                - columnheader "Nombre" [ref=f25e163] [cursor=pointer]
+                - columnheader "Tipo" [ref=f25e168] [cursor=pointer]
+                - columnheader "Presentación" [ref=f25e173]
+                - columnheader [ref=f25e175]
+                - columnheader "Marcas" [ref=f25e176]
+            - rowgroup [ref=f25e178]:
+              - row [ref=f25e179] [cursor=pointer]:
+                - cell "1" [ref=f25e180]
+                - cell "ACTIVO" [ref=f25e181]
+                - cell "Activo" [ref=f25e182]
+                - cell "Suma sus hijas" [ref=f25e183]
+                - cell [ref=f25e184]:
+                  - button "Editar la cuenta 1" [ref=f25e185]
+                - cell [ref=f25e189]
+              - row [ref=f25e190] [cursor=pointer]:
+                - cell "1.1" [ref=f25e191]
+                - cell "Activo corriente" [ref=f25e192]
+                - cell "Activo" [ref=f25e193]
+                - cell "Suma sus hijas" [ref=f25e194]
+                - cell [ref=f25e195]:
+                  - button "Editar la cuenta 1.1" [ref=f25e196]
+                - cell [ref=f25e200]
+              - row [ref=f25e201] [cursor=pointer]:
+                - cell "1.1.01" [ref=f25e202]
+                - cell "Efectivo y equivalentes de efectivo" [ref=f25e203]
+                - cell "Activo" [ref=f25e204]
+                - cell "Suma sus hijas" [ref=f25e205]
+                - cell [ref=f25e206]:
+                  - button "Editar la cuenta 1.1.01" [ref=f25e207]
+                - cell [ref=f25e211]
+              - row [ref=f25e212] [cursor=pointer]:
+                - cell "1.1.01.001" [ref=f25e213]
+                - cell "Caja general" [ref=f25e214]
+                - cell "Activo" [ref=f25e215]
+                - cell "A.01 Efectivo y equivalentes al efectivoNota 1" [ref=f25e216]:
+                  - paragraph [ref=f25e218]:
+                    - text: A.01 Efectivo y equivalentes al efectivo
+                    - generic [ref=f25e219]: Nota 1
+                - cell [ref=f25e220]:
+                  - button "Editar la cuenta 1.1.01.001" [ref=f25e221]
+                - cell [ref=f25e225]
+              - row [ref=f25e226] [cursor=pointer]:
+                - cell "1.1.01.002" [ref=f25e227]
+                - cell "Caja chica" [ref=f25e228]
+                - cell "Activo" [ref=f25e229]
+                - cell "A.01 Efectivo y equivalentes al efectivoNota 1" [ref=f25e230]:
+                  - paragraph [ref=f25e232]:
+                    - text: A.01 Efectivo y equivalentes al efectivo
+                    - generic [ref=f25e233]: Nota 1
+                - cell [ref=f25e234]:
+                  - button "Editar la cuenta 1.1.01.002" [ref=f25e235]
+                - cell [ref=f25e239]
+              - row [ref=f25e240] [cursor=pointer]:
+                - cell "1.1.01.010" [ref=f25e241]
+                - cell "Banco Nacional — cuenta corriente colones" [ref=f25e242]
+                - cell "Activo" [ref=f25e243]
+                - cell "A.01 Efectivo y equivalentes al efectivoNota 1" [ref=f25e244]:
+                  - paragraph [ref=f25e246]:
+                    - text: A.01 Efectivo y equivalentes al efectivo
+                    - generic [ref=f25e247]: Nota 1
+                - cell [ref=f25e248]:
+                  - button "Editar la cuenta 1.1.01.010" [ref=f25e249]
+                - 'cell "Control · bancos Auxiliar: banco" [ref=f25e253]':
+                  - generic [ref=f25e254]:
+                    - generic "Solo la mueve su módulo dueño" [ref=f25e255]: Control · bancos
+                    - generic [ref=f25e256]: "Auxiliar: banco"
+              - row [ref=f25e257] [cursor=pointer]:
+                - cell "1.1.01.011" [ref=f25e258]
+                - cell "BAC San José — cuenta corriente dólares" [ref=f25e259]
+                - cell "Activo" [ref=f25e260]
+                - cell "A.01 Efectivo y equivalentes al efectivoNota 1" [ref=f25e261]:
+                  - paragraph [ref=f25e263]:
+                    - text: A.01 Efectivo y equivalentes al efectivo
+                    - generic [ref=f25e264]: Nota 1
+                - cell [ref=f25e265]:
+                  - button "Editar la cuenta 1.1.01.011" [ref=f25e266]
+                - 'cell "Control · bancos Auxiliar: banco USD" [ref=f25e270]':
+                  - generic [ref=f25e271]:
+                    - generic "Solo la mueve su módulo dueño" [ref=f25e272]: Control · bancos
+                    - generic [ref=f25e273]: "Auxiliar: banco"
+                    - generic [ref=f25e274]: USD
+              - row [ref=f25e275] [cursor=pointer]:
+                - cell "1.1.02" [ref=f25e276]
+                - cell "Cuentas por cobrar" [ref=f25e277]
+                - cell "Activo" [ref=f25e278]
+                - cell "Suma sus hijas" [ref=f25e279]
+                - cell [ref=f25e280]:
+                  - button "Editar la cuenta 1.1.02" [ref=f25e281]
+                - cell [ref=f25e285]
+              - row [ref=f25e286] [cursor=pointer]:
+                - cell "1.1.02.001" [ref=f25e287]
+                - cell "Clientes" [ref=f25e288]
+                - cell "Activo" [ref=f25e289]
+                - cell "A.02 Deudores comerciales y otras cuentas por cobrarNota 2" [ref=f25e290]:
+                  - paragraph [ref=f25e292]:
+                    - text: A.02 Deudores comerciales y otras cuentas por cobrar
+                    - generic [ref=f25e293]: Nota 2
+                - cell [ref=f25e294]:
+                  - button "Editar la cuenta 1.1.02.001" [ref=f25e295]
+                - 'cell "Control · cxc Auxiliar: cliente" [ref=f25e299]':
+                  - generic [ref=f25e300]:
+                    - generic "Solo la mueve su módulo dueño" [ref=f25e301]: Control · cxc
+                    - generic [ref=f25e302]: "Auxiliar: cliente"
+              - row [ref=f25e303] [cursor=pointer]:
+                - cell "1.1.02.005" [ref=f25e304]
+                - cell "Estimación para incobrables" [ref=f25e305]
+                - cell "Activo· acreedora" [ref=f25e306]:
+                  - generic [ref=f25e307]:
+                    - text: Activo
+                    - generic [ref=f25e308]: · acreedora
+                - cell "A.02 Deudores comerciales y otras cuentas por cobrarNota 2" [ref=f25e309]:
+                  - paragraph [ref=f25e311]:
+                    - text: A.02 Deudores comerciales y otras cuentas por cobrar
+                    - generic [ref=f25e312]: Nota 2
+                - cell [ref=f25e313]:
+                  - button "Editar la cuenta 1.1.02.005" [ref=f25e314]
+                - cell [ref=f25e318]
+              - row [ref=f25e319] [cursor=pointer]:
+                - cell "1.1.03" [ref=f25e320]
+                - cell "Impuestos por cobrar" [ref=f25e321]
+                - cell "Activo" [ref=f25e322]
+                - cell "Suma sus hijas" [ref=f25e323]
+                - cell [ref=f25e324]:
+                  - button "Editar la cuenta 1.1.03" [ref=f25e325]
+                - cell [ref=f25e329]
+              - row [ref=f25e330] [cursor=pointer]:
+                - cell "1.1.03.001" [ref=f25e331]
+                - cell "IVA acreditable" [ref=f25e332]
+                - cell "Activo" [ref=f25e333]
+                - cell [ref=f25e334]:
+                  - generic [ref=f25e335]:
+                    - paragraph [ref=f25e336]: A.04 Activos por impuestos corrientes
+                    - paragraph [ref=f25e337]: Nota 4 · Saldos con la Administración Tributaria
+                - cell [ref=f25e338]:
+                  - button "Editar la cuenta 1.1.03.001" [ref=f25e339]
+                - cell [ref=f25e343]
+              - row [ref=f25e344] [cursor=pointer]:
+                - cell "1.1.03.002" [ref=f25e345]
+                - cell "Retenciones de renta soportadas" [ref=f25e346]
+                - cell "Activo" [ref=f25e347]
+                - cell [ref=f25e348]:
+                  - generic [ref=f25e349]:
+                    - paragraph [ref=f25e350]: A.04 Activos por impuestos corrientes
+                    - paragraph [ref=f25e351]: Nota 4 · Saldos con la Administración Tributaria
+                - cell [ref=f25e352]:
+                  - button "Editar la cuenta 1.1.03.002" [ref=f25e353]
+                - cell [ref=f25e357]
+              - row [ref=f25e358] [cursor=pointer]:
+                - cell "1.1.04" [ref=f25e359]
+                - cell "Inventarios" [ref=f25e360]
+                - cell "Activo" [ref=f25e361]
+                - cell "Suma sus hijas" [ref=f25e362]
+                - cell [ref=f25e363]:
+                  - button "Editar la cuenta 1.1.04" [ref=f25e364]
+                - cell [ref=f25e368]
+              - row [ref=f25e369] [cursor=pointer]:
+                - cell "1.1.04.001" [ref=f25e370]
+                - cell "Inventario de mercancías" [ref=f25e371]
+                - cell "Activo" [ref=f25e372]
+                - cell "A.03 InventariosNota 3" [ref=f25e373]:
+                  - paragraph [ref=f25e375]:
+                    - text: A.03 Inventarios
+                    - generic [ref=f25e376]: Nota 3
+                - cell [ref=f25e377]:
+                  - button "Editar la cuenta 1.1.04.001" [ref=f25e378]
+                - cell [ref=f25e382]
+              - row [ref=f25e383] [cursor=pointer]:
+                - cell "1.1.05" [ref=f25e384]
+                - cell "Anticipos" [ref=f25e385]
+                - cell "Activo" [ref=f25e386]
+                - cell "Suma sus hijas" [ref=f25e387]
+                - cell [ref=f25e388]:
+                  - button "Editar la cuenta 1.1.05" [ref=f25e389]
+                - cell [ref=f25e393]
+              - row [ref=f25e394] [cursor=pointer]:
+                - cell "1.1.05.001" [ref=f25e395]
+                - cell "Anticipos a proveedores" [ref=f25e396]
+                - cell "Activo" [ref=f25e397]
+                - cell [ref=f25e398]:
+                  - paragraph [ref=f25e400]: A.05 Otros activos corrientes
+                - cell [ref=f25e401]:
+                  - button "Editar la cuenta 1.1.05.001" [ref=f25e402]
+                - 'cell "Auxiliar: proveedor" [ref=f25e406]'
+              - row [ref=f25e409] [cursor=pointer]:
+                - cell "1.2" [ref=f25e410]
+                - cell "Activo no corriente" [ref=f25e411]
+                - cell "Activo" [ref=f25e412]
+                - cell "Suma sus hijas" [ref=f25e413]
+                - cell [ref=f25e414]:
+                  - button "Editar la cuenta 1.2" [ref=f25e415]
+                - cell [ref=f25e419]
+              - row [ref=f25e420] [cursor=pointer]:
+                - cell "1.2.01" [ref=f25e421]
+                - cell "Propiedad, planta y equipo" [ref=f25e422]
+                - cell "Activo" [ref=f25e423]
+                - cell "Suma sus hijas" [ref=f25e424]
+                - cell [ref=f25e425]:
+                  - button "Editar la cuenta 1.2.01" [ref=f25e426]
+                - cell [ref=f25e430]
+              - row [ref=f25e431] [cursor=pointer]:
+                - cell "1.2.01.001" [ref=f25e432]
+                - cell "Mobiliario y equipo de oficina" [ref=f25e433]
+                - cell "Activo" [ref=f25e434]
+                - cell "A.06 Propiedades, planta y equipoNota 5" [ref=f25e435]:
+                  - paragraph [ref=f25e437]:
+                    - text: A.06 Propiedades, planta y equipo
+                    - generic [ref=f25e438]: Nota 5
+                - cell [ref=f25e439]:
+                  - button "Editar la cuenta 1.2.01.001" [ref=f25e440]
+                - 'cell "Control · activos Auxiliar: activo" [ref=f25e444]':
+                  - generic [ref=f25e445]:
+                    - generic "Solo la mueve su módulo dueño" [ref=f25e446]: Control · activos
+                    - generic [ref=f25e447]: "Auxiliar: activo"
+              - row [ref=f25e448] [cursor=pointer]:
+                - cell "1.2.01.002" [ref=f25e449]
+                - cell "Equipo de cómputo" [ref=f25e450]
+                - cell "Activo" [ref=f25e451]
+                - cell "A.06 Propiedades, planta y equipoNota 5" [ref=f25e452]:
+                  - paragraph [ref=f25e454]:
+                    - text: A.06 Propiedades, planta y equipo
+                    - generic [ref=f25e455]: Nota 5
+                - cell [ref=f25e456]:
+                  - button "Editar la cuenta 1.2.01.002" [ref=f25e457]
+                - 'cell "Control · activos Auxiliar: activo" [ref=f25e461]':
+                  - generic [ref=f25e462]:
+                    - generic "Solo la mueve su módulo dueño" [ref=f25e463]: Control · activos
+                    - generic [ref=f25e464]: "Auxiliar: activo"
+              - row [ref=f25e465] [cursor=pointer]:
+                - cell "1.2.01.003" [ref=f25e466]
+                - cell "Vehículos" [ref=f25e467]
+                - cell "Activo" [ref=f25e468]
+                - cell "A.06 Propiedades, planta y equipoNota 5" [ref=f25e469]:
+                  - paragraph [ref=f25e471]:
+                    - text: A.06 Propiedades, planta y equipo
+                    - generic [ref=f25e472]: Nota 5
+                - cell [ref=f25e473]:
+                  - button "Editar la cuenta 1.2.01.003" [ref=f25e474]
+                - 'cell "Control · activos Auxiliar: activo" [ref=f25e478]':
+                  - generic [ref=f25e479]:
+                    - generic "Solo la mueve su módulo dueño" [ref=f25e480]: Control · activos
+                    - generic [ref=f25e481]: "Auxiliar: activo"
+              - row [ref=f25e482] [cursor=pointer]:
+                - cell "1.2.01.004" [ref=f25e483]
+                - cell "Maquinaria y equipo de planta" [ref=f25e484]
+                - cell "Activo" [ref=f25e485]
+                - cell "Sin clasificar" [ref=f25e486]
+                - cell [ref=f25e487]:
+                  - button "Editar la cuenta 1.2.01.004" [ref=f25e488]
+                - 'cell "Control · activos Auxiliar: activo" [ref=f25e492]':
+                  - generic [ref=f25e493]:
+                    - generic "Solo la mueve su módulo dueño" [ref=f25e494]: Control · activos
+                    - generic [ref=f25e495]: "Auxiliar: activo"
+              - row [ref=f25e496] [cursor=pointer]:
+                - cell "1.2.02" [ref=f25e497]
+                - cell "Depreciación acumulada" [ref=f25e498]
+                - cell "Activo" [ref=f25e499]
+                - cell "Suma sus hijas" [ref=f25e500]
+                - cell [ref=f25e501]:
+                  - button "Editar la cuenta 1.2.02" [ref=f25e502]
+                - cell [ref=f25e506]
+              - row [ref=f25e507] [cursor=pointer]:
+                - cell "1.2.02.001" [ref=f25e508]
+                - cell "Dep. acumulada — mobiliario y equipo" [ref=f25e509]
+                - cell "Activo· acreedora" [ref=f25e510]:
+                  - generic [ref=f25e511]:
+                    - text: Activo
+                    - generic [ref=f25e512]: · acreedora
+                - cell "A.06 Propiedades, planta y equipoNota 5" [ref=f25e513]:
+                  - paragraph [ref=f25e515]:
+                    - text: A.06 Propiedades, planta y equipo
+                    - generic [ref=f25e516]: Nota 5
+                - cell [ref=f25e517]:
+                  - button "Editar la cuenta 1.2.02.001" [ref=f25e518]
+                - 'cell "Control · activos Auxiliar: activo" [ref=f25e522]':
+                  - generic [ref=f25e523]:
+                    - generic "Solo la mueve su módulo dueño" [ref=f25e524]: Control · activos
+                    - generic [ref=f25e525]: "Auxiliar: activo"
+              - row [ref=f25e526] [cursor=pointer]:
+                - cell "1.2.02.002" [ref=f25e527]
+                - cell "Dep. acumulada — equipo de cómputo" [ref=f25e528]
+                - cell "Activo· acreedora" [ref=f25e529]:
+                  - generic [ref=f25e530]:
+                    - text: Activo
+                    - generic [ref=f25e531]: · acreedora
+                - cell "A.06 Propiedades, planta y equipoNota 5" [ref=f25e532]:
+                  - paragraph [ref=f25e534]:
+                    - text: A.06 Propiedades, planta y equipo
+                    - generic [ref=f25e535]: Nota 5
+                - cell [ref=f25e536]:
+                  - button "Editar la cuenta 1.2.02.002" [ref=f25e537]
+                - 'cell "Control · activos Auxiliar: activo" [ref=f25e541]':
+                  - generic [ref=f25e542]:
+                    - generic "Solo la mueve su módulo dueño" [ref=f25e543]: Control · activos
+                    - generic [ref=f25e544]: "Auxiliar: activo"
+              - row [ref=f25e545] [cursor=pointer]:
+                - cell "1.2.02.003" [ref=f25e546]
+                - cell "Dep. acumulada — vehículos" [ref=f25e547]
+                - cell "Activo· acreedora" [ref=f25e548]:
+                  - generic [ref=f25e549]:
+                    - text: Activo
+                    - generic [ref=f25e550]: · acreedora
+                - cell "A.06 Propiedades, planta y equipoNota 5" [ref=f25e551]:
+                  - paragraph [ref=f25e553]:
+                    - text: A.06 Propiedades, planta y equipo
+                    - generic [ref=f25e554]: Nota 5
+                - cell [ref=f25e555]:
+                  - button "Editar la cuenta 1.2.02.003" [ref=f25e556]
+                - 'cell "Control · activos Auxiliar: activo" [ref=f25e560]':
+                  - generic [ref=f25e561]:
+                    - generic "Solo la mueve su módulo dueño" [ref=f25e562]: Control · activos
+                    - generic [ref=f25e563]: "Auxiliar: activo"
+              - row [ref=f25e564] [cursor=pointer]:
+                - cell "2" [ref=f25e565]
+                - cell "PASIVO" [ref=f25e566]
+                - cell "Pasivo" [ref=f25e567]
+                - cell "Suma sus hijas" [ref=f25e568]
+                - cell [ref=f25e569]:
+                  - button "Editar la cuenta 2" [ref=f25e570]
+                - cell [ref=f25e574]
+              - row [ref=f25e575] [cursor=pointer]:
+                - cell "2.1" [ref=f25e576]
+                - cell "Pasivo corriente" [ref=f25e577]
+                - cell "Pasivo" [ref=f25e578]
+                - cell "Suma sus hijas" [ref=f25e579]
+                - cell [ref=f25e580]:
+                  - button "Editar la cuenta 2.1" [ref=f25e581]
+                - cell [ref=f25e585]
+              - row [ref=f25e586] [cursor=pointer]:
+                - cell "2.1.01" [ref=f25e587]
+                - cell "Cuentas por pagar" [ref=f25e588]
+                - cell "Pasivo" [ref=f25e589]
+                - cell "Suma sus hijas" [ref=f25e590]
+                - cell [ref=f25e591]:
+                  - button "Editar la cuenta 2.1.01" [ref=f25e592]
+                - cell [ref=f25e596]
+              - row [ref=f25e597] [cursor=pointer]:
+                - cell "2.1.01.001" [ref=f25e598]
+                - cell "Proveedores" [ref=f25e599]
+                - cell "Pasivo" [ref=f25e600]
+                - cell "P.01 Acreedores comerciales y otras cuentas por pagarNota 6" [ref=f25e601]:
+                  - paragraph [ref=f25e603]:
+                    - text: P.01 Acreedores comerciales y otras cuentas por pagar
+                    - generic [ref=f25e604]: Nota 6
+                - cell [ref=f25e605]:
+                  - button "Editar la cuenta 2.1.01.001" [ref=f25e606]
+                - 'cell "Control · cxp Auxiliar: proveedor" [ref=f25e610]':
+                  - generic [ref=f25e611]:
+                    - generic "Solo la mueve su módulo dueño" [ref=f25e612]: Control · cxp
+                    - generic [ref=f25e613]: "Auxiliar: proveedor"
+              - row [ref=f25e614] [cursor=pointer]:
+                - cell "2.1.01.005" [ref=f25e615]
+                - cell "Gastos acumulados por pagar" [ref=f25e616]
+                - cell "Pasivo" [ref=f25e617]
+                - cell "P.01 Acreedores comerciales y otras cuentas por pagarNota 6" [ref=f25e618]:
+                  - paragraph [ref=f25e620]:
+                    - text: P.01 Acreedores comerciales y otras cuentas por pagar
+                    - generic [ref=f25e621]: Nota 6
+                - cell [ref=f25e622]:
+                  - button "Editar la cuenta 2.1.01.005" [ref=f25e623]
+                - cell [ref=f25e627]
+              - row [ref=f25e628] [cursor=pointer]:
+                - cell "2.1.02" [ref=f25e629]
+                - cell "Impuestos por pagar" [ref=f25e630]
+                - cell "Pasivo" [ref=f25e631]
+                - cell "Suma sus hijas" [ref=f25e632]
+                - cell [ref=f25e633]:
+                  - button "Editar la cuenta 2.1.02" [ref=f25e634]
+                - cell [ref=f25e638]
+              - row [ref=f25e639] [cursor=pointer]:
+                - cell "2.1.02.001" [ref=f25e640]
+                - cell "IVA por pagar" [ref=f25e641]
+                - cell "Pasivo" [ref=f25e642]
+                - cell [ref=f25e643]:
+                  - generic [ref=f25e644]:
+                    - paragraph [ref=f25e645]: P.02 Pasivos por impuestos corrientes
+                    - paragraph [ref=f25e646]: Nota 7 · Impuestos por pagar
+                - cell [ref=f25e647]:
+                  - button "Editar la cuenta 2.1.02.001" [ref=f25e648]
+                - cell [ref=f25e652]
+              - row [ref=f25e653] [cursor=pointer]:
+                - cell "2.1.02.002" [ref=f25e654]
+                - cell "Retenciones de renta por pagar" [ref=f25e655]
+                - cell "Pasivo" [ref=f25e656]
+                - cell [ref=f25e657]:
+                  - generic [ref=f25e658]:
+                    - paragraph [ref=f25e659]: P.02 Pasivos por impuestos corrientes
+                    - paragraph [ref=f25e660]: Nota 7 · Impuestos por pagar
+                - cell [ref=f25e661]:
+                  - button "Editar la cuenta 2.1.02.002" [ref=f25e662]
+                - cell [ref=f25e666]
+              - row [ref=f25e667] [cursor=pointer]:
+                - cell "2.1.02.003" [ref=f25e668]
+                - cell "Impuesto sobre la renta por pagar" [ref=f25e669]
+                - cell "Pasivo" [ref=f25e670]
+                - cell [ref=f25e671]:
+                  - generic [ref=f25e672]:
+                    - paragraph [ref=f25e673]: P.02 Pasivos por impuestos corrientes
+                    - paragraph [ref=f25e674]: Nota 7 · Impuestos por pagar
+                - cell [ref=f25e675]:
+                  - button "Editar la cuenta 2.1.02.003" [ref=f25e676]
+                - cell [ref=f25e680]
+              - row [ref=f25e681] [cursor=pointer]:
+                - cell "2.1.03" [ref=f25e682]
+                - cell "Obligaciones laborales" [ref=f25e683]
+                - cell "Pasivo" [ref=f25e684]
+                - cell "Suma sus hijas" [ref=f25e685]
+                - cell [ref=f25e686]:
+                  - button "Editar la cuenta 2.1.03" [ref=f25e687]
+                - cell [ref=f25e691]
+              - row [ref=f25e692] [cursor=pointer]:
+                - cell "2.1.03.001" [ref=f25e693]
+                - cell "Salarios por pagar" [ref=f25e694]
+                - cell "Pasivo" [ref=f25e695]
+                - cell "P.03 Beneficios a los empleadosNota 8" [ref=f25e696]:
+                  - paragraph [ref=f25e698]:
+                    - text: P.03 Beneficios a los empleados
+                    - generic [ref=f25e699]: Nota 8
+                - cell [ref=f25e700]:
+                  - button "Editar la cuenta 2.1.03.001" [ref=f25e701]
+                - 'cell "Control · rh Auxiliar: empleado" [ref=f25e705]':
+                  - generic [ref=f25e706]:
+                    - generic "Solo la mueve su módulo dueño" [ref=f25e707]: Control · rh
+                    - generic [ref=f25e708]: "Auxiliar: empleado"
+              - row [ref=f25e709] [cursor=pointer]:
+                - cell "2.1.03.002" [ref=f25e710]
+                - cell "CCSS por pagar" [ref=f25e711]
+                - cell "Pasivo" [ref=f25e712]
+                - cell "P.03 Beneficios a los empleadosNota 8" [ref=f25e713]:
+                  - paragraph [ref=f25e715]:
+                    - text: P.03 Beneficios a los empleados
+                    - generic [ref=f25e716]: Nota 8
+                - cell [ref=f25e717]:
+                  - button "Editar la cuenta 2.1.03.002" [ref=f25e718]
+                - cell [ref=f25e722]
+              - row [ref=f25e723] [cursor=pointer]:
+                - cell "2.1.03.010" [ref=f25e724]
+                - cell "Provisión de aguinaldo" [ref=f25e725]
+                - cell "Pasivo" [ref=f25e726]
+                - cell "P.03 Beneficios a los empleadosNota 8" [ref=f25e727]:
+                  - paragraph [ref=f25e729]:
+                    - text: P.03 Beneficios a los empleados
+                    - generic [ref=f25e730]: Nota 8
+                - cell [ref=f25e731]:
+                  - button "Editar la cuenta 2.1.03.010" [ref=f25e732]
+                - cell [ref=f25e736]
+              - row [ref=f25e737] [cursor=pointer]:
+                - cell "2.1.03.011" [ref=f25e738]
+                - cell "Provisión de vacaciones" [ref=f25e739]
+                - cell "Pasivo" [ref=f25e740]
+                - cell "P.03 Beneficios a los empleadosNota 8" [ref=f25e741]:
+                  - paragraph [ref=f25e743]:
+                    - text: P.03 Beneficios a los empleados
+                    - generic [ref=f25e744]: Nota 8
+                - cell [ref=f25e745]:
+                  - button "Editar la cuenta 2.1.03.011" [ref=f25e746]
+                - cell [ref=f25e750]
+              - row [ref=f25e751] [cursor=pointer]:
+                - cell "2.1.03.012" [ref=f25e752]
+                - cell "Provisión de cesantía" [ref=f25e753]
+                - cell "Pasivo" [ref=f25e754]
+                - cell "P.03 Beneficios a los empleadosNota 8" [ref=f25e755]:
+                  - paragraph [ref=f25e757]:
+                    - text: P.03 Beneficios a los empleados
+                    - generic [ref=f25e758]: Nota 8
+                - cell [ref=f25e759]:
+                  - button "Editar la cuenta 2.1.03.012" [ref=f25e760]
+                - cell [ref=f25e764]
+              - row [ref=f25e765] [cursor=pointer]:
+                - cell "2.1.04" [ref=f25e766]
+                - cell "Anticipos recibidos" [ref=f25e767]
+                - cell "Pasivo" [ref=f25e768]
+                - cell "Suma sus hijas" [ref=f25e769]
+                - cell [ref=f25e770]:
+                  - button "Editar la cuenta 2.1.04" [ref=f25e771]
+                - cell [ref=f25e775]
+              - row [ref=f25e776] [cursor=pointer]:
+                - cell "2.1.04.001" [ref=f25e777]
+                - cell "Anticipos de clientes" [ref=f25e778]
+                - cell "Pasivo" [ref=f25e779]
+                - cell "P.01 Acreedores comerciales y otras cuentas por pagarNota 6" [ref=f25e780]:
+                  - paragraph [ref=f25e782]:
+                    - text: P.01 Acreedores comerciales y otras cuentas por pagar
+                    - generic [ref=f25e783]: Nota 6
+                - cell [ref=f25e784]:
+                  - button "Editar la cuenta 2.1.04.001" [ref=f25e785]
+                - 'cell "Auxiliar: cliente" [ref=f25e789]'
+              - row [ref=f25e792] [cursor=pointer]:
+                - cell "3" [ref=f25e793]
+                - cell "PATRIMONIO" [ref=f25e794]
+                - cell "Patrimonio" [ref=f25e795]
+                - cell "Suma sus hijas" [ref=f25e796]
+                - cell [ref=f25e797]:
+                  - button "Editar la cuenta 3" [ref=f25e798]
+                - cell [ref=f25e802]
+              - row [ref=f25e803] [cursor=pointer]:
+                - cell "3.1" [ref=f25e804]
+                - cell "Capital" [ref=f25e805]
+                - cell "Patrimonio" [ref=f25e806]
+                - cell "Suma sus hijas" [ref=f25e807]
+                - cell [ref=f25e808]:
+                  - button "Editar la cuenta 3.1" [ref=f25e809]
+                - cell [ref=f25e813]
+              - row [ref=f25e814] [cursor=pointer]:
+                - cell "3.1.01" [ref=f25e815]
+                - cell "Capital social" [ref=f25e816]
+                - cell "Patrimonio" [ref=f25e817]
+                - cell "Suma sus hijas" [ref=f25e818]
+                - cell [ref=f25e819]:
+                  - button "Editar la cuenta 3.1.01" [ref=f25e820]
+                - cell [ref=f25e824]
+              - row [ref=f25e825] [cursor=pointer]:
+                - cell "3.1.01.001" [ref=f25e826]
+                - cell "Capital social suscrito y pagado" [ref=f25e827]
+                - cell "Patrimonio" [ref=f25e828]
+                - cell "PT.01 Capital socialNota 9" [ref=f25e829]:
+                  - paragraph [ref=f25e831]:
+                    - text: PT.01 Capital social
+                    - generic [ref=f25e832]: Nota 9
+                - cell [ref=f25e833]:
+                  - button "Editar la cuenta 3.1.01.001" [ref=f25e834]
+                - cell [ref=f25e838]
+              - row [ref=f25e839] [cursor=pointer]:
+                - cell "3.2" [ref=f25e840]
+                - cell "Resultados" [ref=f25e841]
+                - cell "Patrimonio" [ref=f25e842]
+                - cell "Suma sus hijas" [ref=f25e843]
+                - cell [ref=f25e844]:
+                  - button "Editar la cuenta 3.2" [ref=f25e845]
+                - cell [ref=f25e849]
+              - row [ref=f25e850] [cursor=pointer]:
+                - cell "3.2.01" [ref=f25e851]
+                - cell "Resultados acumulados" [ref=f25e852]
+                - cell "Patrimonio" [ref=f25e853]
+                - cell "Suma sus hijas" [ref=f25e854]
+                - cell [ref=f25e855]:
+                  - button "Editar la cuenta 3.2.01" [ref=f25e856]
+                - cell [ref=f25e860]
+              - row [ref=f25e861] [cursor=pointer]:
+                - cell "3.2.01.001" [ref=f25e862]
+                - cell "Utilidades acumuladas" [ref=f25e863]
+                - cell "Patrimonio" [ref=f25e864]
+                - cell [ref=f25e865]:
+                  - paragraph [ref=f25e867]: PT.02 Resultados acumulados
+                - cell [ref=f25e868]:
+                  - button "Editar la cuenta 3.2.01.001" [ref=f25e869]
+                - cell [ref=f25e873]
+              - row [ref=f25e874] [cursor=pointer]:
+                - cell "3.2.02" [ref=f25e875]
+                - cell "Resultado del ejercicio" [ref=f25e876]
+                - cell "Patrimonio" [ref=f25e877]
+                - cell "Suma sus hijas" [ref=f25e878]
+                - cell [ref=f25e879]:
+                  - button "Editar la cuenta 3.2.02" [ref=f25e880]
+                - cell [ref=f25e884]
+              - row [ref=f25e885] [cursor=pointer]:
+                - cell "3.2.02.001" [ref=f25e886]
+                - cell "Resultado del periodo" [ref=f25e887]
+                - cell "Patrimonio" [ref=f25e888]
+                - cell [ref=f25e889]:
+                  - paragraph [ref=f25e891]: PT.02 Resultados acumulados
+                - cell [ref=f25e892]:
+                  - button "Editar la cuenta 3.2.02.001" [ref=f25e893]
+                - cell [ref=f25e897]
+              - row [ref=f25e898] [cursor=pointer]:
+                - cell "4" [ref=f25e899]
+                - cell "INGRESOS" [ref=f25e900]
+                - cell "Ingreso" [ref=f25e901]
+                - cell "Suma sus hijas" [ref=f25e902]
+                - cell [ref=f25e903]:
+                  - button "Editar la cuenta 4" [ref=f25e904]
+                - cell [ref=f25e908]
+              - row [ref=f25e909] [cursor=pointer]:
+                - cell "4.1" [ref=f25e910]
+                - cell "Ingresos de operación" [ref=f25e911]
+                - cell "Ingreso" [ref=f25e912]
+                - cell "Suma sus hijas" [ref=f25e913]
+                - cell [ref=f25e914]:
+                  - button "Editar la cuenta 4.1" [ref=f25e915]
+                - cell [ref=f25e919]
+              - row [ref=f25e920] [cursor=pointer]:
+                - cell "4.1.01" [ref=f25e921]
+                - cell "Ventas" [ref=f25e922]
+                - cell "Ingreso" [ref=f25e923]
+                - cell "Suma sus hijas" [ref=f25e924]
+                - cell [ref=f25e925]:
+                  - button "Editar la cuenta 4.1.01" [ref=f25e926]
+                - cell [ref=f25e930]
+              - row [ref=f25e931] [cursor=pointer]:
+                - cell "4.1.01.001" [ref=f25e932]
+                - cell "Venta de servicios" [ref=f25e933]
+                - cell "Ingreso" [ref=f25e934]
+                - cell "R.01 Ingresos de actividades ordinariasNota 10" [ref=f25e935]:
+                  - paragraph [ref=f25e937]:
+                    - text: R.01 Ingresos de actividades ordinarias
+                    - generic [ref=f25e938]: Nota 10
+                - cell [ref=f25e939]:
+                  - button "Editar la cuenta 4.1.01.001" [ref=f25e940]
+                - cell [ref=f25e944]
+              - row [ref=f25e945] [cursor=pointer]:
+                - cell "4.1.01.002" [ref=f25e946]
+                - cell "Venta de mercancías" [ref=f25e947]
+                - cell "Ingreso" [ref=f25e948]
+                - cell "R.01 Ingresos de actividades ordinariasNota 10" [ref=f25e949]:
+                  - paragraph [ref=f25e951]:
+                    - text: R.01 Ingresos de actividades ordinarias
+                    - generic [ref=f25e952]: Nota 10
+                - cell [ref=f25e953]:
+                  - button "Editar la cuenta 4.1.01.002" [ref=f25e954]
+                - cell [ref=f25e958]
+              - row [ref=f25e959] [cursor=pointer]:
+                - cell "4.2" [ref=f25e960]
+                - cell "Otros ingresos" [ref=f25e961]
+                - cell "Ingreso" [ref=f25e962]
+                - cell "Suma sus hijas" [ref=f25e963]
+                - cell [ref=f25e964]:
+                  - button "Editar la cuenta 4.2" [ref=f25e965]
+                - cell [ref=f25e969]
+              - row [ref=f25e970] [cursor=pointer]:
+                - cell "4.2.01" [ref=f25e971]
+                - cell "Ingresos no operativos" [ref=f25e972]
+                - cell "Ingreso" [ref=f25e973]
+                - cell "Suma sus hijas" [ref=f25e974]
+                - cell [ref=f25e975]:
+                  - button "Editar la cuenta 4.2.01" [ref=f25e976]
+                - cell [ref=f25e980]
+              - row [ref=f25e981] [cursor=pointer]:
+                - cell "4.2.01.001" [ref=f25e982]
+                - cell "Diferencial cambiario ganado" [ref=f25e983]
+                - cell "Ingreso" [ref=f25e984]
+                - cell [ref=f25e985]:
+                  - generic [ref=f25e986]:
+                    - paragraph [ref=f25e987]: R.08 Diferencias de cambio, netas
+                    - paragraph [ref=f25e988]: Nota 15 · Diferencias de cambio
+                - cell [ref=f25e989]:
+                  - button "Editar la cuenta 4.2.01.001" [ref=f25e990]
+                - cell [ref=f25e994]
+              - row [ref=f25e995] [cursor=pointer]:
+                - cell "4.2.01.002" [ref=f25e996]
+                - cell "Productos financieros" [ref=f25e997]
+                - cell "Ingreso" [ref=f25e998]
+                - cell [ref=f25e999]:
+                  - paragraph [ref=f25e1001]: R.02 Otros ingresos
+                - cell [ref=f25e1002]:
+                  - button "Editar la cuenta 4.2.01.002" [ref=f25e1003]
+                - cell [ref=f25e1007]
+              - row [ref=f25e1008] [cursor=pointer]:
+                - cell "5" [ref=f25e1009]
+                - cell "COSTOS" [ref=f25e1010]
+                - cell "Costo" [ref=f25e1011]
+                - cell "Suma sus hijas" [ref=f25e1012]
+                - cell [ref=f25e1013]:
+                  - button "Editar la cuenta 5" [ref=f25e1014]
+                - cell [ref=f25e1018]
+              - row [ref=f25e1019] [cursor=pointer]:
+                - cell "5.1" [ref=f25e1020]
+                - cell "Costo de ventas" [ref=f25e1021]
+                - cell "Costo" [ref=f25e1022]
+                - cell "Suma sus hijas" [ref=f25e1023]
+                - cell [ref=f25e1024]:
+                  - button "Editar la cuenta 5.1" [ref=f25e1025]
+                - cell [ref=f25e1029]
+              - row [ref=f25e1030] [cursor=pointer]:
+                - cell "5.1.01" [ref=f25e1031]
+                - cell "Costo de mercancías" [ref=f25e1032]
+                - cell "Costo" [ref=f25e1033]
+                - cell "Suma sus hijas" [ref=f25e1034]
+                - cell [ref=f25e1035]:
+                  - button "Editar la cuenta 5.1.01" [ref=f25e1036]
+                - cell [ref=f25e1040]
+              - row [ref=f25e1041] [cursor=pointer]:
+                - cell "5.1.01.001" [ref=f25e1042]
+                - cell "Costo de mercancías vendidas" [ref=f25e1043]
+                - cell "Costo" [ref=f25e1044]
+                - cell "R.03 Costo de ventasNota 11" [ref=f25e1045]:
+                  - paragraph [ref=f25e1047]:
+                    - text: R.03 Costo de ventas
+                    - generic [ref=f25e1048]: Nota 11
+                - cell [ref=f25e1049]:
+                  - button "Editar la cuenta 5.1.01.001" [ref=f25e1050]
+                - cell [ref=f25e1054]
+              - row [ref=f25e1055] [cursor=pointer]:
+                - cell "6" [ref=f25e1056]
+                - cell "GASTOS" [ref=f25e1057]
+                - cell "Gasto" [ref=f25e1058]
+                - cell "Suma sus hijas" [ref=f25e1059]
+                - cell [ref=f25e1060]:
+                  - button "Editar la cuenta 6" [ref=f25e1061]
+                - cell [ref=f25e1065]
+              - row [ref=f25e1066] [cursor=pointer]:
+                - cell "6.1" [ref=f25e1067]
+                - cell "Gastos de operación" [ref=f25e1068]
+                - cell "Gasto" [ref=f25e1069]
+                - cell "Suma sus hijas" [ref=f25e1070]
+                - cell [ref=f25e1071]:
+                  - button "Editar la cuenta 6.1" [ref=f25e1072]
+                - cell [ref=f25e1076]
+              - row [ref=f25e1077] [cursor=pointer]:
+                - cell "6.1.01" [ref=f25e1078]
+                - cell "Gastos de personal" [ref=f25e1079]
+                - cell "Gasto" [ref=f25e1080]
+                - cell "Suma sus hijas" [ref=f25e1081]
+                - cell [ref=f25e1082]:
+                  - button "Editar la cuenta 6.1.01" [ref=f25e1083]
+                - cell [ref=f25e1087]
+              - row [ref=f25e1088] [cursor=pointer]:
+                - cell "6.1.01.001" [ref=f25e1089]
+                - cell "Salarios" [ref=f25e1090]
+                - cell "Gasto" [ref=f25e1091]
+                - cell "R.04 Gastos por beneficios a los empleadosNota 12" [ref=f25e1092]:
+                  - paragraph [ref=f25e1094]:
+                    - text: R.04 Gastos por beneficios a los empleados
+                    - generic [ref=f25e1095]: Nota 12
+                - cell [ref=f25e1096]:
+                  - button "Editar la cuenta 6.1.01.001" [ref=f25e1097]
+                - cell [ref=f25e1101]
+              - row [ref=f25e1102] [cursor=pointer]:
+                - cell "6.1.01.002" [ref=f25e1103]
+                - cell "Cargas sociales patronales" [ref=f25e1104]
+                - cell "Gasto" [ref=f25e1105]
+                - cell "R.04 Gastos por beneficios a los empleadosNota 12" [ref=f25e1106]:
+                  - paragraph [ref=f25e1108]:
+                    - text: R.04 Gastos por beneficios a los empleados
+                    - generic [ref=f25e1109]: Nota 12
+                - cell [ref=f25e1110]:
+                  - button "Editar la cuenta 6.1.01.002" [ref=f25e1111]
+                - cell [ref=f25e1115]
+              - row [ref=f25e1116] [cursor=pointer]:
+                - cell "6.1.01.003" [ref=f25e1117]
+                - cell "Aguinaldo" [ref=f25e1118]
+                - cell "Gasto" [ref=f25e1119]
+                - cell "R.04 Gastos por beneficios a los empleadosNota 12" [ref=f25e1120]:
+                  - paragraph [ref=f25e1122]:
+                    - text: R.04 Gastos por beneficios a los empleados
+                    - generic [ref=f25e1123]: Nota 12
+                - cell [ref=f25e1124]:
+                  - button "Editar la cuenta 6.1.01.003" [ref=f25e1125]
+                - cell [ref=f25e1129]
+              - row [ref=f25e1130] [cursor=pointer]:
+                - cell "6.1.01.004" [ref=f25e1131]
+                - cell "Vacaciones" [ref=f25e1132]
+                - cell "Gasto" [ref=f25e1133]
+                - cell "R.04 Gastos por beneficios a los empleadosNota 12" [ref=f25e1134]:
+                  - paragraph [ref=f25e1136]:
+                    - text: R.04 Gastos por beneficios a los empleados
+                    - generic [ref=f25e1137]: Nota 12
+                - cell [ref=f25e1138]:
+                  - button "Editar la cuenta 6.1.01.004" [ref=f25e1139]
+                - cell [ref=f25e1143]
+              - row [ref=f25e1144] [cursor=pointer]:
+                - cell "6.1.02" [ref=f25e1145]
+                - cell "Gastos generales" [ref=f25e1146]
+                - cell "Gasto" [ref=f25e1147]
+                - cell "Suma sus hijas" [ref=f25e1148]
+                - cell [ref=f25e1149]:
+                  - button "Editar la cuenta 6.1.02" [ref=f25e1150]
+                - cell [ref=f25e1154]
+              - row [ref=f25e1155] [cursor=pointer]:
+                - cell "6.1.02.001" [ref=f25e1156]
+                - cell "Alquileres" [ref=f25e1157]
+                - cell "Gasto" [ref=f25e1158]
+                - cell [ref=f25e1159]:
+                  - paragraph [ref=f25e1161]: R.05 Otros gastos de administración
+                - cell [ref=f25e1162]:
+                  - button "Editar la cuenta 6.1.02.001" [ref=f25e1163]
+                - cell [ref=f25e1167]
+              - row [ref=f25e1168] [cursor=pointer]:
+                - cell "6.1.02.002" [ref=f25e1169]
+                - cell "Servicios públicos" [ref=f25e1170]
+                - cell "Gasto" [ref=f25e1171]
+                - cell [ref=f25e1172]:
+                  - paragraph [ref=f25e1174]: R.05 Otros gastos de administración
+                - cell [ref=f25e1175]:
+                  - button "Editar la cuenta 6.1.02.002" [ref=f25e1176]
+                - cell [ref=f25e1180]
+              - row [ref=f25e1181] [cursor=pointer]:
+                - cell "6.1.02.003" [ref=f25e1182]
+                - cell "Servicios profesionales" [ref=f25e1183]
+                - cell "Gasto" [ref=f25e1184]
+                - cell [ref=f25e1185]:
+                  - paragraph [ref=f25e1187]: R.05 Otros gastos de administración
+                - cell [ref=f25e1188]:
+                  - button "Editar la cuenta 6.1.02.003" [ref=f25e1189]
+                - cell [ref=f25e1193]
+              - row [ref=f25e1194] [cursor=pointer]:
+                - cell "6.1.02.004" [ref=f25e1195]
+                - cell "Papelería y útiles" [ref=f25e1196]
+                - cell "Gasto" [ref=f25e1197]
+                - cell [ref=f25e1198]:
+                  - paragraph [ref=f25e1200]: R.05 Otros gastos de administración
+                - cell [ref=f25e1201]:
+                  - button "Editar la cuenta 6.1.02.004" [ref=f25e1202]
+                - cell [ref=f25e1206]
+              - row [ref=f25e1207] [cursor=pointer]:
+                - cell "6.1.02.010" [ref=f25e1208]
+                - cell "Gasto por depreciación" [ref=f25e1209]
+                - cell "Gasto" [ref=f25e1210]
+                - cell [ref=f25e1211]:
+                  - generic [ref=f25e1212]:
+                    - paragraph [ref=f25e1213]: R.06 Depreciación y amortización
+                    - paragraph [ref=f25e1214]: Nota 13 · Depreciación del periodo
+                - cell [ref=f25e1215]:
+                  - button "Editar la cuenta 6.1.02.010" [ref=f25e1216]
+                - cell [ref=f25e1220]
+              - row [ref=f25e1221] [cursor=pointer]:
+                - cell "6.2" [ref=f25e1222]
+                - cell "Gastos financieros" [ref=f25e1223]
+                - cell "Gasto" [ref=f25e1224]
+                - cell "Suma sus hijas" [ref=f25e1225]
+                - cell [ref=f25e1226]:
+                  - button "Editar la cuenta 6.2" [ref=f25e1227]
+                - cell [ref=f25e1231]
+              - row [ref=f25e1232] [cursor=pointer]:
+                - cell "6.2.01" [ref=f25e1233]
+                - cell "Gastos financieros y cambiarios" [ref=f25e1234]
+                - cell "Gasto" [ref=f25e1235]
+                - cell "Suma sus hijas" [ref=f25e1236]
+                - cell [ref=f25e1237]:
+                  - button "Editar la cuenta 6.2.01" [ref=f25e1238]
+                - cell [ref=f25e1242]
+              - row [ref=f25e1243] [cursor=pointer]:
+                - cell "6.2.01.001" [ref=f25e1244]
+                - cell "Comisiones y gastos bancarios" [ref=f25e1245]
+                - cell "Gasto" [ref=f25e1246]
+                - cell "R.07 Costos financierosNota 14" [ref=f25e1247]:
+                  - paragraph [ref=f25e1249]:
+                    - text: R.07 Costos financieros
+                    - generic [ref=f25e1250]: Nota 14
+                - cell [ref=f25e1251]:
+                  - button "Editar la cuenta 6.2.01.001" [ref=f25e1252]
+                - cell [ref=f25e1256]
+              - row [ref=f25e1257] [cursor=pointer]:
+                - cell "6.2.01.002" [ref=f25e1258]
+                - cell "Diferencial cambiario perdido" [ref=f25e1259]
+                - cell "Gasto" [ref=f25e1260]
+                - cell [ref=f25e1261]:
+                  - generic [ref=f25e1262]:
+                    - paragraph [ref=f25e1263]: R.08 Diferencias de cambio, netas
+                    - paragraph [ref=f25e1264]: Nota 15 · Diferencias de cambio
+                - cell [ref=f25e1265]:
+                  - button "Editar la cuenta 6.2.01.002" [ref=f25e1266]
+                - cell [ref=f25e1270]
+              - row [ref=f25e1271] [cursor=pointer]:
+                - cell "6.2.01.003" [ref=f25e1272]
+                - cell "Intereses sobre préstamos" [ref=f25e1273]
+                - cell "Gasto" [ref=f25e1274]
+                - cell "Sin clasificar" [ref=f25e1275]
+                - cell [ref=f25e1276]:
+                  - button "Editar la cuenta 6.2.01.003" [ref=f25e1277]
+                - cell "Inactiva" [ref=f25e1281]

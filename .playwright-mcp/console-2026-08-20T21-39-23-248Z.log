@@ -1,0 +1,2 @@
+[    3736ms] [INFO] [O11Y] [DatadogRUM] Initialized {service: claude-ai, env: production, version: 51b0ca4bd4} @ https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/vendor-datadog-BiPS_f2G.js:0
+[    4677ms] [LOG] recaptchacompat disabled @ https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/vendor-datadog-BiPS_f2G.js:0

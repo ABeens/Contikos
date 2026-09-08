@@ -1,0 +1,638 @@
+import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router'
+import { CircleAlert, HandCoins, Wand2 } from 'lucide-react'
+import { Button } from '@/shared/ui/Button'
+import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
+import { Field, Input, Select } from '@/shared/ui/Field'
+import { SelectorCuenta } from '@/shared/ui/SelectorCuenta'
+import { MoneyInput } from '@/shared/money/MoneyInput'
+import { MoneyCell } from '@/shared/money/MoneyCell'
+import { formatMoney } from '@/shared/money/format'
+import { formatFecha, hoyISO } from '@/shared/format/fecha'
+import { ApiError } from '@/shared/api/client'
+import { MEDIOS_PAGO, type MedioPago } from '@/shared/api/contracts/terceros'
+import {
+  configuracionMoneda,
+  monedaFuncional,
+  monedasActivas,
+  type Moneda,
+} from '@/shared/money/money'
+import { useCuentas, usePeriodos } from '@/shared/api/catalogos'
+import type { SolicitudCobro } from '@/shared/api/contracts/cxc'
+import { diasVencidos } from '../domain/factura'
+import { MAPEO_VACIO } from '../domain/mapeo'
+import {
+  armarAsientoCobro,
+  facturasCobrables,
+  repartirPorAntiguedad,
+  validarCobro,
+  type ContextoCobro,
+} from '../domain/cobro'
+import {
+  useClientes,
+  useFacturasVenta,
+  useMapeoCxc,
+  useRegistrarCobro,
+} from '../api/queries'
+
+/**
+ * Captura de un cobro (docs/04 §2.2).
+ *
+ *   capturar → aplicar a facturas → contabilizar → notificar a bancos
+ *
+ * Lo que distingue esta pantalla de la de factura es la aplicación: el dinero
+ * ya entró y lo que se decide aquí es a qué facturas se imputa. Por eso las
+ * facturas pendientes del cliente se enseñan enteras, con su saldo y sus días
+ * vencidos, y lo aplicado se ve en vivo contra lo recibido: quien cobra tiene
+ * que poder darse cuenta antes de confirmar de que le sobran cien mil colones
+ * que van a quedar como anticipo.
+ *
+ * El asiento se enseña antes de registrar, como en el resto de capturas: es lo
+ * que hace visible el contrato de docs/02 y la única oportunidad de ver que la
+ * cuenta de depósito no es la que era sin necesitar después una reversa.
+ */
+export function CobroPage() {
+  const navegar = useNavigate()
+  const { data: clientes = [] } = useClientes()
+  const { data: cuentas = [] } = useCuentas()
+  const { data: periodos = [] } = usePeriodos()
+  const { data: mapeo } = useMapeoCxc()
+  const registrar = useRegistrarCobro()
+
+  const funcional = monedaFuncional()
+
+  const [clienteId, setClienteId] = useState('')
+  const [fecha, setFecha] = useState(hoyISO)
+  const [moneda, setMoneda] = useState<Moneda>(funcional)
+  const [tipoCambio, setTipoCambio] = useState('1')
+  const [medio, setMedio] = useState<MedioPago>('04')
+  const [referencia, setReferencia] = useState('')
+  // Vacío = todavía la del mapeo. Se resuelve al leer y no con un efecto: el
+  // mapeo llega después del primer render y sobrescribir lo ya tecleado sería
+  // peor que esperar.
+  const [cuentaElegida, setCuentaElegida] = useState('')
+  const [auxiliarBanco, setAuxiliarBanco] = useState('')
+  const [importeRecibido, setImporteRecibido] = useState('')
+  /** Lo aplicado a cada factura, por id. Sin entrada = no se aplica nada. */
+  const [aplicado, setAplicado] = useState<Record<string, string>>({})
+  const [intentoEnvio, setIntentoEnvio] = useState(false)
+
+  // Las facturas del cliente, no las de todos: es lo único que este cobro
+  // puede pagar, y pedir la cartera entera para filtrarla en la pantalla sería
+  // traer trabajo del servidor al navegador.
+  const { data: facturas = [] } = useFacturasVenta(clienteId || undefined)
+
+  const cliente = clientes.find((c) => c.id === clienteId)
+  const cuentaDeposito = cuentaElegida || mapeo?.deposito || ''
+  const cuenta = cuentas.find((c) => c.codigo === cuentaDeposito)
+  const exigeBanco = cuenta?.requiereAuxiliar === 'banco'
+
+  const cobrables = useMemo(
+    () => (clienteId ? facturasCobrables(facturas, clienteId) : []),
+    [facturas, clienteId],
+  )
+
+  const solicitud: SolicitudCobro = useMemo(
+    () => ({
+      clienteId,
+      fecha,
+      moneda,
+      tipoCambio: tipoCambio || '0',
+      medio,
+      referencia: referencia.trim() || null,
+      cuentaDeposito,
+      auxiliarBanco: auxiliarBanco.trim() || null,
+      importeRecibido: importeRecibido || '0',
+      // Solo las facturas con algo aplicado: una entrada en cero no es una
+      // aplicación, es una casilla que se dejó en blanco.
+      aplicaciones: cobrables
+        .filter((f) => Number(aplicado[f.id] ?? '0') !== 0)
+        .map((f) => ({ facturaId: f.id, importeAplicado: aplicado[f.id] })),
+    }),
+    [
+      clienteId,
+      fecha,
+      moneda,
+      tipoCambio,
+      medio,
+      referencia,
+      cuentaDeposito,
+      auxiliarBanco,
+      importeRecibido,
+      cobrables,
+      aplicado,
+    ],
+  )
+
+  const contexto: ContextoCobro = useMemo(
+    () => ({
+      cliente,
+      facturas,
+      cuentas,
+      periodos,
+      mapeo: mapeo ?? MAPEO_VACIO,
+      funcional,
+    }),
+    [cliente, facturas, cuentas, periodos, mapeo, funcional],
+  )
+
+  const calculo = useMemo(
+    () => validarCobro(solicitud, contexto),
+    [solicitud, contexto],
+  )
+
+  // El id y el consecutivo los asigna el servidor al registrar; aquí solo se
+  // enseñan las líneas, que es lo que hay que revisar antes de confirmar.
+  const lineasAsiento = useMemo(
+    () =>
+      mapeo
+        ? armarAsientoCobro('', '', solicitud, contexto, calculo).lineas
+        : [],
+    [mapeo, solicitud, contexto, calculo],
+  )
+
+  const nombreCuenta = (codigo: string) =>
+    cuentas.find((c) => c.codigo === codigo)?.nombre ?? ''
+
+  const elegirCliente = (id: string) => {
+    setClienteId(id)
+    // Cambiar de cliente invalida el reparto: las facturas son otras.
+    setAplicado({})
+    const elegido = clientes.find((c) => c.id === id)
+    if (!elegido) return
+    setMoneda(elegido.moneda)
+    setTipoCambio(
+      elegido.moneda === funcional
+        ? '1'
+        : configuracionMoneda(elegido.moneda).tipoCambio,
+    )
+    // Cómo suele pagar este cliente. Sigue siendo editable.
+    if (elegido.medioPago) setMedio(elegido.medioPago)
+  }
+
+  /**
+   * Reparte lo recibido entre las facturas pendientes, de la más vieja a la
+   * más nueva.
+   *
+   * Es la imputación habitual en cobranza y la que vacía las cubetas de la
+   * derecha del reporte de antigüedad. Sustituye el reparto anterior entero:
+   * mezclarlo con lo ya tecleado daría un total que nadie pidió.
+   */
+  const repartir = () => {
+    const reparto = repartirPorAntiguedad(
+      importeRecibido || '0',
+      cobrables,
+      moneda,
+    )
+    setAplicado(
+      Object.fromEntries(reparto.map((r) => [r.facturaId, r.importeAplicado])),
+    )
+  }
+
+  const guardar = async () => {
+    setIntentoEnvio(true)
+    if (!calculo.valido) return
+    // El rechazo del servidor (periodo cerrado, saldo que cambió en otra
+    // pestaña) se enseña desde `registrar.error`: se atrapa aquí para no dejar
+    // la promesa suelta y para no navegar sobre un cobro que no nació.
+    const cobro = await registrar.mutateAsync(solicitud).catch(() => null)
+    if (!cobro) return
+    navegar('/cxc/cobros')
+  }
+
+  const errorServidor = registrar.error instanceof ApiError ? registrar.error : null
+  const erroresDe = (facturaId: string) =>
+    intentoEnvio
+      ? calculo.errores.filter(
+          (e) =>
+            e.aplicacion !== undefined &&
+            solicitud.aplicaciones[e.aplicacion]?.facturaId === facturaId,
+        )
+      : []
+
+  return (
+    <div className="mx-auto max-w-6xl">
+      <PageHeader
+        titulo="Registrar cobro"
+        descripcion="El cobro baja el saldo de las facturas que se le apliquen y contabiliza la entrada de efectivo."
+        acciones={
+          <>
+            <Button onClick={() => navegar('/cxc/cobros')}>Cancelar</Button>
+            <Button
+              variante="primario"
+              icono={<HandCoins className="size-4" />}
+              onClick={() => void guardar()}
+              disabled={registrar.isPending}
+            >
+              {registrar.isPending ? 'Registrando…' : 'Registrar cobro'}
+            </Button>
+          </>
+        }
+      />
+
+      <Card className="mb-4">
+        <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Field label="Cliente" requerido className="lg:col-span-2">
+            {(p) => (
+              <Select
+                {...p}
+                value={clienteId}
+                onChange={(e) => elegirCliente(e.target.value)}
+              >
+                <option value="">Seleccione un cliente</option>
+                {clientes
+                  .filter((c) => c.activo)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.codigo} · {c.razonSocial}
+                    </option>
+                  ))}
+              </Select>
+            )}
+          </Field>
+
+          <Field label="Fecha del cobro" requerido>
+            {(p) => (
+              <Input
+                {...p}
+                type="date"
+                value={fecha}
+                onChange={(e) => setFecha(e.target.value)}
+              />
+            )}
+          </Field>
+
+          <Field label="Importe recibido" requerido>
+            {(p) => (
+              <MoneyInput
+                {...p}
+                value={importeRecibido}
+                moneda={moneda}
+                onChange={setImporteRecibido}
+              />
+            )}
+          </Field>
+
+          <Field label="Moneda" requerido>
+            {(p) => (
+              <Select
+                {...p}
+                value={moneda}
+                onChange={(e) => {
+                  const nueva = e.target.value
+                  setMoneda(nueva)
+                  setTipoCambio(
+                    nueva === funcional
+                      ? '1'
+                      : configuracionMoneda(nueva).tipoCambio,
+                  )
+                  // El reparto anterior era en otra moneda: no se conserva.
+                  setAplicado({})
+                }}
+              >
+                {monedasActivas().map((m) => (
+                  <option key={m.codigo} value={m.codigo}>
+                    {m.nombre} ({m.codigo})
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+
+          <Field
+            label="Tipo de cambio"
+            requerido
+            ayuda={
+              moneda === funcional
+                ? 'Moneda funcional'
+                : 'La diferencia contra el de la factura se contabiliza aparte'
+            }
+          >
+            {(p) => (
+              <Input
+                {...p}
+                value={tipoCambio}
+                disabled={moneda === funcional}
+                onChange={(e) => setTipoCambio(e.target.value)}
+                className="tabular text-right"
+              />
+            )}
+          </Field>
+
+          <Field label="Medio de cobro" requerido>
+            {(p) => (
+              <Select
+                {...p}
+                value={medio}
+                onChange={(e) => setMedio(e.target.value as MedioPago)}
+              >
+                {MEDIOS_PAGO.map((m) => (
+                  <option key={m.codigo} value={m.codigo}>
+                    {m.nombre}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+
+          <Field
+            label="Referencia"
+            ayuda="Número de transferencia, de cheque o de voucher"
+          >
+            {(p) => (
+              <Input
+                {...p}
+                value={referencia}
+                placeholder="TRF-000000"
+                onChange={(e) => setReferencia(e.target.value)}
+              />
+            )}
+          </Field>
+
+          {/* Sin `Field`: el buscador de cuenta lleva su propio nombre
+              accesible y no acepta un id de fuera, así que una etiqueta
+              apuntando a él quedaría huérfana. */}
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-slate-600">
+              Cuenta de depósito<span className="ml-0.5 text-red-500">*</span>
+            </span>
+            <SelectorCuenta
+              value={cuentaDeposito}
+              onChange={setCuentaElegida}
+              cuentas={cuentas}
+              etiqueta="Cuenta de depósito"
+              error={
+                intentoEnvio &&
+                calculo.errores.some(
+                  (e) => e.codigo === 'CUENTA_DEPOSITO_INVALIDA',
+                )
+              }
+            />
+            <p className="truncate text-xs text-slate-400">
+              {cuentaDeposito
+                ? `${cuentaDeposito} ${nombreCuenta(cuentaDeposito)}`
+                : 'Dónde entró el dinero'}
+            </p>
+          </div>
+
+          {/* Las cuentas bancarias son de control de `bancos` y exigen auxiliar
+              (docs/03 §2). Mientras ese módulo no exista se captura a mano; el
+              día que exista, este campo será un selector de su catálogo. */}
+          {exigeBanco && (
+            <Field
+              label="Cuenta bancaria"
+              requerido
+              ayuda="Se captura a mano hasta que exista el módulo de bancos"
+            >
+              {(p) => (
+                <Input
+                  {...p}
+                  value={auxiliarBanco}
+                  placeholder="bco-001"
+                  onChange={(e) => setAuxiliarBanco(e.target.value)}
+                />
+              )}
+            </Field>
+          )}
+
+          {cliente && (
+            <div className="flex flex-col justify-center rounded-md bg-slate-50 px-3 py-2 lg:col-span-2">
+              <span className="text-[11px] text-slate-500">
+                Saldo actual del cliente
+              </span>
+              <span className="text-sm text-slate-800">
+                <MoneyCell valor={cliente.saldo} mostrarSimbolo /> en{' '}
+                {cliente.facturasPendientes} facturas pendientes
+              </span>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      <Card className="mb-4">
+        <CardHeader
+          titulo="Facturas pendientes"
+          descripcion="De la más vieja a la más nueva. Lo que no se aplique queda como anticipo del cliente."
+          acciones={
+            <Button
+              tamano="sm"
+              icono={<Wand2 className="size-3.5" />}
+              onClick={repartir}
+              disabled={cobrables.length === 0}
+            >
+              Aplicar todo lo que quepa
+            </Button>
+          }
+        />
+
+        <div className="overflow-x-auto">
+          <table
+            className="w-full text-sm"
+            aria-label="Facturas pendientes del cliente"
+          >
+            <thead className="bg-slate-50 text-xs font-semibold text-slate-600">
+              <tr>
+                <th className="w-32 px-4 py-2 text-left">Factura</th>
+                <th className="w-28 px-3 py-2 text-left">Vence</th>
+                <th className="w-20 px-3 py-2 text-right">Días</th>
+                <th className="px-3 py-2 text-right">Total</th>
+                <th className="px-3 py-2 text-right">Saldo</th>
+                <th className="w-40 px-3 py-2 text-right">Aplicar</th>
+                <th className="w-32 px-4 py-2 text-right">Saldo resultante</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cobrables.map((factura) => {
+                const errores = erroresDe(factura.id)
+                const aplicacion = calculo.aplicaciones.find(
+                  (a) => a.facturaId === factura.id,
+                )
+                const dias = diasVencidos(factura.fechaVencimiento, fecha)
+                return (
+                  <tr
+                    key={factura.id}
+                    className="border-b border-slate-100 last:border-0"
+                  >
+                    <td className="px-4 py-2 font-mono text-xs font-medium text-slate-700">
+                      {factura.numeroInterno}
+                    </td>
+                    <td className="px-3 py-2 text-slate-600">
+                      {formatFecha(factura.fechaVencimiento)}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <span
+                        className={
+                          dias > 0
+                            ? 'text-xs font-medium text-red-600'
+                            : 'text-xs text-slate-400'
+                        }
+                      >
+                        {dias > 0 ? dias : -dias}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <MoneyCell valor={factura.total} moneda={factura.moneda} />
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <MoneyCell valor={factura.saldo} moneda={factura.moneda} />
+                    </td>
+                    <td className="px-3 py-2">
+                      <MoneyInput
+                        value={aplicado[factura.id] ?? ''}
+                        moneda={moneda}
+                        aria-label={`Importe aplicado a ${factura.numeroInterno}`}
+                        aria-invalid={errores.length > 0}
+                        onChange={(v) =>
+                          setAplicado((prev) => ({ ...prev, [factura.id]: v }))
+                        }
+                      />
+                      {errores.length > 0 && (
+                        <p className="mt-1 text-[11px] text-red-600">
+                          {errores[0].mensaje}
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      <MoneyCell
+                        valor={
+                          aplicacion
+                            ? aplicacion.saldoResultante
+                            : factura.saldo
+                        }
+                        moneda={factura.moneda}
+                      />
+                    </td>
+                  </tr>
+                )
+              })}
+              {cobrables.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="px-4 py-8 text-center text-sm text-slate-500"
+                  >
+                    {clienteId
+                      ? 'El cliente no tiene facturas pendientes: lo recibido quedará como anticipo.'
+                      : 'Seleccione un cliente para ver sus facturas pendientes.'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex justify-end border-t border-slate-200 px-4 py-3">
+          <dl className="w-72 space-y-1 text-sm">
+            <div className="flex justify-between">
+              <dt className="text-slate-500">Recibido</dt>
+              <dd className="tabular text-slate-800">
+                {formatMoney(calculo.importeRecibido)}
+              </dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-slate-500">Aplicado a facturas</dt>
+              <dd className="tabular text-slate-800">
+                {formatMoney(calculo.importeAplicado)}
+              </dd>
+            </div>
+            <div className="flex justify-between border-t border-slate-200 pt-1 font-semibold">
+              <dt className="text-slate-700">Queda como anticipo</dt>
+              <dd
+                className={`tabular ${
+                  calculo.importeSinAplicar.esPositivo()
+                    ? 'text-amber-700'
+                    : 'text-slate-900'
+                }`}
+              >
+                {formatMoney(calculo.importeSinAplicar)}
+              </dd>
+            </div>
+            {!calculo.diferenciaCambiaria.esCero() && (
+              <div className="flex justify-between border-t border-slate-200 pt-1">
+                <dt className="text-slate-500">
+                  Diferencia cambiaria{' '}
+                  {calculo.diferenciaCambiaria.esPositivo()
+                    ? '(ganada)'
+                    : '(perdida)'}
+                </dt>
+                <dd className="tabular text-slate-800">
+                  {formatMoney(calculo.diferenciaCambiaria)}
+                </dd>
+              </div>
+            )}
+          </dl>
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader
+          titulo="Asiento que se generará"
+          descripcion={`Expresado en ${funcional}, que es la moneda del mayor.`}
+        />
+        <table className="w-full text-sm" aria-label="Asiento del cobro">
+          <thead className="bg-slate-50 text-xs font-semibold text-slate-600">
+            <tr>
+              <th className="px-4 py-2 text-left">Cuenta</th>
+              <th className="px-3 py-2 text-left">Concepto</th>
+              <th className="w-36 px-3 py-2 text-right">Cargo</th>
+              <th className="w-36 px-4 py-2 text-right">Abono</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lineasAsiento.map((linea, indice) => (
+              <tr
+                key={`${linea.cuenta}-${indice}`}
+                className="border-b border-slate-100 last:border-0"
+              >
+                <td className="px-4 py-1.5 text-slate-700">
+                  {nombreCuenta(linea.cuenta)}{' '}
+                  <span className="font-mono text-xs text-slate-400">
+                    {linea.cuenta}
+                  </span>
+                </td>
+                <td className="px-3 py-1.5 text-xs text-slate-500">
+                  {linea.concepto}
+                </td>
+                <td className="px-3 py-1.5 text-right">
+                  <MoneyCell valor={linea.cargo} moneda={funcional} ocultarCero />
+                </td>
+                <td className="px-4 py-1.5 text-right">
+                  <MoneyCell valor={linea.abono} moneda={funcional} ocultarCero />
+                </td>
+              </tr>
+            ))}
+            {lineasAsiento.length === 0 && (
+              <tr>
+                <td
+                  colSpan={4}
+                  className="px-4 py-6 text-center text-sm text-slate-500"
+                >
+                  Capture el cliente y el importe recibido para ver el asiento.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </Card>
+
+      {(intentoEnvio && !calculo.valido) || errorServidor ? (
+        <div className="mt-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset">
+          <p className="flex items-center gap-1.5 text-sm font-medium text-red-800">
+            <CircleAlert className="size-4" />
+            {errorServidor
+              ? `${errorServidor.codigo}: ${errorServidor.message}`
+              : 'El cobro no se puede registrar'}
+          </p>
+          <ul className="mt-1.5 ml-6 list-disc space-y-0.5 text-xs text-red-700">
+            {(errorServidor?.detalles.length
+              ? errorServidor.detalles
+              : calculo.errores.map((e) => e.mensaje)
+            ).map((mensaje, i) => (
+              <li key={i}>{mensaje}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  )
+}
