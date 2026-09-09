@@ -12,5 +12,9 @@ export async function iniciarMocks(): Promise<void> {
   await worker.start({
     onUnhandledRequest: 'bypass',
     quiet: true,
+    // El worker se sirve junto al resto de estáticos, y en GitHub Pages eso no
+    // es la raíz del dominio. Con la ruta por defecto el registro falla y la
+    // aplicación arranca sin datos.
+    serviceWorker: { url: `${import.meta.env.BASE_URL}mockServiceWorker.js` },
   })
 }

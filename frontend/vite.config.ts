@@ -4,7 +4,12 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath, URL } from 'node:url'
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  // GitHub Pages publica el proyecto colgando del nombre del repositorio, y
+  // ahí las rutas absolutas de los assets tienen que llevar ese prefijo. En
+  // desarrollo la raíz sigue siendo `/`. `VITE_BASE` deja cambiarlo sin tocar
+  // este archivo el día que haya dominio propio (entonces vale `/`).
+  base: command === 'build' ? (process.env.VITE_BASE ?? '/Contikos/') : '/',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
@@ -28,4 +33,4 @@ export default defineConfig({
     // la verdad, que es lo que se le pide a una prueba.
     fileParallelism: false,
   },
-})
+}))

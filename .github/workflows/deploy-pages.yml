@@ -1,0 +1,74 @@
+# Publica el frontend en GitHub Pages.
+#
+# Requiere que en Settings > Pages la fuente sea "GitHub Actions". Mientras esté
+# puesta en una rama, Pages sigue sirviendo el contenido del repositorio (los
+# .md de docs) en vez de la aplicación compilada.
+name: Desplegar frontend en Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# El token solo necesita poder publicar en Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un despliegue a la vez. Los que se acumulen mientras uno corre se descartan
+# menos el último: publicar una versión intermedia no le sirve a nadie.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  construir:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      # Pages sirve archivos, no rutas: al entrar directo a /Contikos/asientos
+      # busca un archivo que no existe. Con esta copia devuelve la aplicación y
+      # es el router quien resuelve la ruta.
+      - run: cp dist/index.html dist/404.html
+
+      # Sin esto Jekyll se interpone y descarta lo que empiece por guion bajo.
+      - run: touch dist/.nojekyll
+
+      # La guía en HTML estaba publicada cuando Pages servía el repositorio.
+      # Se copia para que su enlace siga funcionando.
+      - run: mkdir -p dist/docs && cp ../docs/*.html dist/docs/
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+  desplegar:
+    needs: construir
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.despliegue.outputs.page_url }}
+    steps:
+      - id: despliegue
+        uses: actions/deploy-pages@v4

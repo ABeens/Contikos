@@ -176,4 +176,12 @@ export const rutas: RouteObject[] = [
   },
 ]
 
-export const router = createBrowserRouter(rutas)
+/**
+ * El `basename` sale de la base de compilación (`vite.config.ts`). Publicada en
+ * GitHub Pages la aplicación no vive en la raíz del dominio sino bajo el nombre
+ * del repositorio, y sin esto el router buscaría `/asientos` donde el servidor
+ * tiene `/Contikos/asientos`. En desarrollo `BASE_URL` es `/` y no cambia nada.
+ */
+export const router = createBrowserRouter(rutas, {
+  basename: import.meta.env.BASE_URL.replace(/\/$/, '') || '/',
+})
