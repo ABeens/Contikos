@@ -105,6 +105,13 @@ function contexto(extra: Partial<ContextoCierre> = {}): ContextoCierre {
     cuentas: CUENTAS,
     fechaReferencia: FIN_DE_AGOSTO,
     depreciacion: { contabilizada: true, activosDepreciables: 3 },
+    // Tesorería al día: los casos que la ponen en duda la sobrescriben.
+    bancos: {
+      movimientosSinConciliar: 0,
+      cuentasSinConciliar: 0,
+      revaluacionContabilizada: true,
+      cuentasEnMonedaExtranjera: 1,
+    },
     ...extra,
   }
 }
@@ -118,6 +125,59 @@ const punto = (
     (v) => v.codigo === codigo,
   )
 
+describe('Tesorería en el checklist', () => {
+  it('avisa de los movimientos sin conciliar sin impedir el cierre', () => {
+    // Aviso y no error: hay meses en que el estado de cuenta llega después del
+    // cierre, y la empresa puede decidir cerrar con partidas en tránsito.
+    const [verificacion] = punto(
+      AGOSTO,
+      contexto({
+        bancos: {
+          movimientosSinConciliar: 4,
+          cuentasSinConciliar: 2,
+          revaluacionContabilizada: true,
+          cuentasEnMonedaExtranjera: 1,
+        },
+      }),
+      'BANCOS_SIN_CONCILIAR',
+    )
+    expect(verificacion.severidad).toBe('aviso')
+    expect(verificacion.mensaje).toMatch(/4 movimientos sin conciliar/)
+  })
+
+  it('avisa de la revaluación pendiente y calla si no hay qué revaluar', () => {
+    const pendiente = punto(
+      AGOSTO,
+      contexto({
+        bancos: {
+          movimientosSinConciliar: 0,
+          cuentasSinConciliar: 0,
+          revaluacionContabilizada: false,
+          cuentasEnMonedaExtranjera: 2,
+        },
+      }),
+      'REVALUACION_PENDIENTE',
+    )[0]
+    expect(pendiente.severidad).toBe('aviso')
+
+    // Una empresa sin cuentas en moneda extranjera no tiene nada que revaluar,
+    // y el punto no puede quedarse en aviso perpetuo por eso.
+    const sinNada = punto(
+      AGOSTO,
+      contexto({
+        bancos: {
+          movimientosSinConciliar: 0,
+          cuentasSinConciliar: 0,
+          revaluacionContabilizada: false,
+          cuentasEnMonedaExtranjera: 0,
+        },
+      }),
+      'REVALUACION_PENDIENTE',
+    )[0]
+    expect(sinNada.severidad).toBe('ok')
+  })
+})
+
 describe('Checklist de cierre de periodo', () => {
   it('enseña los puntos que están bien, no solo los que fallan', () => {
     const resultado = verificarCierre(AGOSTO, contexto())
@@ -125,12 +185,10 @@ describe('Checklist de cierre de periodo', () => {
     expect(resultado.verificaciones.every((v) => v.severidad === 'ok')).toBe(
       true,
     )
-    // Los tres módulos que aún no existen ocupan su sitio en el checklist.
-    for (const codigo of [
-      'NOMINA_PENDIENTE',
-      'BANCOS_SIN_CONCILIAR',
-      'REVALUACION_PENDIENTE',
-    ] as const) {
+    // La nómina, que todavía no tiene módulo, ocupa igual su sitio: un
+    // checklist al que le falta un punto enseña un cierre más limpio de lo
+    // que es.
+    for (const codigo of ['NOMINA_PENDIENTE'] as const) {
       expect(punto(AGOSTO, contexto(), codigo)[0].detalle).toBe(
         'El módulo aún no existe',
       )

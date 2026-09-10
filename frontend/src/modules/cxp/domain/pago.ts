@@ -15,6 +15,8 @@ import type {
   PropuestaPago,
   SolicitudPago,
 } from '@/shared/api/contracts/cxp'
+import type { CuentaBancaria } from '@/shared/api/contracts/bancos'
+import { esCuentaDeBanco } from '@/shared/cuentas/cuenta'
 
 /**
  * El pago a proveedores (docs/05 §2.2).
@@ -72,6 +74,14 @@ export interface ContextoPago {
    */
   readonly facturas: readonly FacturaCompra[]
   readonly cuentas: readonly Cuenta[]
+  /**
+   * Catálogo de cuentas bancarias (docs/06 §1).
+   *
+   * De él sale el auxiliar de la cuenta de salida cuando el dinero sale de un
+   * banco. Antes se derivaba de la POSICIÓN de la cuenta entre las bancarias
+   * del plan, que funcionaba mientras nadie reordenara el catálogo.
+   */
+  readonly cuentasBancarias: readonly CuentaBancaria[]
   readonly periodos: readonly Periodo[]
   readonly mapeo: MapeoCxp
   /** Moneda del mayor. La diferencia cambiaria solo existe en ella. */
@@ -98,53 +108,6 @@ export interface ResultadoPago {
   readonly anticipo: Money
   /** Suma de las diferencias cambiarias, en moneda funcional. */
   readonly diferenciaCambiaria: Money
-}
-
-/* ------------------------------------------------------------- Cuentas */
-
-/**
- * Cuentas de las que puede salir un pago.
- *
- * Hoy son las de efectivo y equivalentes del catálogo (`1.1.01`): caja y las
- * cuentas bancarias. El día que exista bancos (docs/11, fase 4) la lista la
- * dará su catálogo de cuentas bancarias y esto se borra; mientras tanto se
- * deriva del plan de cuentas, que es el único sitio donde ese dato existe.
- */
-export function cuentasDePago(cuentas: readonly Cuenta[]): Cuenta[] {
-  return cuentas.filter(
-    (c) =>
-      c.esDetalle &&
-      c.activa &&
-      c.tipo === 'activo' &&
-      c.codigo.startsWith('1.1.01.'),
-  )
-}
-
-/**
- * Auxiliar de la cuenta de salida, cuando la cuenta lo exige.
- *
- * Las cuentas bancarias del catálogo son cuentas de control de `bancos` y
- * exigen auxiliar de tipo `banco` (docs/02 §3, validación 8). Ese catálogo no
- * existe todavía, así que el id se deriva de la posición de la cuenta entre
- * las bancarias del plan: la primera es `bco-001`, que es exactamente la
- * convención con la que ya está sembrado el mayor de la demo.
- *
- * TODO(bancos): cuando exista el catálogo, el pago capturará la cuenta
- * bancaria y de ella saldrán las dos cosas, el código contable y este id.
- * La correspondencia es uno a uno (una cuenta contable por cuenta bancaria),
- * así que sustituir esto no cambia ningún asiento ya emitido.
- */
-export function auxiliarBancoDe(
-  codigo: string,
-  cuentas: readonly Cuenta[],
-): string | null {
-  const cuenta = cuentas.find((c) => c.codigo === codigo)
-  if (cuenta?.requiereAuxiliar !== 'banco') return null
-  const bancarias = cuentas.filter(
-    (c) => c.esDetalle && c.requiereAuxiliar === 'banco',
-  )
-  const posicion = bancarias.findIndex((c) => c.codigo === codigo)
-  return `bco-${String(posicion + 1).padStart(3, '0')}`
 }
 
 /* ---------------------------------------------------------- Cálculo */
@@ -318,6 +281,31 @@ export function calcularPago(
       codigo: 'CUENTA_INVALIDA',
       mensaje: `La cuenta ${salida.codigo} no admite movimientos`,
     })
+  } else if (esCuentaDeBanco(salida)) {
+    // Las cuentas bancarias son de control de `bancos` y exigen auxiliar
+    // (docs/02 §3, validación 8). Sin él, el núcleo rechazaría el asiento con
+    // AUXILIAR_REQUERIDO y el mensaje no diría dónde corregirlo.
+    const elegida = solicitud.auxiliarBanco?.trim()
+    const ficha = contexto.cuentasBancarias.find((b) => b.id === elegida)
+
+    if (!elegida) {
+      errores.push({
+        codigo: 'CUENTA_INVALIDA',
+        mensaje: `La cuenta ${salida.codigo} exige indicar de qué cuenta bancaria sale el dinero`,
+      })
+    } else if (!ficha) {
+      errores.push({
+        codigo: 'CUENTA_INVALIDA',
+        mensaje: `La cuenta bancaria ${elegida} no existe en el catálogo`,
+      })
+    } else if (ficha.cuentaContable !== salida.codigo) {
+      // La correspondencia es uno a uno (docs/06 §1): aceptar otra ficha
+      // dejaría el auxiliar de bancos con un saldo que su control no explica.
+      errores.push({
+        codigo: 'CUENTA_INVALIDA',
+        mensaje: `La cuenta bancaria ${ficha.codigo} se lleva en ${ficha.cuentaContable} y el pago sale de ${salida.codigo}`,
+      })
+    }
   }
 
   const aplicaciones: AplicacionCalculada[] = []
@@ -492,11 +480,12 @@ export function conceptoPago(folio: string, proveedorNombre: string): string {
  * reintentar el mismo pago devuelve el asiento que ya existe en vez de
  * duplicar el egreso.
  *
- * TODO(bancos): la cuenta de salida es cuenta de control de `bancos` (docs/03
- * §2) y hoy la mueve CxP porque bancos no existe. Cuando exista, docs/05 §2.2
- * dice qué pasa: el pago publica `PagoEmitido`, bancos registra el movimiento
- * y esta línea desaparece de aquí. El asiento resultante es el mismo; cambia
- * quién lo firma.
+ * La cuenta de salida es cuenta de control de `bancos` (docs/03 §2) y la sigue
+ * moviendo CxP: el pago es el hecho económico y es quien lo contabiliza. Lo que
+ * hace bancos, desde que existe, es lo que dice docs/05 §2.2: recibir el evento
+ * del pago emitido y registrar el movimiento en su auxiliar, sin volver a
+ * contabilizarlo. El asiento es el mismo; lo que cambió es que ahora hay un
+ * auxiliar contra el que conciliarlo.
  */
 export function armarAsientoPago(
   pagoId: string,
@@ -561,14 +550,19 @@ export function armarAsientoPago(
     importe.monto.times(tipoCambioPago),
     funcional,
   ).redondear()
-  const banco = auxiliarBancoDe(solicitud.cuentaSalida, contexto.cuentas)
+  const cuentaSalida = contexto.cuentas.find(
+    (c) => c.codigo === solicitud.cuentaSalida,
+  )
+  const banco = esCuentaDeBanco(cuentaSalida)
+    ? (solicitud.auxiliarBanco?.trim() || null)
+    : null
   lineas.push({
     cuenta: solicitud.cuentaSalida,
     concepto: etiquetaMedio(solicitud),
     cargo: '0',
     abono: salida.toApi(),
-    // Caja no exige auxiliar; las cuentas bancarias sí, y su id todavía lo
-    // deriva el módulo mientras bancos no tenga catálogo.
+    // Caja no exige auxiliar; las cuentas bancarias sí, y su id es el de la
+    // ficha que el usuario eligió en el catálogo de bancos (docs/06 §1).
     auxiliarTipo: banco ? 'banco' : null,
     auxiliarId: banco,
   })

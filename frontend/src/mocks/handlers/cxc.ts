@@ -62,6 +62,11 @@ import {
   siguienteNumeroInterno,
 } from '../seed/cxc'
 import { asientosMock, emitirAsiento, reversarAsiento } from './conta'
+import {
+  cuentasBancariasServidas,
+  eliminarMovimientoExterno,
+  registrarMovimientoExterno,
+} from './bancos'
 
 /**
  * Mock de CxC.
@@ -122,6 +127,7 @@ function contextoCobro(clienteId: string): ContextoCobro {
     cliente: base ? serializar(base) : undefined,
     facturas,
     cuentas: CUENTAS,
+    cuentasBancarias: cuentasBancariasServidas(),
     periodos: PERIODOS,
     mapeo: MAPEO_CXC,
     funcional: monedaFuncional(),
@@ -620,6 +626,29 @@ export const handlersCxc = [
     cobros.push(cobro)
     persistirCobros()
     persistirFacturasVenta()
+
+    /*
+     * El depósito llega a tesorería (docs/06 §2.1).
+     *
+     * No genera asiento: el que se acaba de emitir arriba ya reconoció la
+     * entrada de efectivo, y volver a contabilizarla duplicaría el dinero. Lo
+     * que hace es dejar el movimiento en el auxiliar de bancos para que la
+     * conciliación tenga contra qué cruzar el depósito cuando llegue el estado
+     * de cuenta. Contra caja no se publica nada: la caja no se concilia con un
+     * banco, se arquea.
+     */
+    if (cobro.auxiliarBanco) {
+      registrarMovimientoExterno({
+        cuentaBancariaId: cobro.auxiliarBanco,
+        fecha: cobro.fecha,
+        importe: cobro.importeRecibido,
+        concepto: `Cobro ${cobro.numero} · ${cobro.clienteNombre}`,
+        referencia: cobro.referencia,
+        origen: { modulo: 'cxc', tipo: 'cobro', id: cobro.id },
+        asientoId: emision.asiento.id,
+      })
+    }
+
     return HttpResponse.json(cobro, { status: 201 })
   }),
 
@@ -687,6 +716,13 @@ export const handlersCxc = [
         .plus(new Decimal(aplicacion.importeAplicado))
         .toFixed(2)
       if (factura.estado === 'pagada') factura.estado = 'contabilizada'
+    }
+
+    // El movimiento bancario se va con el asiento que lo explicaba. Si ya
+    // estaba conciliado no se toca: el banco sí registró ese depósito, y lo
+    // que corresponde entonces es una devolución, que es otro movimiento.
+    if (cobro.auxiliarBanco) {
+      eliminarMovimientoExterno('cxc', 'cobro', cobro.id)
     }
 
     cobro.estado = 'anulado'

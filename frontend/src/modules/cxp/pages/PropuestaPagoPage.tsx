@@ -9,7 +9,7 @@ import { MoneyInput } from '@/shared/money/MoneyInput'
 import { MoneyCell } from '@/shared/money/MoneyCell'
 import { formatFecha, hoyISO } from '@/shared/format/fecha'
 import { ApiError } from '@/shared/api/client'
-import { useCuentas } from '@/shared/api/catalogos'
+import { useCuentas, useCuentasBancarias } from '@/shared/api/catalogos'
 import { monedaFuncional } from '@/shared/money/money'
 import type {
   LineaPropuestaPago,
@@ -18,7 +18,10 @@ import type {
 } from '@/shared/api/contracts/cxp'
 import { MEDIOS_PAGO } from '@/shared/api/contracts/cxp'
 import { usePropuestaPago, useRegistrarPago } from '../api/queries'
-import { cuentasDePago } from '../domain/pago'
+import {
+  claveEfectivo,
+  opcionesDeEfectivo,
+} from '@/shared/cuentas/efectivo'
 
 /**
  * Propuesta de pago (docs/05 §2.3).
@@ -83,7 +86,7 @@ export function PropuestaPagoPage() {
 
   const [corte, setCorte] = useState(hoyISO)
   const [disponible, setDisponible] = useState('1000000')
-  const [cuentaSalida, setCuentaSalida] = useState('')
+  const [opcionElegida, setOpcionElegida] = useState('')
   const [medioPago, setMedioPago] = useState<MedioPago>('transferencia')
   /** Se pide al pulsar "Calcular": una propuesta que se recalcula a cada tecla
    *  no se puede leer. */
@@ -99,7 +102,16 @@ export function PropuestaPagoPage() {
     consulta !== null,
   )
 
-  const opcionesCuenta = useMemo(() => cuentasDePago(cuentas), [cuentas])
+  const { data: cuentasBancarias = [] } = useCuentasBancarias(true)
+
+  const opcionesCuenta = useMemo(
+    () => opcionesDeEfectivo(cuentas, cuentasBancarias),
+    [cuentas, cuentasBancarias],
+  )
+  // La ficha bancaria elegida trae las dos cosas que el pago necesita: la
+  // cuenta de control del mayor y su auxiliar (docs/06 §1).
+  const opcion = opcionesCuenta.find((o) => claveEfectivo(o) === opcionElegida)
+  const cuentaSalida = opcion?.codigo ?? ''
   const grupos = useMemo(
     () => agrupar(propuesta.data?.lineas ?? []),
     [propuesta.data],
@@ -120,6 +132,7 @@ export function PropuestaPagoPage() {
     // Un tipo de cambio distinto lo captura quien emite el pago a mano.
     tipoCambio: grupo.tipoCambio,
     cuentaSalida,
+    auxiliarBanco: opcion?.auxiliarBanco ?? null,
     medioPago,
     referencia: null,
     importe: grupo.total,
@@ -195,13 +208,14 @@ export function PropuestaPagoPage() {
             {(p) => (
               <Select
                 {...p}
-                value={cuentaSalida}
-                onChange={(e) => setCuentaSalida(e.target.value)}
+                value={opcionElegida}
+                onChange={(e) => setOpcionElegida(e.target.value)}
               >
                 <option value="">Seleccione la cuenta</option>
-                {opcionesCuenta.map((c) => (
-                  <option key={c.codigo} value={c.codigo}>
-                    {c.codigo} · {c.nombre}
+                {opcionesCuenta.map((o) => (
+                  <option key={claveEfectivo(o)} value={claveEfectivo(o)}>
+                    {o.nombre}
+                    {o.moneda ? ` (${o.moneda})` : ''}
                   </option>
                 ))}
               </Select>

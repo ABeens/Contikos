@@ -3,6 +3,8 @@ import Decimal from 'decimal.js'
 import { CUENTAS } from '@/mocks/seed/cuentas'
 import { PERIODOS } from '@/mocks/seed/periodos'
 import { MAPEO_CXP } from '@/mocks/seed/cxp'
+import { cuentasBancariasMock } from '@/mocks/seed/bancos'
+import { opcionesDeEfectivo } from '@/shared/cuentas/efectivo'
 import { Money } from '@/shared/money/money'
 import type {
   FacturaCompra,
@@ -12,10 +14,8 @@ import type {
 import type { SolicitudAsiento } from '@/shared/api/contracts/conta'
 import {
   armarAsientoPago,
-  auxiliarBancoDe,
   calcularPago,
   calcularPropuestaPago,
-  cuentasDePago,
   diferenciaCambiariaDe,
   repartirPorAntiguedad,
   type ContextoPago,
@@ -81,11 +81,23 @@ function factura(cambios: Partial<FacturaCompra> = {}): FacturaCompra {
   return { ...base, ...cambios }
 }
 
+/** Las fichas con sus derivados en cero: la validación solo mira el mapeo. */
+const CUENTAS_BANCARIAS = cuentasBancariasMock.map((c) => ({
+  ...c,
+  cuentaContableNombre: c.cuentaContable,
+  saldoLibros: '0.00',
+  movimientos: 0,
+  movimientosSinConciliar: 0,
+}))
+
 function contexto(cambios: Partial<ContextoPago> = {}): ContextoPago {
   return {
     proveedor: PROVEEDOR,
     facturas: [factura()],
     cuentas: CUENTAS,
+    // De aquí sale el auxiliar de la cuenta de salida cuando el dinero sale de
+    // un banco (docs/06 §1); antes se derivaba de la posición en el plan.
+    cuentasBancarias: CUENTAS_BANCARIAS,
     periodos: PERIODOS,
     mapeo: MAPEO_CXP,
     monedaFuncional: FUNCIONAL,
@@ -100,6 +112,8 @@ function solicitud(cambios: Partial<SolicitudPago> = {}): SolicitudPago {
     moneda: 'CRC',
     tipoCambio: '1',
     cuentaSalida: BANCO,
+    // La ficha del catálogo de bancos con la que esa cuenta vive en el mayor.
+    auxiliarBanco: 'bco-001',
     medioPago: 'transferencia',
     referencia: 'TRF-1',
     importe: '113000.00',
@@ -393,6 +407,7 @@ describe('diferencia cambiaria', () => {
       moneda: 'USD',
       tipoCambio: '520',
       cuentaSalida: '1.1.01.011',
+      auxiliarBanco: 'bco-002',
       importe: '1000.00',
       aplicaciones: [{ facturaId: 'fpr-001', importe: '1000.00' }],
     })
@@ -426,6 +441,7 @@ describe('diferencia cambiaria', () => {
       moneda: 'USD',
       tipoCambio: '480',
       cuentaSalida: '1.1.01.011',
+      auxiliarBanco: 'bco-002',
       importe: '1000.00',
       aplicaciones: [{ facturaId: 'fpr-001', importe: '1000.00' }],
     })
@@ -533,9 +549,38 @@ describe('asiento del pago', () => {
 
     const salida = asiento.lineas.find((l) => l.cuenta === CAJA)
     expect(salida?.auxiliarTipo).toBeNull()
-    expect(auxiliarBancoDe(CAJA, CUENTAS)).toBeNull()
-    expect(auxiliarBancoDe('1.1.01.010', CUENTAS)).toBe('bco-001')
-    expect(auxiliarBancoDe('1.1.01.011', CUENTAS)).toBe('bco-002')
+  })
+
+  it('pone en la salida bancaria el auxiliar de la ficha elegida', () => {
+    // La cuenta bancaria del catálogo trae las dos cosas que el asiento
+    // necesita: el código contable y el auxiliar con el que vive en el mayor.
+    const pedido = solicitud()
+    const ctx = contexto()
+    const asiento = armarAsientoPago(
+      'pag-1',
+      'PAG-000001',
+      pedido,
+      ctx,
+      calcularPago(pedido, ctx),
+    )
+
+    const salida = asiento.lineas.find((l) => l.cuenta === BANCO)
+    expect(salida?.auxiliarTipo).toBe('banco')
+    expect(salida?.auxiliarId).toBe('bco-001')
+  })
+
+  it('rechaza la salida bancaria sin cuenta bancaria y con la que no es', () => {
+    const sinFicha = solicitud({ auxiliarBanco: null })
+    expect(
+      calcularPago(sinFicha, contexto()).errores.map((e) => e.codigo),
+    ).toContain('CUENTA_INVALIDA')
+
+    // `bco-002` se lleva en 1.1.01.011: aceptarla dejaría el auxiliar de
+    // bancos con un saldo que su cuenta de control no explica.
+    const cruzada = solicitud({ auxiliarBanco: 'bco-002' })
+    expect(
+      calcularPago(cruzada, contexto()).errores.map((e) => e.codigo),
+    ).toContain('CUENTA_INVALIDA')
   })
 
   it('la referencia del egreso queda en el concepto de la línea de salida', () => {
@@ -554,14 +599,27 @@ describe('asiento del pago', () => {
 })
 
 describe('cuentas de salida', () => {
-  it('ofrece caja y las cuentas bancarias, no el resto del activo', () => {
-    const codigosCuenta = cuentasDePago(CUENTAS).map((c) => c.codigo)
+  it('ofrece caja del plan y los bancos de su catálogo', () => {
+    const opciones = opcionesDeEfectivo(CUENTAS, CUENTAS_BANCARIAS)
+    const codigosCuenta = opciones.map((o) => o.codigo)
 
     expect(codigosCuenta).toContain('1.1.01.001')
     expect(codigosCuenta).toContain('1.1.01.010')
     expect(codigosCuenta).not.toContain('1.1.02.001')
     // Solo cuentas de detalle: la acumulativa no recibe movimientos.
     expect(codigosCuenta).not.toContain('1.1.01')
+  })
+
+  it('trae el auxiliar de la cuenta bancaria y ninguno en caja', () => {
+    const opciones = opcionesDeEfectivo(CUENTAS, CUENTAS_BANCARIAS)
+
+    expect(
+      opciones.find((o) => o.codigo === '1.1.01.010')?.auxiliarBanco,
+    ).toBe('bco-001')
+    // La caja no exige auxiliar, y es lo que permite cobrar y pagar sin banco.
+    expect(
+      opciones.find((o) => o.codigo === '1.1.01.001')?.auxiliarBanco,
+    ).toBeNull()
   })
 })
 

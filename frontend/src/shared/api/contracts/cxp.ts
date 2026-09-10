@@ -311,6 +311,14 @@ export const PagoSchema = z.object({
   tipoCambio: Importe,
   /** Cuenta de la que sale el dinero: bancos o caja. */
   cuentaSalida: z.string(),
+  /**
+   * Cuenta bancaria del catálogo de `bancos`, cuando el dinero sale de un
+   * banco (docs/06 §1).
+   *
+   * Es el auxiliar con el que la cuenta de control vive en el mayor. Nulo
+   * cuando se paga desde caja, que no exige auxiliar.
+   */
+  auxiliarBanco: z.string().nullable(),
   medioPago: MedioPagoSchema,
   /** Número de transferencia, de cheque o lo que identifique el egreso. */
   referencia: z.string().nullable(),
@@ -357,6 +365,7 @@ export const SolicitudPagoSchema = z.object({
   moneda: MonedaSchema,
   tipoCambio: Importe,
   cuentaSalida: z.string().min(1, 'Seleccione la cuenta de salida'),
+  auxiliarBanco: z.string().nullable().optional(),
   medioPago: MedioPagoSchema,
   referencia: z.string().nullable().optional(),
   importe: Importe,

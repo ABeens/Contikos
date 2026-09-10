@@ -388,14 +388,11 @@ export const CobroSchema = z.object({
   /** Cuenta contable donde entró el dinero: la bancaria o la de caja. */
   cuentaDeposito: z.string(),
   /**
-   * Auxiliar de la cuenta de depósito cuando es bancaria.
+   * Cuenta bancaria del catálogo de `bancos` en la que entró el dinero.
    *
-   * Texto libre mientras el módulo de bancos no exista (docs/11): las cuentas
-   * `1.1.01.010` y `1.1.01.011` son de control de `bancos` y exigen auxiliar de
-   * tipo `banco`, y hoy no hay catálogo al que preguntarle. El día que exista,
-   * este campo pasa a ser el id de una cuenta bancaria del catálogo y deja de
-   * capturarse a mano; el contrato no cambia de forma. Nulo cuando se cobra
-   * contra caja, que no exige auxiliar.
+   * Es el auxiliar con el que la cuenta de depósito vive en el mayor (docs/06
+   * §1). Nulo cuando se cobra contra caja, que no exige auxiliar y es lo que
+   * permite registrar un cobro sin banco de por medio.
    */
   auxiliarBanco: z.string().nullable(),
   /** Lo que entró, en la moneda del cobro. */

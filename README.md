@@ -56,7 +56,7 @@ venta) no requiere tocar el núcleo contable.
 
 ## Estado
 
-🚧 **Frontend: núcleo contable, CxC, CxP, activos fijos, diferidos y multiempresa.**
+🚧 **Frontend: núcleo contable, CxC, CxP, bancos, activos fijos, diferidos y multiempresa.**
 
 | Decisión | Resultado |
 |---|---|
@@ -190,15 +190,43 @@ datos de fábrica: `Configuración → Datos de demostración → Restablecer`.
   para domingos y feriados. Trae una plantilla de tasas de demostración, marcada
   como tal. El robot que la poblaría sola está en pausa
   ([doc 16 §8](docs/16-requerimientos-2026-09.md))
+- **Tesorería**: catálogo de cuentas bancarias, donde cada cuenta se corresponde
+  una a una con su cuenta de control del mayor. De la ficha salen las dos cosas
+  que el asiento necesita, el código contable y el auxiliar, así que elegir de
+  dónde entra o sale el dinero es una sola decisión y no dos
+  ([doc 06 §1](docs/06-modulo-bancos.md)). Con el catálogo desapareció la última
+  solución provisional que quedaba en el código
+- **Movimientos bancarios**: los cobros de CxC y los pagos de CxP llegan solos al
+  auxiliar sin volver a contabilizarse, porque su documento ya lo hizo. Lo que
+  nace en tesorería son las tres cosas que no son de nadie más, la comisión con
+  su impuesto acreditable aparte, el interés ganado y el traspaso entre cuentas
+  propias, que reconoce diferencia cambiaria cuando cruza dos monedas
+  ([doc 06 §2.1](docs/06-modulo-bancos.md))
+- **Importación del estado de cuenta**: se pega o se sube un archivo y entra en
+  su propia tabla, **sin tocar el mayor**. El lector es por banco tras una
+  interfaz común, con CSV genérico de respaldo, y los duplicados se detectan por
+  huella: recargar el mismo archivo o traslapar fechas no repite un movimiento
+  ([doc 06 §2.2](docs/06-modulo-bancos.md))
+- **Conciliación bancaria**: las dos tablas enfrentadas y la ecuación que tiene
+  que cerrar a la vista. El motor propone por reglas en cascada y consume lo que
+  casa, de modo que la regla floja no se coma lo que la estricta casaba bien; la
+  cuarta, que suma varios movimientos propios contra uno del banco, sale marcada
+  para confirmar una a una. Todo lo emparejado es reversible, y **no se cierra
+  con diferencia**: un cargo del banco sin registrar no se ajusta, se captura y
+  se contabiliza ([doc 06 §2.3](docs/06-modulo-bancos.md))
+- **Revaluación de saldos en moneda extranjera** al cierre, contra el saldo que
+  lleva el mayor y no contra el del auxiliar. La diferencia va a resultado
+  cambiario no realizado, y el punto entra en el checklist de cierre junto con la
+  conciliación pendiente ([doc 06 §6](docs/06-modulo-bancos.md))
 - Los módulos emiten sus asientos por el contrato de
   [doc 02](docs/02-contrato-asientos.md), y cada pantalla de captura enseña el
   asiento antes de confirmar
-- Los tres módulos restantes navegables, documentando su alcance
+- Los dos módulos restantes navegables, documentando su alcance
 
 ```bash
 cd frontend
 pnpm install
 pnpm dev        # http://localhost:5173
-pnpm test       # 604 pruebas
+pnpm test       # 695 pruebas
 pnpm typecheck
 ```

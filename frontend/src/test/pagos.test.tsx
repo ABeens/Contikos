@@ -48,6 +48,22 @@ const PERIODO = 'per-2026-08'
 /** Suministros de Oficina Delta: dos facturas con saldo, 7788 y 8010. */
 const PROVEEDOR = 'pro-021'
 const BANCO = '1.1.01.010'
+/**
+ * La ficha del catálogo de bancos con la que esa cuenta vive en el mayor.
+ *
+ * La captura por pantalla la resuelve sola al elegir la cuenta de salida; las
+ * llamadas directas al servicio la mandan, igual que la mandará el backend.
+ */
+const CUENTA_BANCARIA = 'bco-001'
+
+/**
+ * Valor de la opción en el selector de cuenta de salida.
+ *
+ * Lleva las dos partes porque elegir de dónde sale el dinero es una sola
+ * decisión que resuelve dos datos: la cuenta del mayor y la ficha bancaria con
+ * la que vive en él (docs/06 §1).
+ */
+const OPCION_BANCO = `${BANCO}::${CUENTA_BANCARIA}`
 const CONTROL_PROVEEDORES = '2.1.01.001'
 
 async function escribir(
@@ -116,7 +132,7 @@ describe('Emitir un pago', () => {
 
     await seleccionar(usuario, /Proveedor/, PROVEEDOR)
     await escribir(usuario, /Fecha del pago/, FECHA_PAGO)
-    await seleccionar(usuario, /Cuenta de salida/, BANCO)
+    await seleccionar(usuario, /Cuenta de salida/, OPCION_BANCO)
     await escribir(usuario, /Referencia/, 'TRF-70001')
 
     // Las dos facturas del proveedor aparecen ordenadas por vencimiento
@@ -202,6 +218,7 @@ describe('Emitir un pago', () => {
       moneda: 'CRC',
       tipoCambio: '1',
       cuentaSalida: BANCO,
+      auxiliarBanco: CUENTA_BANCARIA,
       medioPago: 'cheque',
       referencia: '004512',
       importe: '780000.00',
@@ -289,6 +306,7 @@ describe('Validaciones del servidor', () => {
         moneda: 'CRC',
         tipoCambio: '1',
         cuentaSalida: BANCO,
+        auxiliarBanco: CUENTA_BANCARIA,
         medioPago: 'transferencia',
         referencia: null,
         importe: saldo.plus(1000).toFixed(2),
@@ -310,6 +328,7 @@ describe('Validaciones del servidor', () => {
         moneda: 'CRC',
         tipoCambio: '1',
         cuentaSalida: BANCO,
+        auxiliarBanco: CUENTA_BANCARIA,
         medioPago: 'transferencia',
         referencia: null,
         importe: '1000.00',
@@ -326,6 +345,7 @@ describe('Validaciones del servidor', () => {
       moneda: 'CRC',
       tipoCambio: '1',
       cuentaSalida: BANCO,
+      auxiliarBanco: CUENTA_BANCARIA,
       medioPago: 'transferencia',
       referencia: 'ANTICIPO-1',
       importe: '250000.00',
@@ -370,7 +390,7 @@ describe('Propuesta de pago', () => {
     await screen.findByLabelText(/Fecha de corte/)
     await escribir(usuario, /Fecha de corte/, CORTE)
     await escribir(usuario, /Efectivo disponible/, '203400')
-    await seleccionar(usuario, /Cuenta de salida/, BANCO)
+    await seleccionar(usuario, /Cuenta de salida/, OPCION_BANCO)
     await usuario.click(
       screen.getByRole('button', { name: /Calcular propuesta/ }),
     )

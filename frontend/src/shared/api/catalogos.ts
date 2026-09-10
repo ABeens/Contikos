@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   servicioActivos,
+  servicioBancos,
   servicioConfig,
   servicioConta,
   servicioCxc,
@@ -34,6 +35,8 @@ export const clavesCatalogo = {
   clientes: ['cxc', 'clientes'] as const,
   proveedores: ['cxp', 'proveedores'] as const,
   activos: ['activos', 'lista', 'todas'] as const,
+  cuentasBancarias: (soloActivas?: boolean) =>
+    ['bancos', 'cuentas', soloActivas ? 'activas' : 'todas'] as const,
   directorio: ['empresas', 'directorio'] as const,
   // Misma raíz que usa `config` para invalidar al editar la tabla.
   impuestos: (fecha?: string) =>
@@ -118,6 +121,26 @@ export function useDirectorioTerceros(habilitado: boolean) {
   })
 }
 
+/**
+ * Catálogo de cuentas bancarias (docs/06 §1).
+ *
+ * Vive aquí y no en `modules/bancos` por la regla de límites de docs/14 §3.1:
+ * lo consultan CxC al cobrar y CxP al pagar, para saber a qué cuenta entró o
+ * salió el dinero, y un módulo no importa de otro. Las claves son las mismas
+ * que usa `bancos`, así que el catálogo se descarga una vez para toda la
+ * aplicación.
+ */
+export function useCuentasBancarias(soloActivas = false) {
+  return useQuery({
+    queryKey: clavesCatalogo.cuentasBancarias(soloActivas),
+    queryFn: ({ signal }) =>
+      servicioBancos.listarCuentas({ soloActivas }, { signal }),
+    // Son tres o cuatro cuentas que cambian una vez al año, y las piden casi
+    // todas las capturas que mueven dinero.
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
 export function useCuentas() {
   return useQuery({
     queryKey: clavesCatalogo.cuentas,
@@ -141,9 +164,9 @@ export type AuxiliaresPorTipo = ReadonlyMap<AuxiliarTipo, Auxiliar[]>
  * Catálogos de auxiliares, en la forma común de `shared/auxiliares`.
  *
  * Recibe qué tipos hacen falta y solo pide esos: un asiento contra bancos y
- * gastos no tiene por qué descargar la cartera de clientes. `empleado` y
- * `banco` no aparecen porque rh y bancos aún no tienen módulo (docs/11); quien
- * los necesite recibe un mapa sin esa entrada y captura el auxiliar a mano.
+ * gastos no tiene por qué descargar la cartera de clientes. `empleado` no
+ * aparece porque rh aún no tiene módulo (docs/11); quien lo necesite recibe un
+ * mapa sin esa entrada y captura el auxiliar a mano.
  */
 export function useAuxiliares(
   tipos: readonly AuxiliarTipo[],
@@ -167,6 +190,13 @@ export function useAuxiliares(
     queryFn: ({ signal }) => servicioActivos.listar({}, { signal }),
     staleTime: 60 * 1000,
     enabled: tipos.includes('activo'),
+  })
+
+  const bancos = useQuery({
+    queryKey: clavesCatalogo.cuentasBancarias(false),
+    queryFn: ({ signal }) => servicioBancos.listarCuentas({}, { signal }),
+    staleTime: 60 * 1000,
+    enabled: tipos.includes('banco'),
   })
 
   return useMemo(() => {
@@ -207,6 +237,19 @@ export function useAuxiliares(
         activo: a.estado === 'activo' || a.estado === 'totalmente_depreciado',
       })),
     )
+    mapa.set(
+      'banco',
+      (bancos.data ?? []).map((b) => ({
+        tipo: 'banco' as const,
+        id: b.id,
+        codigo: b.codigo,
+        // El alias con el que la empresa conoce la cuenta, más el banco: es
+        // como se la busca cuando se captura un asiento a mano.
+        nombre: `${b.nombre} · ${b.banco}`,
+        identificacion: b.numeroCuenta,
+        activo: b.activa,
+      })),
+    )
     return mapa
-  }, [clientes.data, proveedores.data, activos.data])
+  }, [clientes.data, proveedores.data, activos.data, bancos.data])
 }

@@ -481,6 +481,8 @@ interface PagoSemilla {
   proveedorId: string
   fecha: string
   cuentaSalida: string
+  /** Ficha del catálogo de bancos con la que vive en el mayor (docs/06 §1). */
+  auxiliarBanco: string | null
   medioPago: MedioPago
   referencia: string | null
   aplicaciones: AplicacionSemilla[]
@@ -493,6 +495,7 @@ const PAGOS: PagoSemilla[] = [
     proveedorId: 'pro-014',
     fecha: '2026-08-04',
     cuentaSalida: '1.1.01.010',
+    auxiliarBanco: 'bco-001',
     medioPago: 'transferencia',
     referencia: 'TRF-88214',
     aplicaciones: [{ facturaId: 'fpr-4521', importe: '508500.00' }],
@@ -537,6 +540,7 @@ function construirPago(semilla: PagoSemilla): Pago {
     moneda: proveedor.moneda,
     tipoCambio: '1.00',
     cuentaSalida: semilla.cuentaSalida,
+    auxiliarBanco: semilla.auxiliarBanco,
     medioPago: semilla.medioPago,
     referencia: semilla.referencia,
     importe: aplicado.toFixed(2),

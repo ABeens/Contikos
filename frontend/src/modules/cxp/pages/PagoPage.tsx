@@ -11,7 +11,12 @@ import { formatMoney } from '@/shared/money/format'
 import { formatFecha, hoyISO } from '@/shared/format/fecha'
 import { diasVencidos } from '@/shared/cartera/antiguedad'
 import { ApiError } from '@/shared/api/client'
-import { useCuentas, usePeriodos } from '@/shared/api/catalogos'
+import { claveEfectivo, opcionesDeEfectivo } from '@/shared/cuentas/efectivo'
+import {
+  useCuentas,
+  useCuentasBancarias,
+  usePeriodos,
+} from '@/shared/api/catalogos'
 import {
   configuracionMoneda,
   monedaFuncional,
@@ -34,7 +39,6 @@ import {
   admitePago,
   armarAsientoPago,
   calcularPago,
-  cuentasDePago,
   ordenarPorVencimiento,
   repartirPorAntiguedad,
   saldoDe,
@@ -82,7 +86,7 @@ export function PagoPage() {
   const [fecha, setFecha] = useState(hoyISO)
   const [moneda, setMoneda] = useState<Moneda>(funcional)
   const [tipoCambio, setTipoCambio] = useState('1')
-  const [cuentaSalida, setCuentaSalida] = useState('')
+  const [opcionElegida, setOpcionElegida] = useState('')
   const [medioPago, setMedioPago] = useState<MedioPago>('transferencia')
   const [referencia, setReferencia] = useState('')
   const [importe, setImporte] = useState('')
@@ -92,7 +96,22 @@ export function PagoPage() {
 
   const { data: facturas = [] } = useFacturasCompra(proveedorId || undefined)
   const proveedor = proveedores.find((p) => p.id === proveedorId)
-  const opcionesCuenta = useMemo(() => cuentasDePago(cuentas), [cuentas])
+  /**
+   * De dónde sale el dinero: caja o una cuenta bancaria del catálogo.
+   *
+   * Es una sola elección y no dos. La ficha bancaria trae a la vez la cuenta de
+   * control del mayor y el auxiliar con el que vive en él (docs/06 §1); antes
+   * el auxiliar se derivaba de la posición de la cuenta en el plan.
+   */
+  const { data: cuentasBancarias = [] } = useCuentasBancarias(true)
+
+  const opcionesCuenta = useMemo(
+    () => opcionesDeEfectivo(cuentas, cuentasBancarias),
+    [cuentas, cuentasBancarias],
+  )
+  const opcion = opcionesCuenta.find((o) => claveEfectivo(o) === opcionElegida)
+  const cuentaSalida = opcion?.codigo ?? ''
+  const auxiliarBanco = opcion?.auxiliarBanco ?? null
 
   const pendientes = useMemo(
     () => ordenarPorVencimiento(facturas.filter(admitePago)),
@@ -106,6 +125,7 @@ export function PagoPage() {
       moneda,
       tipoCambio: tipoCambio || '0',
       cuentaSalida,
+      auxiliarBanco,
       medioPago,
       referencia: referencia.trim() || null,
       importe: importe || '0',
@@ -119,6 +139,7 @@ export function PagoPage() {
       moneda,
       tipoCambio,
       cuentaSalida,
+      auxiliarBanco,
       medioPago,
       referencia,
       importe,
@@ -132,6 +153,7 @@ export function PagoPage() {
       proveedor,
       facturas,
       cuentas,
+      cuentasBancarias,
       periodos,
       mapeo: mapeo ?? {
         proveedor: '',
@@ -144,7 +166,7 @@ export function PagoPage() {
       },
       monedaFuncional: funcional,
     }),
-    [proveedor, facturas, cuentas, periodos, mapeo, funcional],
+    [proveedor, facturas, cuentas, cuentasBancarias, periodos, mapeo, funcional],
   )
 
   const calculo = useMemo(
@@ -267,13 +289,14 @@ export function PagoPage() {
             {(p) => (
               <Select
                 {...p}
-                value={cuentaSalida}
-                onChange={(e) => setCuentaSalida(e.target.value)}
+                value={opcionElegida}
+                onChange={(e) => setOpcionElegida(e.target.value)}
               >
                 <option value="">Seleccione la cuenta</option>
-                {opcionesCuenta.map((c) => (
-                  <option key={c.codigo} value={c.codigo}>
-                    {c.codigo} · {c.nombre}
+                {opcionesCuenta.map((o) => (
+                  <option key={claveEfectivo(o)} value={claveEfectivo(o)}>
+                    {o.nombre}
+                    {o.moneda ? ` (${o.moneda})` : ''}
                   </option>
                 ))}
               </Select>

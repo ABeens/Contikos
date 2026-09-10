@@ -159,7 +159,9 @@ describe('tipos con catálogo', () => {
     expect(tieneCatalogo('cliente')).toBe(true)
     expect(tieneCatalogo('proveedor')).toBe(true)
     expect(tieneCatalogo('activo')).toBe(true)
+    // Bancos ya tiene módulo y su catálogo es el de las cuentas bancarias.
+    expect(tieneCatalogo('banco')).toBe(true)
+    // Y rh todavía no: su auxiliar se sigue capturando a mano.
     expect(tieneCatalogo('empleado')).toBe(false)
-    expect(tieneCatalogo('banco')).toBe(false)
   })
 })

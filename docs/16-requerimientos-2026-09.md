@@ -259,16 +259,18 @@ identificación, razón social y contacto. Nunca sus condiciones.
 Falta de multicompañía la parte que depende de que exista autenticación: usuario
 por empresa y rol por empresa, que siguen en la Fase 0 del roadmap.
 
-### 7.2 Los tres módulos pendientes
+### 7.2 Los módulos pendientes
 
 No son ajustes sino módulos completos, cada uno con su documento de diseño ya
 escrito. En orden de dependencia:
 
-**Bancos** ([06](06-modulo-bancos.md)) es el más cercano a poder empezar, pero
-necesita antes los cobros de cuentas por cobrar y los pagos de cuentas por pagar,
-que tampoco existen todavía. Sin ellos no hay movimientos que conciliar. Su
-diseño central es la separación entre lo que registra la empresa y lo que dice el
-banco, en dos tablas que se cruzan en la conciliación.
+**Bancos** ([06](06-modulo-bancos.md)) **ya está construido**, después de que
+los cobros y los pagos de esta misma tanda le dieran movimientos que conciliar.
+Su diseño central se respetó: dos tablas separadas, lo que registra la empresa y
+lo que dice el banco, que se cruzan solo en la conciliación. Con su catálogo
+desapareció además la única solución provisional que quedaba en el código, la del
+auxiliar bancario que cobros y pagos derivaban de la posición de la cuenta en el
+plan.
 
 **Recursos humanos** ([08](08-modulo-rh.md)) está bloqueado por la decisión D-06:
 calcular la nómina internamente o integrarse con un proveedor local. El propio
@@ -331,8 +333,10 @@ Ordenado por lo que más bloquea:
    como saldo, pero no como documento que se aplique después.
 4. **Cierre de ejercicio**, que completa lo que el cierre mensual empezó.
 5. **Bajas y ventas de activo**, que hoy no existen aunque la depreciación sí.
-6. **Módulo de bancos**, que ya no está bloqueado: los cobros y los pagos que le
-   faltaban existen desde esta tanda y publican lo que la conciliación necesita.
+6. ~~**Módulo de bancos**~~, construido: catálogo de cuentas, movimientos
+   propios, importación del estado de cuenta, conciliación y revaluación
+   ([06](06-modulo-bancos.md)). Lo único que queda fuera es el flujo de efectivo
+   proyectado, cuya tercera pata es la nómina.
 
 ## 10. Advertencia sobre los datos
 

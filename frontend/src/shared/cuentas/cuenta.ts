@@ -48,3 +48,21 @@ export function cuentaPorCodigo(
 ): Cuenta | undefined {
   return cuentas.find((c) => c.codigo === codigo)
 }
+
+/**
+ * Cuenta bancaria del mayor: la de control de una cuenta de `bancos`.
+ *
+ * Vive aquí por la misma razón que los tres predicados del activo fijo: la
+ * usan los dos lados de la relación. Bancos la usa para validar el mapeo de su
+ * catálogo, y CxC y CxP para saber que la cuenta de depósito o de salida que
+ * acaba de elegir el usuario exige indicar CUÁL cuenta bancaria (docs/02 §3,
+ * validación 8). Una sola definición evita que CxC considere bancaria una
+ * cuenta que bancos no, y el cobro quede con un auxiliar que su catálogo no
+ * reconoce.
+ *
+ * La caja no entra: `1.1.01.001 Caja general` es efectivo y no exige auxiliar,
+ * que es justamente lo que permite cobrar contra caja sin cuenta bancaria.
+ */
+export function esCuentaDeBanco(cuenta: Cuenta | undefined): boolean {
+  return Boolean(cuenta && cuenta.requiereAuxiliar === 'banco')
+}

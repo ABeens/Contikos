@@ -4,12 +4,12 @@ import { CircleAlert, HandCoins, Wand2 } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
 import { Field, Input, Select } from '@/shared/ui/Field'
-import { SelectorCuenta } from '@/shared/ui/SelectorCuenta'
 import { MoneyInput } from '@/shared/money/MoneyInput'
 import { MoneyCell } from '@/shared/money/MoneyCell'
 import { formatMoney } from '@/shared/money/format'
 import { formatFecha, hoyISO } from '@/shared/format/fecha'
 import { ApiError } from '@/shared/api/client'
+import { claveEfectivo, opcionesDeEfectivo } from '@/shared/cuentas/efectivo'
 import { MEDIOS_PAGO, type MedioPago } from '@/shared/api/contracts/terceros'
 import {
   configuracionMoneda,
@@ -17,7 +17,11 @@ import {
   monedasActivas,
   type Moneda,
 } from '@/shared/money/money'
-import { useCuentas, usePeriodos } from '@/shared/api/catalogos'
+import {
+  useCuentas,
+  useCuentasBancarias,
+  usePeriodos,
+} from '@/shared/api/catalogos'
 import type { SolicitudCobro } from '@/shared/api/contracts/cxc'
 import { diasVencidos } from '../domain/factura'
 import { MAPEO_VACIO } from '../domain/mapeo'
@@ -55,6 +59,7 @@ export function CobroPage() {
   const navegar = useNavigate()
   const { data: clientes = [] } = useClientes()
   const { data: cuentas = [] } = useCuentas()
+  const { data: cuentasBancarias = [] } = useCuentasBancarias(true)
   const { data: periodos = [] } = usePeriodos()
   const { data: mapeo } = useMapeoCxc()
   const registrar = useRegistrarCobro()
@@ -68,10 +73,9 @@ export function CobroPage() {
   const [medio, setMedio] = useState<MedioPago>('04')
   const [referencia, setReferencia] = useState('')
   // Vacío = todavía la del mapeo. Se resuelve al leer y no con un efecto: el
-  // mapeo llega después del primer render y sobrescribir lo ya tecleado sería
+  // mapeo llega después del primer render y sobrescribir lo ya elegido sería
   // peor que esperar.
-  const [cuentaElegida, setCuentaElegida] = useState('')
-  const [auxiliarBanco, setAuxiliarBanco] = useState('')
+  const [opcionElegida, setOpcionElegida] = useState('')
   const [importeRecibido, setImporteRecibido] = useState('')
   /** Lo aplicado a cada factura, por id. Sin entrada = no se aplica nada. */
   const [aplicado, setAplicado] = useState<Record<string, string>>({})
@@ -83,9 +87,24 @@ export function CobroPage() {
   const { data: facturas = [] } = useFacturasVenta(clienteId || undefined)
 
   const cliente = clientes.find((c) => c.id === clienteId)
-  const cuentaDeposito = cuentaElegida || mapeo?.deposito || ''
-  const cuenta = cuentas.find((c) => c.codigo === cuentaDeposito)
-  const exigeBanco = cuenta?.requiereAuxiliar === 'banco'
+
+  /**
+   * Dónde entró el dinero: caja o una cuenta bancaria del catálogo.
+   *
+   * Es una sola elección y no dos. Antes eran dos campos, la cuenta contable y
+   * el auxiliar bancario tecleado a mano, porque no había catálogo de bancos al
+   * que preguntarle. Ahora la ficha bancaria trae las dos cosas y el usuario
+   * elige una vez (docs/06 §1).
+   */
+  const opciones = useMemo(
+    () => opcionesDeEfectivo(cuentas, cuentasBancarias),
+    [cuentas, cuentasBancarias],
+  )
+  const opcion =
+    opciones.find((o) => claveEfectivo(o) === opcionElegida) ??
+    opciones.find((o) => o.codigo === mapeo?.deposito)
+  const cuentaDeposito = opcion?.codigo ?? ''
+  const auxiliarBanco = opcion?.auxiliarBanco ?? null
 
   const cobrables = useMemo(
     () => (clienteId ? facturasCobrables(facturas, clienteId) : []),
@@ -101,7 +120,7 @@ export function CobroPage() {
       medio,
       referencia: referencia.trim() || null,
       cuentaDeposito,
-      auxiliarBanco: auxiliarBanco.trim() || null,
+      auxiliarBanco,
       importeRecibido: importeRecibido || '0',
       // Solo las facturas con algo aplicado: una entrada en cero no es una
       // aplicación, es una casilla que se dejó en blanco.
@@ -129,11 +148,12 @@ export function CobroPage() {
       cliente,
       facturas,
       cuentas,
+      cuentasBancarias,
       periodos,
       mapeo: mapeo ?? MAPEO_VACIO,
       funcional,
     }),
-    [cliente, facturas, cuentas, periodos, mapeo, funcional],
+    [cliente, facturas, cuentas, cuentasBancarias, periodos, mapeo, funcional],
   )
 
   const calculo = useMemo(
@@ -349,51 +369,37 @@ export function CobroPage() {
             )}
           </Field>
 
-          {/* Sin `Field`: el buscador de cuenta lleva su propio nombre
-              accesible y no acepta un id de fuera, así que una etiqueta
-              apuntando a él quedaría huérfana. */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-slate-600">
-              Cuenta de depósito<span className="ml-0.5 text-red-500">*</span>
-            </span>
-            <SelectorCuenta
-              value={cuentaDeposito}
-              onChange={setCuentaElegida}
-              cuentas={cuentas}
-              etiqueta="Cuenta de depósito"
-              error={
-                intentoEnvio &&
-                calculo.errores.some(
-                  (e) => e.codigo === 'CUENTA_DEPOSITO_INVALIDA',
-                )
-              }
-            />
-            <p className="truncate text-xs text-slate-400">
-              {cuentaDeposito
-                ? `${cuentaDeposito} ${nombreCuenta(cuentaDeposito)}`
-                : 'Dónde entró el dinero'}
-            </p>
-          </div>
-
-          {/* Las cuentas bancarias son de control de `bancos` y exigen auxiliar
-              (docs/03 §2). Mientras ese módulo no exista se captura a mano; el
-              día que exista, este campo será un selector de su catálogo. */}
-          {exigeBanco && (
-            <Field
-              label="Cuenta bancaria"
-              requerido
-              ayuda="Se captura a mano hasta que exista el módulo de bancos"
-            >
-              {(p) => (
-                <Input
-                  {...p}
-                  value={auxiliarBanco}
-                  placeholder="bco-001"
-                  onChange={(e) => setAuxiliarBanco(e.target.value)}
-                />
-              )}
-            </Field>
-          )}
+          <Field
+            label="Cuenta de depósito"
+            requerido
+            ayuda="Dónde entró el dinero"
+            error={
+              intentoEnvio &&
+              calculo.errores.some(
+                (e) =>
+                  e.codigo === 'CUENTA_DEPOSITO_INVALIDA' ||
+                  e.codigo === 'AUXILIAR_BANCO_REQUERIDO',
+              )
+                ? 'Elija dónde entró el dinero'
+                : undefined
+            }
+          >
+            {(p) => (
+              <Select
+                {...p}
+                value={opcion ? claveEfectivo(opcion) : ''}
+                onChange={(e) => setOpcionElegida(e.target.value)}
+              >
+                <option value="">Seleccione…</option>
+                {opciones.map((o) => (
+                  <option key={claveEfectivo(o)} value={claveEfectivo(o)}>
+                    {o.nombre}
+                    {o.moneda ? ` (${o.moneda})` : ''}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
 
           {cliente && (
             <div className="flex flex-col justify-center rounded-md bg-slate-50 px-3 py-2 lg:col-span-2">

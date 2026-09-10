@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
-import Decimal from 'decimal.js'
 import {
   BookCheck,
   CircleAlert,
@@ -17,9 +16,10 @@ import type {
   ResultadoCorridaDiferidos,
   Verificacion,
 } from '@/shared/api/contracts/diferidos'
-import type { Periodo, SolicitudAsiento } from '@/shared/api/contracts/conta'
+import type { Periodo } from '@/shared/api/contracts/conta'
 import { formatFecha, formatPeriodo } from '@/shared/format/fecha'
 import { MoneyCell } from '@/shared/money/MoneyCell'
+import { AsientoPropuesto } from '@/shared/asiento/AsientoPropuesto'
 import { Button } from '@/shared/ui/Button'
 import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
 import { Field, Select } from '@/shared/ui/Field'
@@ -421,114 +421,6 @@ function TablaCorrida({ corrida }: { corrida: CorridaDiferidos }) {
 }
 
 /* ------------------------------------------------------------ Asiento */
-
-/**
- * El asiento antes de existir.
- *
- * `PanelAsiento` pinta un asiento ya emitido (con número, estado y totales
- * materializados); aquí solo hay una solicitud. Se muestra con la misma
- * disposición para que quien revisa reconozca lo que verá después en el libro.
- */
-function AsientoPropuesto({
-  asiento,
-  nombreCuenta,
-}: {
-  asiento: SolicitudAsiento
-  nombreCuenta: (codigo: string) => string
-}) {
-  const totales = useMemo(() => {
-    const sumar = (campo: 'cargo' | 'abono') =>
-      asiento.lineas
-        .reduce(
-          (acc, l) => acc.plus(new Decimal(l[campo] || '0')),
-          new Decimal(0),
-        )
-        .toFixed(2)
-    return { cargos: sumar('cargo'), abonos: sumar('abono') }
-  }, [asiento])
-
-  return (
-    <div className="overflow-x-auto">
-      <div className="flex flex-wrap gap-x-6 gap-y-1 px-4 py-2 text-sm text-slate-700">
-        <span>
-          <span className="text-[11px] text-slate-500">Fecha </span>
-          {formatFecha(asiento.fecha)}
-        </span>
-        <span>
-          <span className="text-[11px] text-slate-500">Concepto </span>
-          {asiento.concepto}
-        </span>
-        <span>
-          <span className="text-[11px] text-slate-500">Origen </span>
-          {asiento.origen
-            ? `${asiento.origen.modulo} · ${asiento.origen.tipo} · ${asiento.origen.id}`
-            : 'Captura manual'}
-        </span>
-      </div>
-      <table className="w-full text-sm" aria-label="Asiento propuesto">
-        <thead className="bg-slate-50 text-xs font-semibold text-slate-600">
-          <tr>
-            <th className="w-36 px-4 py-2 text-left">Cuenta</th>
-            <th className="px-3 py-2 text-left">Nombre</th>
-            <th className="px-3 py-2 text-left">Concepto / auxiliar</th>
-            <th className="w-36 px-3 py-2 text-right">Cargo</th>
-            <th className="w-36 px-4 py-2 text-right">Abono</th>
-          </tr>
-        </thead>
-        <tbody>
-          {asiento.lineas.map((linea, i) => (
-            <tr key={i} className="border-b border-slate-100 last:border-0">
-              <td className="px-4 py-1.5 font-mono text-xs text-slate-600">
-                {linea.cuenta}
-              </td>
-              <td className="px-3 py-1.5 text-slate-700">
-                {nombreCuenta(linea.cuenta)}
-              </td>
-              <td className="px-3 py-1.5 text-xs text-slate-500">
-                {linea.concepto}
-                {linea.auxiliarId && (
-                  <span className="ml-1 rounded bg-slate-100 px-1 py-0.5 text-[10px] text-slate-600">
-                    {linea.auxiliarTipo}: {linea.auxiliarId}
-                  </span>
-                )}
-              </td>
-              <td className="px-3 py-1.5 text-right">
-                <MoneyCell
-                  valor={linea.cargo}
-                  moneda={asiento.moneda}
-                  ocultarCero
-                />
-              </td>
-              <td className="px-4 py-1.5 text-right">
-                <MoneyCell
-                  valor={linea.abono}
-                  moneda={asiento.moneda}
-                  ocultarCero
-                />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot className="bg-slate-50 font-semibold text-slate-800">
-          <tr>
-            <td colSpan={3} className="px-4 py-2 text-right text-xs">
-              Totales
-              <span className="ml-1 font-normal text-slate-500">
-                · ambas contabilidades
-              </span>
-            </td>
-            <td className="px-3 py-2 text-right">
-              <MoneyCell valor={totales.cargos} moneda={asiento.moneda} />
-            </td>
-            <td className="px-4 py-2 text-right">
-              <MoneyCell valor={totales.abonos} moneda={asiento.moneda} />
-            </td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-  )
-}
 
 /* ---------------------------------------------------------- Historial */
 

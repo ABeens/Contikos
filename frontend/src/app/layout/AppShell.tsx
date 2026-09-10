@@ -78,7 +78,15 @@ const MODULOS: ItemMenu[] = [
     ruta: '/bancos',
     etiqueta: 'Bancos',
     icono: Landmark,
-    descripcion: 'Movimientos y conciliación',
+    descripcion: 'Cuentas, movimientos y conciliación',
+    hijos: [
+      { ruta: '/bancos', etiqueta: 'Cuentas y posición' },
+      { ruta: '/bancos/movimientos', etiqueta: 'Movimientos' },
+      { ruta: '/bancos/movimientos/nuevo', etiqueta: 'Registrar movimiento' },
+      { ruta: '/bancos/estado-cuenta', etiqueta: 'Importar estado de cuenta' },
+      { ruta: '/bancos/conciliacion', etiqueta: 'Conciliación' },
+      { ruta: '/bancos/revaluacion', etiqueta: 'Revaluación' },
+    ],
   },
   {
     ruta: '/activos',

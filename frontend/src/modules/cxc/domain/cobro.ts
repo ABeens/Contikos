@@ -13,6 +13,8 @@ import type {
   MapeoCxc,
   SolicitudCobro,
 } from '@/shared/api/contracts/cxc'
+import type { CuentaBancaria } from '@/shared/api/contracts/bancos'
+import { esCuentaDeBanco } from '@/shared/cuentas/cuenta'
 
 /**
  * Reglas del cobro de una cuenta por cobrar (docs/04 §2.2).
@@ -63,6 +65,14 @@ export interface ContextoCobro {
   /** Las facturas del cliente. Con las de todos también funciona: se filtran. */
   readonly facturas: readonly FacturaVenta[]
   readonly cuentas: readonly Cuenta[]
+  /**
+   * Catálogo de cuentas bancarias (docs/06 §1).
+   *
+   * De él sale el auxiliar de la cuenta de depósito cuando es bancaria. Antes
+   * se tecleaba a mano porque el catálogo no existía; ahora se elige, y lo que
+   * se valida es que la ficha elegida sea la de esa cuenta de control.
+   */
+  readonly cuentasBancarias: readonly CuentaBancaria[]
   readonly periodos: readonly Periodo[]
   readonly mapeo: MapeoCxc
   /** Moneda del mayor. El asiento del cobro se arma en ella (ver más abajo). */
@@ -274,19 +284,32 @@ export function validarCobro(
       codigo: 'CUENTA_DEPOSITO_INVALIDA',
       mensaje: `La cuenta ${deposito.codigo} no admite movimientos`,
     })
-  } else if (
-    deposito.requiereAuxiliar === 'banco' &&
-    !solicitud.auxiliarBanco?.trim()
-  ) {
+  } else if (esCuentaDeBanco(deposito)) {
     // Las cuentas bancarias son de control de `bancos` y exigen auxiliar
-    // (docs/03 §2). Mientras ese módulo no exista no hay catálogo al que
-    // preguntarle, así que se captura a mano; sin él, el núcleo contable
-    // rechazaría el asiento con AUXILIAR_REQUERIDO y el mensaje no diría
-    // dónde corregirlo.
-    errores.push({
-      codigo: 'AUXILIAR_BANCO_REQUERIDO',
-      mensaje: `La cuenta ${deposito.codigo} exige indicar la cuenta bancaria; use la cuenta de caja si el cobro no entró a un banco`,
-    })
+    // (docs/03 §2). Sin él, el núcleo contable rechazaría el asiento con
+    // AUXILIAR_REQUERIDO y el mensaje no diría dónde corregirlo.
+    const elegida = solicitud.auxiliarBanco?.trim()
+    const ficha = contexto.cuentasBancarias.find((b) => b.id === elegida)
+
+    if (!elegida) {
+      errores.push({
+        codigo: 'AUXILIAR_BANCO_REQUERIDO',
+        mensaje: `La cuenta ${deposito.codigo} exige indicar la cuenta bancaria; use la cuenta de caja si el cobro no entró a un banco`,
+      })
+    } else if (!ficha) {
+      errores.push({
+        codigo: 'AUXILIAR_BANCO_REQUERIDO',
+        mensaje: `La cuenta bancaria ${elegida} no existe en el catálogo`,
+      })
+    } else if (ficha.cuentaContable !== deposito.codigo) {
+      // La correspondencia entre cuenta bancaria y cuenta de control es uno a
+      // uno (docs/06 §1). Aceptar una ficha que no es la de esta cuenta dejaría
+      // el auxiliar de bancos apuntando a un saldo que su control no explica.
+      errores.push({
+        codigo: 'AUXILIAR_BANCO_REQUERIDO',
+        mensaje: `La cuenta bancaria ${ficha.codigo} se lleva en ${ficha.cuentaContable} y el cobro entró en ${deposito.codigo}`,
+      })
+    }
   }
 
   /* --------------------------------------------- Reparto a las facturas */

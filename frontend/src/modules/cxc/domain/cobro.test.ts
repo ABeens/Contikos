@@ -3,6 +3,7 @@ import Decimal from 'decimal.js'
 import { CUENTAS } from '@/mocks/seed/cuentas'
 import { PERIODOS } from '@/mocks/seed/periodos'
 import { MAPEO_CXC } from '@/mocks/seed/cxc'
+import { cuentasBancariasMock } from '@/mocks/seed/bancos'
 import type {
   Cliente,
   FacturaVenta,
@@ -92,6 +93,15 @@ function factura(cambios: Partial<FacturaVenta> = {}): FacturaVenta {
   }
 }
 
+/** Las fichas con sus derivados en cero: la validación solo mira el mapeo. */
+const CUENTAS_BANCARIAS = cuentasBancariasMock.map((c) => ({
+  ...c,
+  cuentaContableNombre: c.cuentaContable,
+  saldoLibros: '0.00',
+  movimientos: 0,
+  movimientosSinConciliar: 0,
+}))
+
 function contexto(
   facturas: readonly FacturaVenta[],
   cliente: Cliente | undefined = CLIENTE,
@@ -100,6 +110,9 @@ function contexto(
     cliente,
     facturas,
     cuentas: CUENTAS,
+    // El catálogo de bancos de la demo: de él sale el auxiliar de la cuenta de
+    // depósito, que antes se tecleaba a mano (docs/06 §1).
+    cuentasBancarias: CUENTAS_BANCARIAS,
     periodos: PERIODOS,
     mapeo: MAPEO_CXC,
     funcional: 'CRC',

@@ -2,7 +2,9 @@
 
 Qué queda por construir, en qué orden y por qué. Escrito tras cerrar los
 requerimientos de [16](16-requerimientos-2026-09.md), cuando el mapa cambió: dos
-de los tres módulos pendientes dejaron de estar bloqueados.
+de los tres módulos pendientes dejaron de estar bloqueados. **Bancos ya se
+construyó**; el documento se mantiene al día en vez de reescribirse, para que se
+vea qué se planificó y qué salió de otra manera.
 
 Este documento planifica. El diseño de cada módulo ya existe y no se repite aquí:
 [06 bancos](06-modulo-bancos.md), [09 reportes](09-modulo-reportes.md),
@@ -23,6 +25,7 @@ Lo que hay hoy y que condiciona todo lo que sigue:
 | Balanza y balanza comparativa | La base del módulo de reportes ya está probada |
 | Trazabilidad bidireccional | El drill-down de reportes no hay que inventarlo |
 | Multiempresa | Todo lo nuevo nace aislado por empresa sin esfuerzo extra |
+| Tesorería, conciliada | El Flujo de Efectivo ya tiene contra qué verificarse |
 
 Lo que **no** hay y que sí bloquea: **autenticación y control de acceso por rol**.
 Sigue en la Fase 0 del [roadmap](11-roadmap.md), sin empezar. Ver §6.
@@ -30,33 +33,40 @@ Sigue en la Fase 0 del [roadmap](11-roadmap.md), sin empezar. Ver §6.
 ## 2. Orden recomendado
 
 ```
-Reportes E1-E2  ──►  Bancos completo  ──►  Reportes E3-E8
-   (2 sprints)         (el más grande)        (lo que faltaba)
-                              │
-                              ▼
-                    Auth y RBAC  ──►  RH  ──►  Inventarios
-                                              (solo tras su ADR)
+Bancos completo  ──►  Reportes E1-E8
+   (hecho)              (lo siguiente)
+        │
+        ▼
+Auth y RBAC  ──►  RH  ──►  Inventarios
+                          (solo tras su ADR)
 ```
 
-**Por qué reportes primero, pero solo su primera parte.** El Balance General y el
-Estado de Resultados no dependen de nada que falte: la clasificación NIIF ya está
-capturada en cada cuenta de detalle y hoy no produce nada visible. Es el trabajo
-con mayor valor por unidad de esfuerzo que queda en el sistema, y es de solo
-lectura, así que no puede romper nada.
+> **Nota de setiembre de 2026:** el orden se invirtió. El plan proponía empezar
+> por la primera parte de reportes y dejar bancos para después; se hizo bancos
+> primero, entero. La razón de fondo del orden original sigue en pie, y ahora
+> juega a favor: el Estado de Flujo de Efectivo se verifica contra los saldos de
+> las cuentas de efectivo, y esos saldos ya existen y ya están conciliados.
 
-**Por qué bancos después y entero.** Cierra un agujero real: cobros y pagos
-dejaron el auxiliar de cuenta bancaria resuelto de forma provisional porque su
-catálogo no existe. Bancos lo crea y esa provisionalidad desaparece. Además el
-Estado de Flujo de Efectivo, que es el reporte más difícil de cuadrar, se verifica
-contra los saldos de las cuentas de efectivo: construirlo antes de bancos sería
-construirlo sin poder comprobarlo.
+**Por qué bancos fue primero y entero.** Cerraba un agujero real: cobros y pagos
+tenían el auxiliar de cuenta bancaria resuelto de forma provisional porque su
+catálogo no existía. El catálogo lo eliminó. Y el Estado de Flujo de Efectivo,
+que es el reporte más difícil de cuadrar, se verifica contra los saldos de las
+cuentas de efectivo: construirlo antes de bancos habría sido construirlo sin
+poder comprobarlo.
 
-**Por qué el resto de reportes al final.** Flujo de Efectivo y las exportaciones
-fiscales necesitan que el ciclo del dinero esté completo.
+**Por qué reportes ahora, empezando por su primera parte.** El Balance General y
+el Estado de Resultados no dependen de nada que falte: la clasificación NIIF ya
+está capturada en cada cuenta de detalle y hoy no produce nada visible. Es el
+trabajo con mayor valor por unidad de esfuerzo que queda en el sistema, y es de
+solo lectura, así que no puede romper nada.
+
+**Por qué las exportaciones fiscales al final.** Necesitan la interfaz de
+localización fiscal, que es otro frente.
 
 ## 3. Bancos
 
-**Estado:** desbloqueado. Es el siguiente módulo grande.
+**Estado: construido.** Se hizo entero salvo la etapa 7, el flujo de efectivo
+proyectado, que consulta a CxC, CxP y RH, y RH no existe.
 **Diseño:** [06-modulo-bancos](06-modulo-bancos.md), completo y sin decisiones
 abiertas.
 
@@ -77,26 +87,34 @@ conciliar.
 | 6 | Revaluación de moneda extranjera al cierre | Se engancha en el checklist de cierre que ya existe |
 | 7 | Flujo de efectivo proyectado | Solo lectura, consulta a CxC, CxP y RH por su API |
 
-La etapa 1 tiene un efecto inmediato fuera de bancos: en cuanto exista el
-catálogo, hay que volver a cobros y pagos y sustituir la solución provisional del
-auxiliar bancario. Está marcada en el código con un comentario que lo explica.
+Las seis primeras están hechas. La séptima espera a `rh`: sin la nómina
+proyectada, la posición a futuro que enseñaría estaría sistemáticamente por
+encima de la real, que es la peor forma de equivocarse en una proyección de caja.
 
-### Riesgos
+El efecto que la etapa 1 tenía fuera de bancos ya se consumó: cobros y pagos
+capturan la cuenta bancaria del catálogo, y de ella salen el código contable y el
+auxiliar. `auxiliarBancoDe`, que lo derivaba de la posición de la cuenta en el
+plan, se borró.
 
-- **El emparejamiento automático en cascada.** La cuarta regla, sumar varios
-  movimientos propios contra uno del banco, es la que más falsos positivos
-  produce. El diseño ya pide que exija confirmación. No la construyas silenciosa.
-- **Los parsers por banco.** Cada banco exporta distinto y es trabajo que no
-  termina nunca. Una interfaz común desde el primer parser, y CSV genérico como
-  respaldo para cuando aparezca un formato nuevo.
-- **La detección de duplicados** al recargar el mismo archivo o al traslapar
-  fechas. Barato si se diseña desde el principio, caro después.
+### Riesgos, y qué se hizo con cada uno
+
+- **El emparejamiento automático en cascada.** La cuarta regla sale marcada como
+  `requiereConfirmacion` y el botón de aceptar en bloque solo toca las tres
+  primeras. Además cada regla consume los movimientos que casa, para que la
+  floja no se coma lo que la estricta habría casado bien.
+- **Los parsers por banco.** Hay una interfaz, `ParserEstadoCuenta`, y un solo
+  lector detrás: el CSV genérico. Añadir el de un banco concreto es añadirlo a
+  una lista; ni la deduplicación ni la conciliación lo conocen.
+- **La detección de duplicados.** Por huella
+  `(cuenta, fecha de operación, importe, referencia)`, y también dentro del
+  propio archivo. Recargar el mismo estado de cuenta no duplica nada y lo dice.
 
 ### Qué queda fuera
 
 La integración bancaria por API, que el propio diseño declara fuera de alcance.
-Conviene igualmente que la importación quede tras una interfaz que un día pueda
-tener implementación por API sin tocar el resto.
+La importación quedó tras la misma interfaz que un día podrá tener una
+implementación por API sin tocar el resto: lo que cambiaría es de dónde sale el
+texto, no qué se hace con las filas.
 
 ## 4. Reportes
 
@@ -262,8 +280,9 @@ de Resultados**, la primera etapa de reportes. No está bloqueada por nada, es d
 solo lectura, y es lo que hace visible el trabajo de clasificación NIIF que ya
 está capturado en cada cuenta.
 
-Si hay que elegir un módulo entero: **bancos**, porque cierra el ciclo del dinero
-y elimina la única solución provisional que quedó en el código.
+Bancos ya está: cerró el ciclo del dinero y se llevó por delante la única
+solución provisional que quedaba en el código. Lo que dejó pendiente es una sola
+cosa, el flujo de efectivo proyectado, y espera a la nómina.
 
 Y una decisión que conviene tomar pronto aunque no se vaya a construir todavía:
 **D-06**, porque de ella depende que recursos humanos sea un módulo mediano o un

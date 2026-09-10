@@ -26,6 +26,12 @@ import { ActivosPage } from '@/modules/activos/pages/ActivosPage'
 import { AltaActivoPage } from '@/modules/activos/pages/AltaActivoPage'
 import { CategoriasPage } from '@/modules/activos/pages/CategoriasPage'
 import { DepreciacionPage } from '@/modules/activos/pages/DepreciacionPage'
+import { CuentasBancariasPage } from '@/modules/bancos/pages/CuentasBancariasPage'
+import { MovimientosPage } from '@/modules/bancos/pages/MovimientosPage'
+import { MovimientoPage } from '@/modules/bancos/pages/MovimientoPage'
+import { ImportacionPage } from '@/modules/bancos/pages/ImportacionPage'
+import { ConciliacionPage } from '@/modules/bancos/pages/ConciliacionPage'
+import { RevaluacionPage } from '@/modules/bancos/pages/RevaluacionPage'
 import { DiferidosPage } from '@/modules/diferidos/pages/DiferidosPage'
 import { AltaDiferidoPage } from '@/modules/diferidos/pages/AltaDiferidoPage'
 import { AmortizacionPage } from '@/modules/diferidos/pages/AmortizacionPage'
@@ -108,28 +114,14 @@ export const rutas: RouteObject[] = [
       { path: 'diferidos/amortizacion', element: <AmortizacionPage /> },
 
       // ------------------------------------------------ módulos pendientes
-      {
-        path: 'bancos',
-        element: (
-          <ModuloPendientePage
-            titulo="Bancos"
-            fase="Fase 4 del roadmap"
-            descripcion="Tesorería y conciliación bancaria."
-            alcance={[
-              'Cuentas en colones y dólares',
-              'Importación de estados de cuenta con detección de duplicados',
-              'Emparejamiento automático en cascada y conciliación manual',
-              'Partidas conciliatorias y cierre con diferencia cero',
-              'Revaluación de saldos en moneda extranjera',
-            ]}
-            asientos={[
-              'Comisiones e intereses',
-              'Traspasos entre cuentas propias',
-              'Revaluación cambiaria al cierre',
-            ]}
-          />
-        ),
-      },
+      // ----------------------------------------------------------- bancos
+      { path: 'bancos', element: <CuentasBancariasPage /> },
+      { path: 'bancos/movimientos', element: <MovimientosPage /> },
+      { path: 'bancos/movimientos/nuevo', element: <MovimientoPage /> },
+      { path: 'bancos/estado-cuenta', element: <ImportacionPage /> },
+      { path: 'bancos/conciliacion', element: <ConciliacionPage /> },
+      { path: 'bancos/revaluacion', element: <RevaluacionPage /> },
+
       {
         path: 'rh',
         element: (

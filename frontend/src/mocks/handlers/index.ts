@@ -4,6 +4,9 @@ import { handlersConta } from './conta'
 import { handlersCxc } from './cxc'
 import { handlersCxp } from './cxp'
 import { handlersActivos } from './activos'
+import { handlersBancos } from './bancos'
+import { handlersBancosConciliacion } from './bancosConciliacion'
+import { handlersBancosRevaluacion } from './bancosRevaluacion'
 import { handlersDiferidos } from './diferidos'
 import { guardiaEmpresa, handlersEmpresas } from './empresas'
 
@@ -23,6 +26,9 @@ export const handlers = [
   ...handlersCxc,
   ...handlersCxp,
   ...handlersActivos,
+  ...handlersBancos,
+  ...handlersBancosConciliacion,
+  ...handlersBancosRevaluacion,
   ...handlersDiferidos,
 ]
 
@@ -35,5 +41,8 @@ export {
   handlersCxc,
   handlersCxp,
   handlersActivos,
+  handlersBancos,
+  handlersBancosConciliacion,
+  handlersBancosRevaluacion,
   handlersDiferidos,
 }

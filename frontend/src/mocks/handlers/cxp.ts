@@ -1,3 +1,4 @@
+import Decimal from 'decimal.js'
 import { http, HttpResponse } from 'msw'
 import { rutaApi } from '@/shared/api/entorno'
 import { latencia } from '../latencia'
@@ -62,6 +63,11 @@ import {
   type AdjuntoAlmacenado,
 } from '../seed/cxp'
 import { asientosMock, emitirAsiento, reversarAsiento } from './conta'
+import {
+  cuentasBancariasServidas,
+  eliminarMovimientoExterno,
+  registrarMovimientoExterno,
+} from './bancos'
 import {
   categoriaPorId,
   categoriasServidas,
@@ -157,6 +163,7 @@ function contextoPago(proveedorId: string): ContextoPago {
     proveedor: base ? serializar(base) : undefined,
     facturas,
     cuentas: CUENTAS,
+    cuentasBancarias: cuentasBancariasServidas(),
     periodos: PERIODOS,
     mapeo: MAPEO_CXP,
     monedaFuncional: monedaFuncional(),
@@ -587,6 +594,7 @@ export const handlersCxp = [
       moneda: solicitud.moneda,
       tipoCambio: solicitud.tipoCambio,
       cuentaSalida: solicitud.cuentaSalida,
+      auxiliarBanco: solicitud.auxiliarBanco?.trim() || null,
       medioPago: solicitud.medioPago,
       referencia: solicitud.referencia?.trim() || null,
       importe: new Money(solicitud.importe, solicitud.moneda).toApi(),
@@ -604,6 +612,30 @@ export const handlersCxp = [
 
     pagos.push(pago)
     persistirPagos()
+
+    /*
+     * El retiro llega a tesorería (docs/06 §2.1).
+     *
+     * No genera asiento: el que se emitió arriba ya reconoció la salida de
+     * efectivo, y volver a contabilizarla duplicaría el egreso. Lo que hace es
+     * dejar el movimiento en el auxiliar de bancos para que la conciliación
+     * tenga contra qué cruzar el cargo cuando llegue el estado de cuenta. El
+     * importe va en negativo porque sale, que es el criterio de signo del
+     * auxiliar. Contra caja no se publica nada: la caja no se concilia con un
+     * banco, se arquea.
+     */
+    if (pago.auxiliarBanco) {
+      registrarMovimientoExterno({
+        cuentaBancariaId: pago.auxiliarBanco,
+        fecha: pago.fecha,
+        importe: new Decimal(pago.importe).negated().toFixed(2),
+        concepto: `Pago ${pago.folio} · ${pago.proveedorNombre}`,
+        referencia: pago.referencia,
+        origen: { modulo: 'cxp', tipo: 'pago', id: pago.id },
+        asientoId: emision.asiento.id,
+      })
+    }
+
     return HttpResponse.json(pago, { status: 201 })
   }),
 
@@ -674,6 +706,13 @@ export const handlersCxp = [
       if (devuelto.esPositivo()) factura.estado = 'contabilizada'
     }
     persistirFacturasCompra()
+
+    // El movimiento bancario se va con el asiento que lo explicaba. Si ya
+    // estaba conciliado no se toca: el banco sí registró ese cargo, y lo que
+    // corresponde entonces es una devolución, que es otro movimiento.
+    if (pago.auxiliarBanco) {
+      eliminarMovimientoExterno('cxp', 'pago', pago.id)
+    }
 
     pago.estado = 'anulado'
     pago.anuladoEn = new Date().toISOString()

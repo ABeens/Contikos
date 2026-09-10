@@ -72,6 +72,23 @@ export interface ContextoCierre {
     /** Cuántos activos se depreciarían en el periodo. Cero: nada que correr. */
     readonly activosDepreciables: number
   }
+  /**
+   * Estado de la tesorería al cierre (docs/06 §2.3 y §6).
+   *
+   * Llega calculado por la misma razón que la depreciación: `conta` no conoce a
+   * `bancos`, y quien arma el contexto sí puede mirar el auxiliar bancario y la
+   * terna de origen de la revaluación.
+   */
+  readonly bancos: {
+    /** Movimientos propios sin conciliar hasta el fin del periodo. */
+    readonly movimientosSinConciliar: number
+    /** Cuentas bancarias con algo sin conciliar. Cero: todo cuadrado. */
+    readonly cuentasSinConciliar: number
+    /** true si la revaluación del periodo ya tiene su asiento. */
+    readonly revaluacionContabilizada: boolean
+    /** Cuentas activas en moneda extranjera. Cero: nada que revaluar. */
+    readonly cuentasEnMonedaExtranjera: number
+  }
 }
 
 export interface ResultadoCierre {
@@ -382,28 +399,74 @@ function comprobarDepreciacion(
   )
 }
 
+/** 7 — las cuentas bancarias están conciliadas (docs/03 §5, docs/06 §2.3). */
+function comprobarConciliacion(
+  periodo: Periodo,
+  contexto: ContextoCierre,
+): VerificacionCierre {
+  const { movimientosSinConciliar, cuentasSinConciliar } = contexto.bancos
+
+  if (movimientosSinConciliar === 0) {
+    return verificacion(
+      'BANCOS_SIN_CONCILIAR',
+      'ok',
+      'Las cuentas bancarias están conciliadas',
+    )
+  }
+
+  // Aviso y no error, igual que la depreciación: hay meses en que el estado de
+  // cuenta llega después del cierre, y la empresa puede decidir cerrar con
+  // partidas en tránsito. Lo que no puede es no enterarse.
+  return verificacion(
+    'BANCOS_SIN_CONCILIAR',
+    'aviso',
+    `Quedan ${movimientosSinConciliar} movimientos sin conciliar al cerrar ${etiquetaPeriodo(periodo)}`,
+    `En ${cuentasSinConciliar} cuenta${cuentasSinConciliar === 1 ? '' : 's'} bancaria${cuentasSinConciliar === 1 ? '' : 's'}`,
+  )
+}
+
+/** 8 — la revaluación en moneda extranjera corrió (docs/06 §6). */
+function comprobarRevaluacion(
+  periodo: Periodo,
+  contexto: ContextoCierre,
+): VerificacionCierre {
+  const { revaluacionContabilizada, cuentasEnMonedaExtranjera } = contexto.bancos
+
+  if (revaluacionContabilizada) {
+    return verificacion(
+      'REVALUACION_PENDIENTE',
+      'ok',
+      `La revaluación de ${etiquetaPeriodo(periodo)} está contabilizada`,
+    )
+  }
+  if (cuentasEnMonedaExtranjera === 0) {
+    return verificacion(
+      'REVALUACION_PENDIENTE',
+      'ok',
+      'No hay cuentas en moneda extranjera que revaluar',
+    )
+  }
+  return verificacion(
+    'REVALUACION_PENDIENTE',
+    'aviso',
+    `La revaluación de ${etiquetaPeriodo(periodo)} no está contabilizada`,
+    `${cuentasEnMonedaExtranjera} cuenta${cuentasEnMonedaExtranjera === 1 ? '' : 's'} en moneda extranjera se revaluaría${cuentasEnMonedaExtranjera === 1 ? '' : 'n'}`,
+  )
+}
+
 /**
- * 7, 8 y 9 — los puntos del checklist que todavía no tienen módulo.
+ * 9 — el punto del checklist que todavía no tiene módulo.
  *
- * Se declaran desde ahora, en `ok` y con el detalle que lo explica, para que el
+ * Se declara desde ahora, en `ok` y con el detalle que lo explica, para que el
  * checklist de docs/03 §5 esté completo en pantalla: el día que exista nómina,
- * bancos o revaluación, lo único que cambia es de dónde sale la severidad. Un
- * checklist al que le faltan tres puntos enseña un cierre más limpio de lo que
- * es.
+ * lo único que cambia es de dónde sale la severidad. Un checklist al que le
+ * falta un punto enseña un cierre más limpio de lo que es.
  */
 const PENDIENTES_DE_MODULO: readonly {
   codigo: CodigoVerificacionCierre
   mensaje: string
 }[] = [
   { codigo: 'NOMINA_PENDIENTE', mensaje: 'La nómina del mes está contabilizada' },
-  {
-    codigo: 'BANCOS_SIN_CONCILIAR',
-    mensaje: 'Las cuentas bancarias están conciliadas',
-  },
-  {
-    codigo: 'REVALUACION_PENDIENTE',
-    mensaje: 'La revaluación de saldos en moneda extranjera corrió',
-  },
 ]
 
 /* ------------------------------------------------------ El checklist */
@@ -422,6 +485,8 @@ export function verificarCierre(
     ),
     comprobarAuxiliares(periodo, contexto),
     comprobarDepreciacion(periodo, contexto),
+    comprobarConciliacion(periodo, contexto),
+    comprobarRevaluacion(periodo, contexto),
     ...PENDIENTES_DE_MODULO.map((p) =>
       verificacion(p.codigo, 'ok', p.mensaje, 'El módulo aún no existe'),
     ),

@@ -3,6 +3,17 @@
 Efectivo y equivalentes: dónde está el dinero, qué se movió y si el mayor
 coincide con lo que dice el banco.
 
+> **Estado: construido**, salvo el flujo de efectivo proyectado del §3, cuya
+> tercera pata es la nómina proyectada y espera a que exista `rh`. La
+> integración bancaria directa del §7 sigue fuera de alcance por decisión, no
+> por falta de tiempo.
+>
+> Con el catálogo de cuentas bancarias desapareció la solución provisional que
+> cobros y pagos usaban para el auxiliar `banco`: lo derivaban de la posición de
+> la cuenta entre las bancarias del plan. Ahora la ficha del catálogo trae las
+> dos cosas que el asiento necesita, el código contable y el auxiliar, y elegir
+> de dónde entra o sale el dinero volvió a ser una sola decisión.
+
 ## 1. Entidades
 
 ```

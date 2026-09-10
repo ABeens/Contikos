@@ -90,6 +90,14 @@ import { monedaFuncionalMock } from '../seed/monedas'
 import { clientesMock } from '../seed/cxc'
 import { proveedoresMock } from '../seed/cxp'
 import { activosMock } from '../seed/activos'
+import {
+  cuentasBancariasMock,
+  movimientosBancariosMock,
+} from '../seed/bancos'
+import {
+  origenRevaluacion,
+  TIPO_ORIGEN_REVALUACION,
+} from '@/modules/bancos/domain/revaluacion'
 
 /**
  * Nombre de la ficha a la que apunta `auxiliarId`.
@@ -110,7 +118,9 @@ function nombreAuxiliar(
       return proveedoresMock.find((p) => p.id === id)?.razonSocial ?? null
     case 'activo':
       return activosMock.find((a) => a.id === id)?.nombre ?? null
-    // empleado y banco todavía no tienen catálogo (docs/11).
+    case 'banco':
+      return cuentasBancariasMock.find((b) => b.id === id)?.nombre ?? null
+    // empleado todavía no tiene catálogo (docs/11).
     default:
       return null
   }
@@ -317,6 +327,20 @@ function contextoCierre(periodo: Periodo): ContextoCierre {
       new Decimal(a.valorEnLibros).greaterThan(new Decimal(a.valorResidual)),
   ).length
 
+  /*
+   * La parte de tesorería, por la misma razón que la de activos: `conta` no
+   * conoce a `bancos` y el mock sí tiene delante su auxiliar.
+   *
+   * Se lee de las colecciones y no de los handlers de bancos a propósito:
+   * aquellos importan `emitirAsiento` de aquí, y hacerlo al revés crearía una
+   * dependencia circular entre los dos módulos del mock.
+   */
+  const sinConciliar = movimientosBancariosMock.filter(
+    (m) => m.fecha <= periodo.fechaFin && m.estado === 'registrado',
+  )
+  const funcional = monedaFuncionalMock()
+  const origenRev = origenRevaluacion(periodo.id)
+
   return {
     periodos: PERIODOS,
     asientos,
@@ -325,6 +349,21 @@ function contextoCierre(periodo: Periodo): ContextoCierre {
     // cuenta: recibe la fecha y así dos llamadas seguidas comparan lo mismo.
     fechaReferencia: hoyISO(),
     depreciacion: { contabilizada, activosDepreciables },
+    bancos: {
+      movimientosSinConciliar: sinConciliar.length,
+      cuentasSinConciliar: new Set(
+        sinConciliar.map((m) => m.cuentaBancariaId),
+      ).size,
+      revaluacionContabilizada: asientos.some(
+        (a) =>
+          a.origenModulo === 'bancos' &&
+          a.origenTipo === TIPO_ORIGEN_REVALUACION &&
+          a.origenId === origenRev,
+      ),
+      cuentasEnMonedaExtranjera: cuentasBancariasMock.filter(
+        (c) => c.activa && c.moneda !== funcional,
+      ).length,
+    },
   }
 }
 

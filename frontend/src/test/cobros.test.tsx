@@ -116,9 +116,9 @@ describe('Cobro de cuentas por cobrar', () => {
 
     await seleccionar(usuario, /^Cliente/, CLIENTE)
     await escribir(usuario, /Fecha del cobro/, FECHA_COBRO)
-    // La cuenta de depósito por defecto es la bancaria, que es de control de
-    // `bancos` y exige auxiliar. Mientras ese módulo no exista se captura.
-    await escribir(usuario, /Cuenta bancaria/, 'bco-001')
+    // La cuenta de depósito por defecto es la bancaria del mapeo. Elegirla es
+    // una sola decisión: la ficha del catálogo de bancos trae a la vez la
+    // cuenta de control y el auxiliar con el que vive en el mayor (docs/06 §1).
     await escribir(usuario, /Importe recibido/, '2000000')
     await usuario.tab()
 

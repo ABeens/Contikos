@@ -30,7 +30,7 @@ bien. Conviene tenerla temprano aunque sea en versión mínima.
 
 Antes de cualquier módulo:
 
-- [ ] Decidir stack y país ([12-decisiones-pendientes](12-decisiones-pendientes.md))
+- [x] Decidir stack y país ([12-decisiones-pendientes](12-decisiones-pendientes.md))
 - [ ] Estructura del repositorio y de módulos
 - [ ] Base de datos, migraciones, entorno local
 - [ ] Autenticación y RBAC por empresa
@@ -99,16 +99,16 @@ tener cinco módulos construidos sobre él.
 
 ### Fase 4 — Bancos
 
-- [ ] Cuentas bancarias
-- [ ] Movimientos propios y desde otros módulos
-- [ ] Comisiones, intereses, traspasos
-- [ ] Importación de estado de cuenta (CSV/Excel primero)
-- [ ] Emparejamiento automático en cascada
-- [ ] Conciliación manual y partidas conciliatorias
-- [ ] Cierre de conciliación con verificación de diferencia cero
-- [ ] Revaluación de moneda extranjera
-- [ ] Posición de tesorería
-- [ ] Flujo de efectivo proyectado
+- [x] Cuentas bancarias
+- [x] Movimientos propios y desde otros módulos
+- [x] Comisiones, intereses, traspasos
+- [x] Importación de estado de cuenta (CSV genérico, tras una interfaz por banco)
+- [x] Emparejamiento automático en cascada
+- [x] Conciliación manual y partidas conciliatorias
+- [x] Cierre de conciliación con verificación de diferencia cero
+- [x] Revaluación de moneda extranjera, enganchada al checklist de cierre
+- [x] Posición de tesorería
+- [ ] Flujo de efectivo proyectado — su tercera pata es la nómina, que no existe
 
 ### Fase 5 — Reportes
 

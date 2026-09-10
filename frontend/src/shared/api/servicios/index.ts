@@ -27,6 +27,7 @@
  */
 
 export { servicioActivos } from './activos'
+export { servicioBancos } from './bancos'
 export { servicioConfig } from './config'
 export { servicioConta } from './conta'
 export { servicioCxc } from './cxc'

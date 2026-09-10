@@ -43,9 +43,8 @@ export interface SelectorAuxiliarProps {
  * valor: el navegador filtra por las dos, pero solo el valor queda escrito en
  * el campo al elegir.
  *
- * Los tipos sin catálogo (`empleado`, `banco`, mientras rh y bancos no existan)
- * caen a un campo de texto: es lo que había, y sigue siendo mejor que no poder
- * capturar la línea.
+ * Los tipos sin catálogo (`empleado`, mientras rh no exista) caen a un campo de
+ * texto: es lo que había, y sigue siendo mejor que no poder capturar la línea.
  */
 export function SelectorAuxiliar({
   tipo,

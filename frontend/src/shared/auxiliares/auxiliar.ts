@@ -40,7 +40,12 @@ export interface Auxiliar {
  * que todavía no existen (docs/11). Mientras no haya a quién preguntarle, esos
  * dos se capturan a mano en vez de quedarse sin campo.
  */
-export const TIPOS_CON_CATALOGO = ['cliente', 'proveedor', 'activo'] as const
+export const TIPOS_CON_CATALOGO = [
+  'cliente',
+  'proveedor',
+  'activo',
+  'banco',
+] as const
 
 export type TipoConCatalogo = (typeof TIPOS_CON_CATALOGO)[number]
 
