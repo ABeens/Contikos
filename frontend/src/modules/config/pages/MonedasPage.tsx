@@ -1,18 +1,11 @@
 import { useState } from 'react'
 import Decimal from 'decimal.js'
-import {
-  CircleAlert,
-  Pencil,
-  Plus,
-  RefreshCw,
-  Star,
-  Trash2,
-} from 'lucide-react'
+import { Pencil, Plus, RefreshCw, Star, Trash2 } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
-import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
-import { Dialogo } from '@/shared/ui/Dialogo'
+import { Card, CardHeader, EstadoError, PageHeader } from '@/shared/ui/Layout'
+import { DialogoConfirmacion } from '@/shared/ui/DialogoConfirmacion'
+import { MensajeError } from '@/shared/ui/MensajeError'
 import { formatConConfig } from '@/shared/money/format'
-import { ApiError } from '@/shared/api/client'
 import type { MonedaConfig } from '@/shared/api/contracts/config'
 import { DialogoMoneda } from '../components/DialogoMoneda'
 import { DialogoTipoCambio } from '../components/DialogoTipoCambio'
@@ -28,7 +21,8 @@ import {
 const EJEMPLO = new Decimal('1234567.89')
 
 export function MonedasPage() {
-  const { data: monedas = [], isLoading } = useMonedas()
+  const consulta = useMonedas()
+  const { data: monedas = [], isLoading } = consulta
   const guardar = useGuardarMoneda()
   const establecerFuncional = useEstablecerMonedaFuncional()
   const eliminar = useEliminarMoneda()
@@ -37,31 +31,71 @@ export function MonedasPage() {
   const [creando, setCreando] = useState(false)
   const [porEliminar, setPorEliminar] = useState<MonedaConfig | null>(null)
   const [porDesignar, setPorDesignar] = useState<MonedaConfig | null>(null)
+  const [porDesactivar, setPorDesactivar] = useState<MonedaConfig | null>(null)
   const [tipoCambioAbierto, setTipoCambioAbierto] = useState(false)
 
   const ocupado =
     guardar.isPending || establecerFuncional.isPending || eliminar.isPending
 
-  const error = [guardar.error, establecerFuncional.error, eliminar.error].find(
-    (e): e is ApiError => e instanceof ApiError,
-  )
-
-  const alternarActiva = (moneda: MonedaConfig) =>
-    guardar.mutate({
-      moneda: { ...aSolicitud(moneda), activa: !moneda.activa },
-      creando: false,
-    })
-
-  const confirmarEliminacion = async () => {
-    if (!porEliminar) return
-    await eliminar.mutateAsync(porEliminar.codigo)
-    setPorEliminar(null)
+  const alternarActiva = (moneda: MonedaConfig, alTerminar?: () => void) => {
+    guardar.reset()
+    guardar.mutate(
+      {
+        moneda: { ...aSolicitud(moneda), activa: !moneda.activa },
+        creando: false,
+      },
+      { onSuccess: alTerminar },
+    )
   }
 
-  const confirmarFuncional = async () => {
+  // Desactivar se confirma: la moneda deja de ofrecerse en toda la captura.
+  // Activar no hace daño y va directo.
+  const pedirAlternar = (moneda: MonedaConfig) => {
+    if (!moneda.activa) {
+      alternarActiva(moneda)
+      return
+    }
+    guardar.reset()
+    setPorDesactivar(moneda)
+  }
+
+  // Las confirmaciones usan `mutate` y enseñan el error dentro del diálogo.
+  // Antes el error se pintaba en la página, tapado por el overlay, y el
+  // `mutateAsync` sin `catch` dejaba una promesa rechazada sin atender.
+  const confirmarEliminacion = () => {
+    if (!porEliminar) return
+    eliminar.mutate(porEliminar.codigo, {
+      onSuccess: () => setPorEliminar(null),
+    })
+  }
+
+  const confirmarFuncional = () => {
     if (!porDesignar) return
-    await establecerFuncional.mutateAsync(porDesignar.codigo)
+    establecerFuncional.mutate(porDesignar.codigo, {
+      onSuccess: () => setPorDesignar(null),
+    })
+  }
+
+  const confirmarDesactivacion = () => {
+    if (!porDesactivar) return
+    alternarActiva(porDesactivar, () => setPorDesactivar(null))
+  }
+
+  // Al cerrar, el error se olvida: si no, reabrir la confirmación de otra
+  // moneda enseñaría el fallo de la anterior.
+  const cerrarEliminacion = () => {
+    setPorEliminar(null)
+    eliminar.reset()
+  }
+
+  const cerrarDesignacion = () => {
     setPorDesignar(null)
+    establecerFuncional.reset()
+  }
+
+  const cerrarDesactivacion = () => {
+    setPorDesactivar(null)
+    guardar.reset()
   }
 
   return (
@@ -88,13 +122,10 @@ export function MonedasPage() {
         }
       />
 
-      {error && (
-        <div className="mb-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset">
-          <p className="flex items-center gap-1.5 text-sm font-medium text-red-800">
-            <CircleAlert className="size-4 shrink-0" />
-            {error.codigo} — {error.message}
-          </p>
-        </div>
+      {/* El error de activar una moneda se ve aquí; los de las acciones con
+          confirmación, dentro de su diálogo. */}
+      {!porDesactivar && (
+        <MensajeError error={guardar.error} className="mb-4" />
       )}
 
       <Card>
@@ -107,6 +138,13 @@ export function MonedasPage() {
           <p className="px-4 py-10 text-center text-sm text-slate-500">
             Cargando monedas…
           </p>
+        ) : consulta.isError && monedas.length === 0 ? (
+          <EstadoError
+            titulo="No se pudo cargar el catálogo de monedas"
+            error={consulta.error}
+            onReintentar={() => void consulta.refetch()}
+            reintentando={consulta.isFetching}
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -215,7 +253,7 @@ export function MonedasPage() {
                         <button
                           type="button"
                           disabled={ocupado}
-                          onClick={() => alternarActiva(moneda)}
+                          onClick={() => pedirAlternar(moneda)}
                           className="mt-0.5 block w-full text-right text-[11px] text-slate-500 hover:text-brand-700 disabled:opacity-40"
                         >
                           {moneda.activa ? 'Desactivar' : 'Activar'}
@@ -252,55 +290,59 @@ export function MonedasPage() {
         />
       )}
 
-      <Dialogo
+      <DialogoConfirmacion
         abierto={porDesignar !== null}
-        onCerrar={() => setPorDesignar(null)}
         titulo="Cambiar la moneda funcional"
         descripcion={`El libro mayor pasaría a expresarse en ${porDesignar?.codigo ?? ''}.`}
-        acciones={
-          <>
-            <Button onClick={() => setPorDesignar(null)}>Cancelar</Button>
-            <Button
-              variante="primario"
-              onClick={() => void confirmarFuncional()}
-              disabled={establecerFuncional.isPending}
-            >
-              {establecerFuncional.isPending ? 'Aplicando…' : 'Designar'}
-            </Button>
-          </>
-        }
+        textoConfirmar="Designar"
+        textoConfirmando="Aplicando…"
+        pendiente={establecerFuncional.isPending}
+        error={establecerFuncional.error}
+        onConfirmar={confirmarFuncional}
+        onCancelar={cerrarDesignacion}
       >
-        <p className="text-sm text-slate-700">
+        <p>
           La moneda funcional es en la que la empresa lleva su contabilidad. Su
           tipo de cambio pasa a ser 1; el de las demás queda como está, porque
           reexpresarlas es una decisión contable y no un efecto de esta
           pantalla.
         </p>
-      </Dialogo>
+      </DialogoConfirmacion>
 
-      <Dialogo
+      <DialogoConfirmacion
         abierto={porEliminar !== null}
-        onCerrar={() => setPorEliminar(null)}
         titulo={`Eliminar ${porEliminar?.codigo ?? ''}`}
-        acciones={
-          <>
-            <Button onClick={() => setPorEliminar(null)}>Cancelar</Button>
-            <Button
-              variante="peligro"
-              onClick={() => void confirmarEliminacion()}
-              disabled={eliminar.isPending}
-            >
-              {eliminar.isPending ? 'Eliminando…' : 'Eliminar'}
-            </Button>
-          </>
-        }
+        textoConfirmar="Eliminar"
+        textoConfirmando="Eliminando…"
+        peligro
+        pendiente={eliminar.isPending}
+        error={eliminar.error}
+        onConfirmar={confirmarEliminacion}
+        onCancelar={cerrarEliminacion}
       >
-        <p className="text-sm text-slate-700">
+        <p>
           Se retira {porEliminar?.nombre} del catálogo. Solo es posible porque no
           tiene movimientos ni cuentas asociadas; si más adelante los tuviera,
           habría que desactivarla en vez de eliminarla.
         </p>
-      </Dialogo>
+      </DialogoConfirmacion>
+
+      <DialogoConfirmacion
+        abierto={porDesactivar !== null}
+        titulo={`Desactivar ${porDesactivar?.codigo ?? ''}`}
+        textoConfirmar="Desactivar"
+        textoConfirmando="Desactivando…"
+        pendiente={guardar.isPending}
+        error={guardar.error}
+        onConfirmar={confirmarDesactivacion}
+        onCancelar={cerrarDesactivacion}
+      >
+        <p>
+          {porDesactivar?.nombre} deja de ofrecerse al capturar. Los documentos
+          que ya la usan se siguen viendo, y se puede volver a activar cuando
+          haga falta.
+        </p>
+      </DialogoConfirmacion>
     </div>
   )
 }
@@ -319,16 +361,23 @@ function IconoAccion({
   children: React.ReactNode
 }) {
   return (
+    // `aria-disabled` y no `disabled`: un botón deshabilitado no recibe foco
+    // ni eventos del puntero, así que su `title` (que es justo el motivo por
+    // el que no se puede) no lo veía nadie.
     <button
       type="button"
       title={titulo}
       aria-label={titulo}
-      disabled={deshabilitado}
-      onClick={onClick}
-      className={`rounded p-1 text-slate-400 disabled:pointer-events-none disabled:opacity-30 ${
-        peligro
-          ? 'hover:bg-red-50 hover:text-red-600'
-          : 'hover:bg-slate-100 hover:text-brand-700'
+      aria-disabled={deshabilitado || undefined}
+      onClick={() => {
+        if (!deshabilitado) onClick()
+      }}
+      className={`rounded p-1 text-slate-400 aria-disabled:cursor-not-allowed aria-disabled:opacity-30 ${
+        deshabilitado
+          ? ''
+          : peligro
+            ? 'hover:bg-red-50 hover:text-red-600'
+            : 'hover:bg-slate-100 hover:text-brand-700'
       }`}
     >
       {children}

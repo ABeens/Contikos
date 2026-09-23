@@ -112,7 +112,7 @@ function quitarMoneda(texto: string): string {
 /**
  * Interpreta lo que el usuario escribe en un campo de importe.
  *
- * Acepta indistintamente coma o punto como separador decimal — quien captura
+ * Acepta indistintamente coma o punto como separador decimal: quien captura
  * ocho horas al día usa el teclado numérico y no debe pelear con el formato.
  *
  * Heurística cuando hay ambigüedad:

@@ -1,8 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import {
   Building2,
-  CircleAlert,
   Paperclip,
   Plus,
   ShoppingCart,
@@ -16,11 +15,10 @@ import { MoneyInput } from '@/shared/money/MoneyInput'
 import { MoneyCell } from '@/shared/money/MoneyCell'
 import { formatMoney } from '@/shared/money/format'
 import { hoyISO } from '@/shared/format/fecha'
-import { ApiError } from '@/shared/api/client'
+import { useAvisoSalida } from '@/shared/ui/AvisoSalida'
 import { type IdTarifaIva } from '@/shared/fiscal/iva'
 import { opcionesTarifa } from '@/shared/fiscal/impuestos'
 import {
-  configuracionMoneda,
   monedaFuncional,
   monedasActivas,
   type Moneda,
@@ -31,7 +29,12 @@ import {
   useTarifasImpuesto,
 } from '@/shared/api/catalogos'
 import type { SolicitudAdjunto } from '@/shared/api/contracts/comunes'
-import type { SolicitudFacturaCompra } from '@/shared/api/contracts/cxp'
+import type {
+  MapeoCxp,
+  Proveedor,
+  SolicitudFacturaCompra,
+} from '@/shared/api/contracts/cxp'
+import type { Cuenta } from '@/shared/api/contracts/conta'
 import {
   useAgregarAdjuntos,
   useCategoriasActivo,
@@ -41,8 +44,12 @@ import {
 } from '../api/queries'
 import { tamanoLegible } from '../domain/adjunto'
 import { SelectorAdjuntos } from '../components/SelectorAdjuntos'
+import { ResumenErrores } from '@/shared/ui/ResumenErrores'
+import { useTipoCambioDocumento } from '@/shared/api/tipoCambioDocumento'
+import type { EstadoDetalleFactura } from './FacturasCompraPage'
 import {
   calcularLineasCompra,
+  cuentaGastoDe,
   lineasAsientoFacturaCompra,
   resolutorDeContextoCompra,
   totalesCompraDe,
@@ -73,7 +80,44 @@ interface LineaCaptura {
   categoriaId: string
   nombreActivo: string
   fechaInicioDepreciacion: string
+  /**
+   * true si alguien tecleó la fecha de inicio de depreciación. Mientras no,
+   * sigue a la fecha de emisión: cambiar la emisión y dejar la depreciación en
+   * el día en que se abrió la pantalla es un error que nadie ve.
+   */
+  inicioEditado: boolean
   numeroSerie: string
+}
+
+const MAPEO_VACIO: MapeoCxp = {
+  proveedor: '',
+  gasto: '',
+  impuestoAcreditable: '',
+  retencion: '',
+  anticipo: '',
+  diferencialGanado: '',
+  diferencialPerdido: '',
+}
+
+/** true si la cuenta reconoce un activo fijo en el mayor. */
+function esCuentaDeActivo(cuentas: readonly Cuenta[], codigo: string): boolean {
+  const cuenta = cuentas.find((c) => c.codigo === codigo)
+  return cuenta?.requiereAuxiliar === 'activo' && cuenta.naturaleza === 'deudora'
+}
+
+/**
+ * La línea exige ficha de activo si la cuenta que de verdad carga (la suya, la
+ * del proveedor o la del mapeo) es de activo fijo. Se mira la resuelta y no
+ * solo la tecleada: una línea sin cuenta que cae en la de activo del proveedor
+ * también tiene que capitalizarse.
+ */
+function exigeFichaActivo(
+  linea: Pick<LineaCaptura, 'cuenta'>,
+  cuentas: readonly Cuenta[],
+  proveedor: Proveedor | undefined,
+  mapeo: MapeoCxp,
+): boolean {
+  return esCuentaDeActivo(cuentas, cuentaGastoDe(linea, proveedor, mapeo))
 }
 
 let siguienteClave = 0
@@ -89,6 +133,7 @@ const lineaVacia = (fecha: string): LineaCaptura => ({
   categoriaId: '',
   nombreActivo: '',
   fechaInicioDepreciacion: fecha,
+  inicioEditado: false,
   numeroSerie: '',
 })
 
@@ -109,11 +154,22 @@ export function FacturaCompraPage() {
   const [fechaEmision, setFechaEmision] = useState(hoyISO)
   const [fechaVencimiento, setFechaVencimiento] = useState(hoyISO)
   const [moneda, setMoneda] = useState<Moneda>(funcional)
-  const [tipoCambio, setTipoCambio] = useState('1')
+  // El del día de la factura, no el de hoy ni el del catálogo de monedas.
+  const tc = useTipoCambioDocumento(moneda, fechaEmision)
+  const tipoCambio = tc.tipoCambio
   const [lineas, setLineas] = useState<LineaCaptura[]>(() => [
     lineaVacia(hoyISO()),
   ])
   const [intentoEnvio, setIntentoEnvio] = useState(false)
+  /** Sube en cada envío fallido: el resumen de errores toma el foco. */
+  const [fallos, setFallos] = useState(0)
+  /**
+   * Registrar y subir adjuntos son dos operaciones seguidas. Entre una y otra
+   * ninguna mutación está pendiente, y un segundo clic ahí registraría la
+   * factura dos veces: el candado cubre el envío entero.
+   */
+  const [enviando, setEnviando] = useState(false)
+  const enviandoRef = useRef(false)
   // Los adjuntos se eligen aquí y se suben cuando la factura ya existe: el
   // endpoint cuelga de su id, y pedir el comprobante después de registrar es
   // la forma segura de que nadie lo deje para luego.
@@ -125,6 +181,9 @@ export function FacturaCompraPage() {
   const opciones = opcionesTarifa(tarifas)
 
   const proveedor = proveedores.find((p) => p.id === proveedorId)
+  const mapeoEfectivo = mapeo ?? MAPEO_VACIO
+  const exigeActivo = (l: Pick<LineaCaptura, 'cuenta'>) =>
+    exigeFichaActivo(l, cuentas, proveedor, mapeoEfectivo)
 
   const solicitud: SolicitudFacturaCompra = useMemo(
     () => ({
@@ -141,14 +200,18 @@ export function FacturaCompraPage() {
         descuento: l.descuento || '0',
         tarifa: l.tarifa,
         cuenta: l.cuenta || undefined,
-        activo: l.capitaliza
-          ? {
-              categoriaId: l.categoriaId,
-              nombre: l.nombreActivo || l.descripcion,
-              fechaInicioDepreciacion: l.fechaInicioDepreciacion,
-              numeroSerie: l.numeroSerie || null,
-            }
-          : null,
+        // La casilla sale marcada y deshabilitada cuando la cuenta lo exige:
+        // lo que se envía tiene que coincidir con lo que se ve.
+        activo:
+          l.capitaliza ||
+          exigeFichaActivo(l, cuentas, proveedor, mapeoEfectivo)
+            ? {
+                categoriaId: l.categoriaId,
+                nombre: l.nombreActivo || l.descripcion,
+                fechaInicioDepreciacion: l.fechaInicioDepreciacion,
+                numeroSerie: l.numeroSerie || null,
+              }
+            : null,
       })),
     }),
     [
@@ -159,6 +222,9 @@ export function FacturaCompraPage() {
       moneda,
       tipoCambio,
       lineas,
+      cuentas,
+      proveedor,
+      mapeoEfectivo,
     ],
   )
 
@@ -168,20 +234,12 @@ export function FacturaCompraPage() {
       cuentas,
       periodos,
       categorias,
-      mapeo: mapeo ?? {
-        proveedor: '',
-        gasto: '',
-        impuestoAcreditable: '',
-        retencion: '',
-        anticipo: '',
-        diferencialGanado: '',
-        diferencialPerdido: '',
-      },
+      mapeo: mapeoEfectivo,
       // Sin tabla cargada el dominio cae a la tabla por defecto y no valida
       // la vigencia: es el respaldo mientras llega, no el caso normal.
       tarifas: tarifas.length > 0 ? tarifas : undefined,
     }),
-    [proveedor, cuentas, periodos, categorias, mapeo, tarifas],
+    [proveedor, cuentas, periodos, categorias, mapeoEfectivo, tarifas],
   )
 
   const calculadas = useMemo(
@@ -212,28 +270,25 @@ export function FacturaCompraPage() {
   const nombreCuenta = (codigo: string) =>
     cuentas.find((c) => c.codigo === codigo)?.nombre ?? ''
 
-  /** true si la cuenta de la línea reconoce un activo fijo en el mayor. */
-  const esCuentaDeActivo = (codigo: string) => {
-    const cuenta = cuentas.find((c) => c.codigo === codigo)
-    return cuenta?.requiereAuxiliar === 'activo' && cuenta.naturaleza === 'deudora'
-  }
-
   const actualizar = (clave: number, cambios: Partial<LineaCaptura>) =>
     setLineas((prev) =>
       prev.map((l) => (l.clave === clave ? { ...l, ...cambios } : l)),
     )
 
   /**
-   * Elegir una cuenta de activo fijo enciende la capitalización sola.
+   * Elegir una cuenta de activo fijo enciende la capitalización sola, y pasar
+   * a una de gasto la apaga.
    *
-   * No es una comodidad: sin ficha, el asiento se rechaza por falta de auxiliar.
-   * Es mejor proponerlo que dejar que el error aparezca al final.
+   * No es una comodidad: sin ficha, el asiento se rechaza por falta de
+   * auxiliar, y con ficha sobre una cuenta de gasto el dominio también lo
+   * rechaza. Es mejor seguir a la cuenta que dejar que el error aparezca al
+   * final.
    */
   const cambiarCuenta = (linea: LineaCaptura, codigo: string) => {
-    const capitaliza = esCuentaDeActivo(codigo)
+    const capitaliza = exigeActivo({ cuenta: codigo })
     actualizar(linea.clave, {
       cuenta: codigo,
-      capitaliza: capitaliza || linea.capitaliza,
+      capitaliza,
       categoriaId:
         linea.categoriaId ||
         categorias.find((c) => c.cuentaActivo === codigo)?.id ||
@@ -248,40 +303,74 @@ export function FacturaCompraPage() {
     if (!elegido) return
     setFechaVencimiento(vencimientoDe(fechaEmision, elegido.diasCredito))
     setMoneda(elegido.moneda)
-    setTipoCambio(
-      elegido.moneda === funcional
-        ? '1'
-        : configuracionMoneda(elegido.moneda).tipoCambio,
-    )
   }
 
   const cambiarEmision = (fecha: string) => {
     setFechaEmision(fecha)
     setFechaVencimiento(vencimientoDe(fecha, proveedor?.diasCredito ?? 0))
+    // La depreciación empieza, salvo que alguien diga otra cosa, el día de la
+    // factura.
+    setLineas((prev) =>
+      prev.map((l) =>
+        l.inicioEditado ? l : { ...l, fechaInicioDepreciacion: fecha },
+      ),
+    )
   }
+
+  // Hay algo capturado que se perdería al salir.
+  const sucio =
+    Boolean(proveedorId || folioProveedor.trim()) ||
+    adjuntos.length > 0 ||
+    lineas.some((l) => l.descripcion.trim() || l.precioUnitario)
+  const { aviso, permitirSalida } = useAvisoSalida(sucio && !registrar.isSuccess)
 
   const guardar = async () => {
+    if (enviandoRef.current) return
     setIntentoEnvio(true)
-    if (!validacion.valido) return
-    // El rechazo del servidor (folio duplicado, periodo cerrado) ya se enseña
-    // desde `registrar.error`: se atrapa aquí para no dejar la promesa suelta.
-    const factura = await registrar.mutateAsync(solicitud).catch(() => null)
-    if (!factura) return
-    // Si falla la subida, la factura ya está registrada y no se pierde: se
-    // aterriza en su detalle, que es donde se vuelven a adjuntar.
-    if (adjuntos.length > 0) {
-      try {
-        await subirAdjuntos.mutateAsync({ facturaId: factura.id, adjuntos })
-      } catch {
-        navegar(`/cxp/facturas/${factura.id}`)
+    registrar.reset()
+    if (!validacion.valido) {
+      setFallos((n) => n + 1)
+      return
+    }
+    enviandoRef.current = true
+    setEnviando(true)
+    try {
+      // El rechazo del servidor (folio duplicado, periodo cerrado) ya se
+      // enseña desde `registrar.error`: se atrapa aquí para no dejar la
+      // promesa suelta.
+      const factura = await registrar.mutateAsync(solicitud).catch(() => null)
+      if (!factura) {
+        setFallos((n) => n + 1)
         return
       }
+      // Si falla la subida, la factura ya está registrada y no se pierde: se
+      // aterriza en su detalle, que es donde se vuelven a adjuntar, y el error
+      // viaja con la navegación para que el detalle lo diga.
+      let estado: EstadoDetalleFactura | undefined
+      if (adjuntos.length > 0) {
+        try {
+          await subirAdjuntos.mutateAsync({ facturaId: factura.id, adjuntos })
+        } catch (error) {
+          estado = {
+            errorAdjuntos:
+              error instanceof Error
+                ? error.message
+                : 'No se pudieron subir los adjuntos.',
+          }
+        }
+      }
+      permitirSalida()
+      navegar(`/cxp/facturas/${factura.id}`, { state: estado })
+    } finally {
+      enviandoRef.current = false
+      setEnviando(false)
     }
-    navegar('/cxp/facturas')
   }
 
+  // El rechazo es de la solicitud que se envió: en cuanto se corrige algo,
+  // deja de describir lo que hay en pantalla.
   const errorServidor =
-    registrar.error instanceof ApiError ? registrar.error : null
+    registrar.variables === solicitud ? registrar.error : null
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -295,15 +384,19 @@ export function FacturaCompraPage() {
               variante="primario"
               icono={<ShoppingCart className="size-4" />}
               onClick={() => void guardar()}
-              disabled={registrar.isPending}
+              disabled={enviando}
             >
-              {registrar.isPending || subirAdjuntos.isPending
-                ? 'Registrando…'
-                : 'Registrar factura'}
+              {subirAdjuntos.isPending
+                ? 'Subiendo adjuntos…'
+                : enviando
+                  ? 'Registrando…'
+                  : 'Registrar factura'}
             </Button>
           </>
         }
       />
+
+      {aviso}
 
       <Card className="mb-4">
         <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -377,15 +470,7 @@ export function FacturaCompraPage() {
               <Select
                 {...p}
                 value={moneda}
-                onChange={(e) => {
-                  const nueva = e.target.value
-                  setMoneda(nueva)
-                  setTipoCambio(
-                    nueva === funcional
-                      ? '1'
-                      : configuracionMoneda(nueva).tipoCambio,
-                  )
-                }}
+                onChange={(e) => setMoneda(e.target.value)}
               >
                 {monedasActivas().map((m) => (
                   <option key={m.codigo} value={m.codigo}>
@@ -399,14 +484,14 @@ export function FacturaCompraPage() {
           <Field
             label="Tipo de cambio"
             requerido
-            ayuda={moneda === funcional ? 'Moneda funcional' : 'Referencia BCCR'}
+            ayuda={tc.ayuda}
           >
             {(p) => (
               <Input
                 {...p}
                 value={tipoCambio}
                 disabled={moneda === funcional}
-                onChange={(e) => setTipoCambio(e.target.value)}
+                onChange={(e) => tc.editar(e.target.value)}
                 className="tabular text-right"
               />
             )}
@@ -450,7 +535,7 @@ export function FacturaCompraPage() {
                   ? validacion.errores.filter((e) => e.linea === indice)
                   : []
                 const cuentaResuelta = calculada?.cuenta ?? ''
-                const exigeActivo = esCuentaDeActivo(cuentaResuelta)
+                const exige = exigeActivo(linea)
 
                 return (
                   <tr
@@ -466,12 +551,12 @@ export function FacturaCompraPage() {
                           actualizar(linea.clave, { descripcion: e.target.value })
                         }
                       />
-                      {(linea.capitaliza || exigeActivo) && (
+                      {(linea.capitaliza || exige) && (
                         <FichaActivo
                           linea={linea}
                           indice={indice}
                           categorias={categorias}
-                          obligatoria={exigeActivo}
+                          obligatoria={exige}
                           onCambio={(cambios) => actualizar(linea.clave, cambios)}
                         />
                       )}
@@ -715,28 +800,20 @@ export function FacturaCompraPage() {
         </table>
       </Card>
 
-      {(intentoEnvio && !validacion.valido) || errorServidor ? (
-        <div className="mt-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset">
-          <p className="flex items-center gap-1.5 text-sm font-medium text-red-800">
-            <CircleAlert className="size-4" />
-            {errorServidor
-              ? `${errorServidor.codigo}: ${errorServidor.message}`
-              : 'La factura no se puede registrar'}
-          </p>
-          <ul className="mt-1.5 ml-6 list-disc space-y-0.5 text-xs text-red-700">
-            {(errorServidor?.detalles.length
-              ? errorServidor.detalles
-              : validacion.errores.map((e) =>
-                  e.linea === undefined
-                    ? e.mensaje
-                    : `Línea ${e.linea + 1}: ${e.mensaje}`,
-                )
-            ).map((mensaje, i) => (
-              <li key={i}>{mensaje}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+      <ResumenErrores
+        titulo="La factura no se puede registrar"
+        errores={
+          intentoEnvio && !validacion.valido
+            ? validacion.errores.map((e) =>
+                e.linea === undefined
+                  ? e.mensaje
+                  : `Línea ${e.linea + 1}: ${e.mensaje}`,
+              )
+            : []
+        }
+        errorServidor={errorServidor}
+        senal={fallos}
+      />
     </div>
   )
 }
@@ -815,7 +892,10 @@ function FichaActivo({
             value={linea.fechaInicioDepreciacion}
             aria-label={`Inicio de depreciación de la línea ${indice + 1}`}
             onChange={(e) =>
-              onCambio({ fechaInicioDepreciacion: e.target.value })
+              onCambio({
+                fechaInicioDepreciacion: e.target.value,
+                inicioEditado: true,
+              })
             }
             className="h-8 text-xs"
           />

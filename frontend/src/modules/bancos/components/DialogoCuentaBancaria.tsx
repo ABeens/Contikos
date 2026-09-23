@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { CircleAlert, Lock } from 'lucide-react'
+import { MensajeError } from '@/shared/ui/MensajeError'
 import { Button } from '@/shared/ui/Button'
 import { Dialogo } from '@/shared/ui/Dialogo'
 import { Field, Input, Select } from '@/shared/ui/Field'
 import { SelectorCuenta } from '@/shared/ui/SelectorCuenta'
-import { ApiError } from '@/shared/api/client'
 import { monedasActivas } from '@/shared/money/money'
 import { esCuentaDeBanco } from '@/shared/cuentas/cuenta'
 import type { Cuenta } from '@/shared/api/contracts/conta'
@@ -108,13 +108,13 @@ export function DialogoCuentaBancaria({
     },
     cuenta?.id,
   )
-  const errorServidor = guardar.error instanceof ApiError ? guardar.error : null
 
-  const enviar = async () => {
+  // `mutate` y no `mutateAsync`: el error queda en `guardar.error` y se enseña
+  // dentro del diálogo, en vez de escaparse como una promesa rechazada.
+  const enviar = () => {
     setIntento(true)
     if (!validacion.valido) return
-    await guardar.mutateAsync({ datos, id: cuenta?.id })
-    onCerrar()
+    guardar.mutate({ datos, id: cuenta?.id }, { onSuccess: onCerrar })
   }
 
   const errorDe = (codigo: string) =>
@@ -129,12 +129,16 @@ export function DialogoCuentaBancaria({
       titulo={creando ? 'Nueva cuenta bancaria' : `${cuenta.codigo} · ${cuenta.nombre}`}
       descripcion="Dónde está el dinero y con qué cuenta del mayor se corresponde."
       className="w-[min(94vw,44rem)]"
+      bloqueado={guardar.isPending}
+      alEnviar={enviar}
       acciones={
         <>
-          <Button onClick={onCerrar}>Cancelar</Button>
+          <Button onClick={onCerrar} disabled={guardar.isPending}>
+            Cancelar
+          </Button>
           <Button
+            type="submit"
             variante="primario"
-            onClick={() => void enviar()}
             disabled={guardar.isPending}
           >
             {guardar.isPending ? 'Guardando…' : 'Guardar'}
@@ -164,7 +168,7 @@ export function DialogoCuentaBancaria({
             <Input
               {...p}
               value={datos.nombre}
-              placeholder="BN — corriente colones"
+              placeholder="BN, corriente colones"
               onChange={(e) => cambiar({ nombre: e.target.value })}
             />
           )}
@@ -244,6 +248,8 @@ export function DialogoCuentaBancaria({
           )}
         </Field>
 
+        {/* SelectorCuenta no admite id ni aria-describedby: su nombre
+            accesible llega por `etiqueta` y el error, solo como marca. */}
         <Field
           label="Cuenta de control"
           requerido
@@ -259,8 +265,9 @@ export function DialogoCuentaBancaria({
             errorDe('CUENTA_CONTABLE_DUPLICADA')
           }
         >
-          {() => (
+          {(p) => (
             <SelectorCuenta
+              error={p['aria-invalid']}
               value={datos.cuentaContable}
               onChange={(codigo) => cambiar({ cuentaContable: codigo })}
               cuentas={disponibles}
@@ -298,19 +305,7 @@ export function DialogoCuentaBancaria({
           Activa: se ofrece al capturar cobros, pagos y movimientos
         </label>
 
-        {errorServidor && (
-          <div className="rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset sm:col-span-2">
-            <p className="flex items-center gap-1.5 text-sm font-medium text-red-800">
-              <CircleAlert className="size-4" />
-              {errorServidor.codigo}: {errorServidor.message}
-            </p>
-            <ul className="mt-1.5 ml-6 list-disc space-y-0.5 text-xs text-red-700">
-              {errorServidor.detalles.map((mensaje, i) => (
-                <li key={i}>{mensaje}</li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <MensajeError error={guardar.error} className="sm:col-span-2" />
       </div>
     </Dialogo>
   )

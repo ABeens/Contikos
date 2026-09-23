@@ -56,7 +56,7 @@ const SEGUNDA_CRC: CuentaBancaria = {
   id: 'bco-003',
   codigo: 'BCO-003',
   banco: 'Banco Popular',
-  nombre: 'BP — corriente colones',
+  nombre: 'BP, corriente colones',
 }
 
 const CONTEXTO: ContextoMovimiento = {

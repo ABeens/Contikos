@@ -16,7 +16,7 @@ import {
 } from './money'
 import { formatMoney, formatNumero, parseMonto } from './format'
 
-describe('Money — precisión', () => {
+describe('Money: precisión', () => {
   it('no sufre el error clásico del punto flotante', () => {
     // 0.1 + 0.2 === 0.30000000000000004 en float
     expect(crc('0.1').plus(crc('0.2')).toApi()).toBe('0.30')
@@ -44,7 +44,7 @@ describe('Money — precisión', () => {
   })
 })
 
-describe('Money — moneda', () => {
+describe('Money: moneda', () => {
   it('impide operar monedas distintas', () => {
     expect(() => crc('100').plus(usd('100'))).toThrow(ErrorMoneda)
   })
@@ -64,7 +64,7 @@ describe('Money — moneda', () => {
   })
 })
 
-describe('Money — API', () => {
+describe('Money: API', () => {
   it('serializa siempre como string con decimales fijos', () => {
     expect(crc('1234.5').toApi()).toBe('1234.50')
     expect(JSON.stringify({ total: crc('1234.5') })).toBe('{"total":"1234.50"}')
@@ -76,7 +76,7 @@ describe('Money — API', () => {
   })
 })
 
-describe('formatMoney — convención costarricense', () => {
+describe('formatMoney: convención costarricense', () => {
   it('formatea colones con punto de miles y coma decimal', () => {
     expect(formatMoney(crc('1234567.89'))).toBe('₡1.234.567,89')
   })
@@ -176,7 +176,7 @@ describe('Catálogo configurable de monedas', () => {
   })
 })
 
-describe('parseMonto — captura del usuario', () => {
+describe('parseMonto: captura del usuario', () => {
   it('acepta punto o coma como separador decimal', () => {
     expect(parseMonto('1234.56')?.toFixed(2)).toBe('1234.56')
     expect(parseMonto('1234,56')?.toFixed(2)).toBe('1234.56')

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { CircleAlert } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { Dialogo } from '@/shared/ui/Dialogo'
+import { MensajeError } from '@/shared/ui/MensajeError'
 import { Field, Input, Select } from '@/shared/ui/Field'
 import { ApiError } from '@/shared/api/client'
 import type { Empresa, SolicitudEmpresa } from '@/shared/api/contracts/empresas'
@@ -64,7 +65,12 @@ export function DialogoEmpresa({
   const cambiar = <K extends keyof SolicitudEmpresa>(
     campo: K,
     valor: SolicitudEmpresa[K],
-  ) => setForm((prev) => ({ ...prev, [campo]: valor }))
+  ) => {
+    setForm((prev) => ({ ...prev, [campo]: valor }))
+    // El rechazo del servidor era sobre los datos de antes: al corregirlos
+    // deja de ser cierto y no debe seguir en pantalla como si lo fuera.
+    if (guardar.error) guardar.reset()
+  }
 
   const validacion = useMemo(
     () => validarEmpresa(form, { empresas, empresaAbierta }, empresa?.id),
@@ -78,14 +84,16 @@ export function DialogoEmpresa({
 
   const errorServidor = guardar.error instanceof ApiError ? guardar.error : null
 
-  const enviar = async () => {
+  // Con `mutate` y no `mutateAsync`: el rechazo del servidor se pinta desde
+  // `guardar.error`, y un `await` sin `catch` lo dejaba además como promesa
+  // rechazada sin atender.
+  const enviar = () => {
     setIntento(true)
-    if (!validacion.valido) return
-    await guardar.mutateAsync({
-      datos: normalizarSolicitud(form),
-      id: empresa?.id,
-    })
-    onCerrar()
+    if (!validacion.valido || guardar.isPending) return
+    guardar.mutate(
+      { datos: normalizarSolicitud(form), id: empresa?.id },
+      { onSuccess: onCerrar },
+    )
   }
 
   const esLaAbierta = empresa?.id === empresaAbierta
@@ -101,12 +109,16 @@ export function DialogoEmpresa({
           : 'Los datos que la identifican ante Hacienda. Los catálogos y el mayor se administran desde dentro de la empresa.'
       }
       className="w-[min(94vw,40rem)]"
+      bloqueado={guardar.isPending}
+      alEnviar={enviar}
       acciones={
         <>
-          <Button onClick={onCerrar}>Cancelar</Button>
+          <Button onClick={onCerrar} disabled={guardar.isPending}>
+            Cancelar
+          </Button>
           <Button
+            type="submit"
             variante="primario"
-            onClick={() => void enviar()}
             disabled={guardar.isPending}
           >
             {guardar.isPending ? 'Guardando…' : 'Guardar'}
@@ -267,6 +279,12 @@ export function DialogoEmpresa({
           </ul>
         </div>
       ) : null}
+
+      {/* Un fallo que no es de negocio (red, tiempo agotado) no trae código
+          ni detalles, pero tampoco puede quedar sin decirse. */}
+      {!errorServidor && (
+        <MensajeError error={guardar.error} className="mt-4" />
+      )}
     </Dialogo>
   )
 }

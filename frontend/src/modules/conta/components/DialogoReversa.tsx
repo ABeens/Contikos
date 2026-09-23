@@ -109,17 +109,24 @@ export function DialogoReversa({
     (e) => e.codigo !== 'MOTIVO_REQUERIDO' && e.codigo !== 'PERIODO_CERRADO',
   )
 
-  const confirmar = async () => {
+  const confirmar = () => {
     setIntentoEnvio(true)
-    if (!validacion.valido) return
-    const reversa = await reversar.mutateAsync({ id: asiento.id, solicitud })
-    onReversado(reversa)
+    if (!validacion.valido || reversar.isPending) return
+    reversar.mutate({ id: asiento.id, solicitud }, { onSuccess: onReversado })
+  }
+
+  /** Lo que diga el servidor era sobre la fecha y el motivo de antes. */
+  const editar = (aplicar: () => void) => {
+    aplicar()
+    if (reversar.isError) reversar.reset()
   }
 
   return (
     <Dialogo
       abierto={abierto}
       onCerrar={onCerrar}
+      bloqueado={reversar.isPending}
+      alEnviar={confirmar}
       titulo={`Reversar el asiento ${asiento.codigo}`}
       descripcion="Se contabiliza un asiento nuevo con los cargos y abonos invertidos. El original no se modifica ni se borra."
       className="w-[min(94vw,44rem)]"
@@ -131,7 +138,7 @@ export function DialogoReversa({
           <Button
             variante="peligro"
             icono={<Undo2 className="size-4" />}
-            onClick={() => void confirmar()}
+            type="submit"
             disabled={reversar.isPending}
           >
             {reversar.isPending ? 'Reversando…' : 'Confirmar reversa'}
@@ -155,7 +162,7 @@ export function DialogoReversa({
               {...p}
               type="date"
               value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
+              onChange={(e) => editar(() => setFecha(e.target.value))}
             />
           )}
         </Field>
@@ -171,7 +178,7 @@ export function DialogoReversa({
               value={motivo}
               autoFocus
               placeholder="Por qué se reversa. Queda en la bitácora del asiento."
-              onChange={(e) => setMotivo(e.target.value)}
+              onChange={(e) => editar(() => setMotivo(e.target.value))}
             />
           )}
         </Field>
@@ -226,7 +233,10 @@ export function DialogoReversa({
       </div>
 
       {(intentoEnvio && erroresGenerales.length > 0) || errorServidor ? (
-        <div className="mt-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset">
+        <div
+          role="alert"
+          className="mt-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset"
+        >
           <p className="flex items-center gap-1.5 text-sm font-medium text-red-800">
             <CircleAlert className="size-4" />
             {errorServidor

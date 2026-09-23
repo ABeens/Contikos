@@ -1,15 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router'
 import { BookCheck, CircleAlert, CircleCheck, Search } from 'lucide-react'
 import { useEmpresa } from '@/app/empresa'
 import { Button } from '@/shared/ui/Button'
 import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
+import { DialogoConfirmacion } from '@/shared/ui/DialogoConfirmacion'
+import { MensajeError } from '@/shared/ui/MensajeError'
 import { Field, Select } from '@/shared/ui/Field'
 import { MoneyCell } from '@/shared/money/MoneyCell'
 import { AsientoPropuesto } from '@/shared/asiento/AsientoPropuesto'
 import { formatFecha, formatPeriodo } from '@/shared/format/fecha'
 import { useCuentas } from '@/shared/api/catalogos'
-import { ApiError } from '@/shared/api/client'
 import type { ResultadoRevaluacion } from '@/shared/api/contracts/bancos'
 import {
   useContabilizarRevaluacion,
@@ -33,30 +34,63 @@ export function RevaluacionPage() {
   const { data: cuentas = [] } = useCuentas()
   const contabilizar = useContabilizarRevaluacion()
 
-  const [periodoId, setPeriodoId] = useState(periodoActivo?.id ?? '')
-  const [verificar, setVerificar] = useState(false)
-  const [resultado, setResultado] = useState<ResultadoRevaluacion | null>(null)
+  /**
+   * El periodo del selector sigue al de la barra superior mientras nadie lo
+   * toque aquí: cambiar de mes arriba y encontrarse otro abajo desorienta. En
+   * cuanto se elige uno en esta pantalla, manda la elección.
+   */
+  const [periodoElegido, setPeriodoElegido] = useState<string | null>(null)
+  const periodoId = periodoElegido ?? periodoActivo?.id ?? ''
 
-  // El periodo del selector sigue al de la barra superior mientras nadie lo
-  // toque aquí: cambiar de mes arriba y encontrarse otro abajo desorienta.
-  useEffect(() => {
-    if (periodoActivo && periodoId === '') setPeriodoId(periodoActivo.id)
-  }, [periodoActivo, periodoId])
+  /** Periodo cuya corrida se mandó verificar. Nulo hasta pulsar "Verificar". */
+  const [verificado, setVerificado] = useState<string | null>(null)
+  const [resultado, setResultado] = useState<{
+    periodoId: string
+    datos: ResultadoRevaluacion
+  } | null>(null)
+  const [confirmando, setConfirmando] = useState(false)
 
-  const { data: previa, isFetching } = usePrevisualizacionRevaluacion(
-    periodoId,
-    verificar,
-  )
+  // Solo se enseña la verificación del periodo que está en el selector: si la
+  // barra superior lo cambia, la de otro mes no puede seguir en pantalla.
+  const previaVigente = verificado !== null && verificado === periodoId
+  const consulta = usePrevisualizacionRevaluacion(periodoId, previaVigente)
+  const previa = previaVigente ? consulta.data : undefined
+  const resultadoVigente =
+    resultado?.periodoId === periodoId ? resultado.datos : null
 
   const periodo = periodos.find((p) => p.id === periodoId)
   const nombreCuenta = (codigo: string) =>
     cuentas.find((c) => c.codigo === codigo)?.nombre ?? codigo
-  const errorServidor =
-    contabilizar.error instanceof ApiError ? contabilizar.error : null
 
-  const emitir = async () => {
+  const cambiarPeriodo = (id: string) => {
+    setPeriodoElegido(id)
+    setVerificado(null)
+    setResultado(null)
+    contabilizar.reset()
+  }
+
+  /** "Verificar" otra vez vuelve a pedir la corrida: los saldos pudieron cambiar. */
+  const verificar = () => {
+    setResultado(null)
+    contabilizar.reset()
+    if (verificado === periodoId) void consulta.refetch()
+    else setVerificado(periodoId)
+  }
+
+  const emitir = () => {
     if (!periodoId) return
-    setResultado(await contabilizar.mutateAsync({ periodoId }))
+    const corrida = periodoId
+    contabilizar.mutate(
+      { periodoId: corrida },
+      {
+        onSuccess: (datos) => {
+          setResultado({ periodoId: corrida, datos })
+          setConfirmando(false)
+          // La verificación ya no vale: ahora diría "ya contabilizada".
+          setVerificado(null)
+        },
+      },
+    )
   }
 
   return (
@@ -73,16 +107,12 @@ export function RevaluacionPage() {
               <Select
                 {...p}
                 value={periodoId}
-                onChange={(e) => {
-                  setPeriodoId(e.target.value)
-                  setVerificar(false)
-                  setResultado(null)
-                }}
+                onChange={(e) => cambiarPeriodo(e.target.value)}
               >
                 {periodos.map((p) => (
                   <option key={p.id} value={p.id}>
                     {formatPeriodo(p.ejercicio, p.numero)}
-                    {p.estado !== 'abierto' ? ` — ${p.estado}` : ''}
+                    {p.estado !== 'abierto' ? ` (${p.estado})` : ''}
                   </option>
                 ))}
               </Select>
@@ -91,10 +121,10 @@ export function RevaluacionPage() {
 
           <Button
             icono={<Search className="size-4" />}
-            onClick={() => setVerificar(true)}
-            disabled={!periodoId}
+            onClick={verificar}
+            disabled={!periodoId || consulta.isFetching}
           >
-            Verificar
+            {consulta.isFetching ? 'Verificando…' : 'Verificar'}
           </Button>
 
           {periodo && (
@@ -106,34 +136,30 @@ export function RevaluacionPage() {
         </div>
       </Card>
 
-      {errorServidor && (
-        <div className="mb-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset">
-          <p className="flex items-center gap-1.5 text-sm font-medium text-red-800">
+      {previaVigente && consulta.isError && (
+        <div className="mb-4">
+          <p className="mb-1 flex items-center gap-1.5 text-sm font-medium text-red-800">
             <CircleAlert className="size-4" />
-            {errorServidor.codigo}: {errorServidor.message}
+            No se pudo calcular la corrida
           </p>
-          <ul className="mt-1.5 ml-6 list-disc space-y-0.5 text-xs text-red-700">
-            {errorServidor.detalles.map((mensaje, i) => (
-              <li key={i}>{mensaje}</li>
-            ))}
-          </ul>
+          <MensajeError error={consulta.error} />
         </div>
       )}
 
-      {resultado && (
+      {resultadoVigente && (
         <div className="mb-4 flex items-center gap-2 rounded-md bg-emerald-50 p-3 text-sm text-emerald-800 ring-1 ring-emerald-200 ring-inset">
           <CircleCheck className="size-4" />
           Revaluación contabilizada en el asiento{' '}
           <Link
-            to={`/conta/asientos?asiento=${resultado.asientoId}`}
+            to={`/conta/asientos?asiento=${resultadoVigente.asientoId}`}
             className="font-mono font-medium underline-offset-2 hover:underline"
           >
-            {resultado.asientoId}
+            {resultadoVigente.asientoId}
           </Link>
         </div>
       )}
 
-      {isFetching && (
+      {previaVigente && consulta.isFetching && (
         <p className="mb-4 text-sm text-slate-500">Calculando la corrida…</p>
       )}
 
@@ -239,7 +265,10 @@ export function RevaluacionPage() {
             <Button
               variante="primario"
               icono={<BookCheck className="size-4" />}
-              onClick={() => void emitir()}
+              onClick={() => {
+                contabilizar.reset()
+                setConfirmando(true)
+              }}
               disabled={!previa.asiento || contabilizar.isPending}
               title={
                 previa.asiento
@@ -247,11 +276,43 @@ export function RevaluacionPage() {
                   : 'No hay ninguna diferencia que contabilizar'
               }
             >
-              {contabilizar.isPending
-                ? 'Contabilizando…'
-                : 'Contabilizar revaluación'}
+              Contabilizar revaluación
             </Button>
           </div>
+
+          <DialogoConfirmacion
+            abierto={confirmando}
+            titulo="¿Contabilizar la revaluación?"
+            descripcion="Se emite el asiento del resultado cambiario no realizado del periodo."
+            textoConfirmar="Contabilizar"
+            textoConfirmando="Contabilizando…"
+            pendiente={contabilizar.isPending}
+            error={contabilizar.error}
+            onConfirmar={emitir}
+            onCancelar={() => {
+              setConfirmando(false)
+              contabilizar.reset()
+            }}
+          >
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
+              <dt className="text-slate-500">Periodo</dt>
+              <dd>
+                {periodo
+                  ? formatPeriodo(periodo.ejercicio, periodo.numero)
+                  : periodoId}
+              </dd>
+              <dt className="text-slate-500">Cuentas revaluadas</dt>
+              <dd>{previa.corrida.lineas.length}</dd>
+              <dt className="text-slate-500">Resultado del periodo</dt>
+              <dd>
+                <MoneyCell
+                  valor={previa.corrida.total}
+                  moneda={previa.corrida.moneda}
+                  mostrarSimbolo
+                />
+              </dd>
+            </dl>
+          </DialogoConfirmacion>
         </>
       )}
     </div>

@@ -39,7 +39,9 @@ export function SelectorItem({
       <input
         list={listaId}
         value={value}
-        onChange={(e) => onChange(e.target.value.trim())}
+        // Tal cual se teclea: recortar en cada tecla se come el espacio que el
+        // usuario acaba de escribir y el cursor salta. Se recorta al buscar.
+        onChange={(e) => onChange(e.target.value)}
         placeholder="Código"
         aria-label={etiqueta}
         className={cn(inputClass, 'font-mono text-xs', className)}

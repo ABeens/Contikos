@@ -104,6 +104,16 @@ function reemplazarCatalogo(nuevo: MonedaBase[]): void {
  * El rango es opcional en los dos extremos: sin él se sirve la serie entera,
  * que es lo que la pantalla necesita para enseñar el histórico de una moneda.
  */
+/**
+ * Una tasa como se guarda: con sus decimales (hasta seis) y al menos dos.
+ * Antes se recortaba a dos, y una tasa como la del colón contra el dólar
+ * (0.0019) se guardaba como 0.00.
+ */
+function tasaGuardada(valor: string): string {
+  const d = new Decimal(valor).toDecimalPlaces(6)
+  return d.toFixed(Math.max(2, d.decimalPlaces()))
+}
+
 function serieTipoCambio(
   moneda: string,
   desde: string | null,
@@ -215,8 +225,8 @@ export const handlersConfig = [
     const fila: TipoCambio = {
       moneda: solicitud.moneda,
       fecha: solicitud.fecha,
-      compra: new Decimal(solicitud.compra).toFixed(2),
-      venta: new Decimal(solicitud.venta).toFixed(2),
+      compra: tasaGuardada(solicitud.compra),
+      venta: tasaGuardada(solicitud.venta),
       origen: 'publicado',
       fuente: solicitud.fuente.trim(),
     }

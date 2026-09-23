@@ -5,7 +5,7 @@ import { tabla } from '@/shared/almacen/almacen'
 import { CLASIFICACION_POR_CODIGO, NOTA_POR_REFERENCIA } from './clasificaciones'
 
 /**
- * Catálogo de cuentas base — Costa Rica, NIIF para PYMES.
+ * Catálogo de cuentas base, Costa Rica, NIIF para PYMES.
  *
  * Costa Rica NO impone un catálogo uniforme (docs/13 §1.1), así que este es una
  * plantilla razonable de arranque, no una obligación legal. La empresa lo ajusta.
@@ -46,8 +46,8 @@ const FILAS: Fila[] = [
   ['1.1.01', 'Efectivo y equivalentes de efectivo', 'activo', false],
   ['1.1.01.001', 'Caja general', 'activo', true],
   ['1.1.01.002', 'Caja chica', 'activo', true],
-  ['1.1.01.010', 'Banco Nacional — cuenta corriente colones', 'activo', true, { control: 'bancos', auxiliar: 'banco' }],
-  ['1.1.01.011', 'BAC San José — cuenta corriente dólares', 'activo', true, { control: 'bancos', auxiliar: 'banco', moneda: 'USD' }],
+  ['1.1.01.010', 'Banco Nacional, cuenta corriente colones', 'activo', true, { control: 'bancos', auxiliar: 'banco' }],
+  ['1.1.01.011', 'BAC San José, cuenta corriente dólares', 'activo', true, { control: 'bancos', auxiliar: 'banco', moneda: 'USD' }],
   ['1.1.02', 'Cuentas por cobrar', 'activo', false],
   ['1.1.02.001', 'Clientes', 'activo', true, { control: 'cxc', auxiliar: 'cliente' }],
   ['1.1.02.005', 'Estimación para incobrables', 'activo', true, { naturaleza: 'acreedora' }],
@@ -65,9 +65,9 @@ const FILAS: Fila[] = [
   ['1.2.01.002', 'Equipo de cómputo', 'activo', true, { control: 'activos', auxiliar: 'activo' }],
   ['1.2.01.003', 'Vehículos', 'activo', true, { control: 'activos', auxiliar: 'activo' }],
   ['1.2.02', 'Depreciación acumulada', 'activo', false],
-  ['1.2.02.001', 'Dep. acumulada — mobiliario y equipo', 'activo', true, { naturaleza: 'acreedora', control: 'activos', auxiliar: 'activo' }],
-  ['1.2.02.002', 'Dep. acumulada — equipo de cómputo', 'activo', true, { naturaleza: 'acreedora', control: 'activos', auxiliar: 'activo' }],
-  ['1.2.02.003', 'Dep. acumulada — vehículos', 'activo', true, { naturaleza: 'acreedora', control: 'activos', auxiliar: 'activo' }],
+  ['1.2.02.001', 'Dep. acumulada, mobiliario y equipo', 'activo', true, { naturaleza: 'acreedora', control: 'activos', auxiliar: 'activo' }],
+  ['1.2.02.002', 'Dep. acumulada, equipo de cómputo', 'activo', true, { naturaleza: 'acreedora', control: 'activos', auxiliar: 'activo' }],
+  ['1.2.02.003', 'Dep. acumulada, vehículos', 'activo', true, { naturaleza: 'acreedora', control: 'activos', auxiliar: 'activo' }],
 
   ['2', 'PASIVO', 'pasivo', false],
   ['2.1', 'Pasivo corriente', 'pasivo', false],

@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Plus, Search, Undo2 } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
-import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
+import { Card, CardHeader, EstadoError, PageHeader } from '@/shared/ui/Layout'
+import { LinkBoton } from '@/shared/ui/LinkBoton'
 import { DataTable } from '@/shared/ui/DataTable'
 import { Input, Select } from '@/shared/ui/Field'
 import { MoneyCell } from '@/shared/money/MoneyCell'
@@ -17,16 +18,18 @@ import { PanelAsiento } from '@/shared/asiento/PanelAsiento'
 import { EtiquetaLibros } from '@/shared/asiento/Libros'
 import { LIBROS, esLibro, etiquetaLibro } from '@/shared/asiento/libro'
 import { DialogoReversa } from '../components/DialogoReversa'
+import { periodoDeFecha } from '../domain/asiento'
+import { etiquetaPeriodo } from '../domain/periodo'
+import { usePeriodoEnUrl } from '../hooks/usePeriodoEnUrl'
 
 export function AsientosPage() {
-  const { periodoActivo, cargando: cargandoPeriodos } = useEmpresa()
+  const { periodos, cargando: cargandoPeriodos } = useEmpresa()
+  const periodo = usePeriodoEnUrl()
   const [parametros, setParametros] = useSearchParams()
-  // Se guarda el id y no el asiento: tras reversar, el original cambia de
-  // estado y el panel tiene que enseñar la versión nueva, no la que se hizo
-  // clic. Y el enlace a la reversa puede apuntar a otro periodo, que no está
-  // en la lista: ese se pide aparte.
-  const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null)
+  const navegar = useNavigate()
+  const ubicacion = useLocation()
   const [reversando, setReversando] = useState(false)
+  const [visibles, setVisibles] = useState(0)
 
   // Los filtros viven en la URL: un contador debe poder enviar el enlace
   // a la vista que está mirando (docs/14 §6).
@@ -51,19 +54,67 @@ export function AsientosPage() {
     setParametros(nuevos, { replace: true })
   }
 
+  /**
+   * El asiento abierto también vive en la URL (`?asiento=<id>`), y se guarda el
+   * id y no el asiento: tras reversar, el original cambia de estado y el panel
+   * tiene que enseñar la versión nueva, no la que se hizo clic.
+   *
+   * Es la dirección a la que enlazan los demás módulos y la captura tras
+   * contabilizar, y es lo que hace que el botón atrás cierre el detalle.
+   */
+  const seleccionadoId = parametros.get('asiento')
+  const detalleApilado = Boolean(
+    (ubicacion.state as { detalleApilado?: boolean } | null)?.detalleApilado,
+  )
+  const abrir = (id: string) => {
+    const nuevos = new URLSearchParams(parametros)
+    nuevos.set('asiento', id)
+    // Abrir desde la lista apila una entrada: atrás vuelve a la lista. Pasar
+    // de un asiento a otro con el detalle ya abierto la sustituye, para que
+    // atrás no obligue a desandar cada fila que se miró.
+    if (seleccionadoId) {
+      setParametros(nuevos, { replace: true, state: ubicacion.state })
+    } else {
+      setParametros(nuevos, { state: { detalleApilado: true } })
+    }
+  }
+  const cerrar = () => {
+    // Si el detalle se abrió desde aquí, cerrar es volver atrás: el historial
+    // queda como si nunca se hubiera abierto. Si se llegó por un enlace, atrás
+    // saldría de la pantalla, así que se quita el parámetro en su sitio.
+    if (detalleApilado) {
+      void navegar(-1)
+      return
+    }
+    const nuevos = new URLSearchParams(parametros)
+    nuevos.delete('asiento')
+    setParametros(nuevos, { replace: true })
+  }
+
   // Hasta que el periodo activo esté resuelto no se pide nada: la lista sin
   // filtro que llegaría antes se sustituye enseguida por la del periodo.
-  const { data: asientos = [], isLoading } = useAsientos(
-    periodoActivo?.id,
-    libro,
-    !cargandoPeriodos,
-  )
+  const consulta = useAsientos(periodo?.id, libro, !cargandoPeriodos)
+  const { data: asientos = [], isLoading } = consulta
 
+  // El asiento abierto puede no estar en la lista: un enlace desde otro módulo
+  // o la reversa de un original de otro mes. Ese se pide aparte, y solo cuando
+  // la lista ya llegó y de verdad no está.
   const enLista = asientos.find((a) => a.id === seleccionadoId)
-  const { data: fueraDeLista } = useAsiento(
-    enLista || !seleccionadoId ? undefined : seleccionadoId,
+  const consultaSuelta = useAsiento(
+    seleccionadoId && !enLista && !isLoading ? seleccionadoId : undefined,
   )
-  const seleccionado = enLista ?? fueraDeLista ?? null
+  const seleccionado = enLista ?? consultaSuelta.data ?? null
+  const periodoDelSeleccionado =
+    seleccionado && !enLista
+      ? periodoDeFecha(seleccionado.fecha, periodos)
+      : undefined
+
+  // Al abrir un asiento el detalle se acerca a la vista: queda debajo de la
+  // lista, y quien llega por un enlace no sabría que está ahí.
+  const refDetalle = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (seleccionadoId) refDetalle.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [seleccionadoId])
 
   // Solo se reversa lo contabilizado que no es ya una reversa (docs/02 §6):
   // lo reversado ya tiene la suya, y una reversa se deshace capturando el
@@ -153,21 +204,35 @@ export function AsientosPage() {
     [],
   )
 
+  const hayFiltro = filtro.trim() !== ''
+  const otroPeriodo =
+    periodoDelSeleccionado && periodoDelSeleccionado.id !== periodo?.id
+      ? periodoDelSeleccionado
+      : undefined
+
+  const irAlPeriodo = (id: string) => {
+    const nuevos = new URLSearchParams(parametros)
+    nuevos.set('periodo', id)
+    setParametros(nuevos, { replace: true, state: ubicacion.state })
+  }
+
   return (
     <div>
       <PageHeader
         titulo="Asientos contables"
         descripcion={
-          periodoActivo
-            ? `Periodo ${formatPeriodo(periodoActivo.ejercicio, periodoActivo.numero)}`
+          periodo
+            ? `Periodo ${formatPeriodo(periodo.ejercicio, periodo.numero)}`
             : 'Seleccione un periodo'
         }
         acciones={
-          <Link to="/conta/asientos/nuevo">
-            <Button variante="primario" icono={<Plus className="size-4" />}>
-              Nuevo asiento
-            </Button>
-          </Link>
+          <LinkBoton
+            to="/conta/asientos/nuevo"
+            variante="primario"
+            icono={<Plus className="size-4" />}
+          >
+            Nuevo asiento
+          </LinkBoton>
         }
       />
 
@@ -178,6 +243,7 @@ export function AsientosPage() {
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
             placeholder="Buscar por concepto, origen o código…"
+            aria-label="Buscar asientos"
             className="h-8 max-w-sm border-0 px-0 focus:ring-0"
           />
           <Select
@@ -193,56 +259,92 @@ export function AsientosPage() {
               </option>
             ))}
           </Select>
-          <span className="text-xs text-slate-500">
-            {asientos.length} asientos
+          {/* Con búsqueda, el contador dice cuántas filas quedan a la vista:
+              "12 asientos" encima de una tabla con dos se lee como un error. */}
+          <span className="text-xs text-slate-500" aria-live="polite">
+            {hayFiltro
+              ? `${visibles} de ${asientos.length} asientos`
+              : `${asientos.length} asientos`}
           </span>
         </div>
 
-        {isLoading || cargandoPeriodos ? (
-          <p className="px-4 py-10 text-center text-sm text-slate-500">
-            Cargando asientos…
-          </p>
-        ) : (
-          <DataTable
-            columns={columnas}
-            data={asientos}
-            filtro={filtro}
-            onRowClick={(asiento) => setSeleccionadoId(asiento.id)}
-            vacio={{
-              titulo: 'Sin asientos en el periodo',
-              descripcion:
-                'Los módulos subsidiarios generan sus asientos automáticamente. También puede capturar uno manual.',
-            }}
-          />
-        )}
+        <DataTable
+          columns={columnas}
+          data={asientos}
+          filtro={filtro}
+          cargando={isLoading || cargandoPeriodos}
+          error={consulta.error}
+          onReintentar={() => void consulta.refetch()}
+          alFiltrar={setVisibles}
+          onRowClick={(asiento) => abrir(asiento.id)}
+          esSeleccionada={(asiento) => asiento.id === seleccionadoId}
+          vacio={{
+            titulo: 'Sin asientos en el periodo',
+            descripcion:
+              'Los módulos subsidiarios generan sus asientos automáticamente. También puede capturar uno manual.',
+          }}
+        />
       </Card>
 
-      {seleccionado && (
-        <Card className="mt-4">
-          <CardHeader
-            titulo="Detalle del asiento"
-            acciones={
-              <Button tamano="sm" onClick={() => setSeleccionadoId(null)}>
-                Cerrar
-              </Button>
-            }
-          />
-          <PanelAsiento
-            asiento={seleccionado}
-            onAbrirAsiento={setSeleccionadoId}
-            acciones={
-              reversable ? (
-                <Button
-                  tamano="sm"
-                  icono={<Undo2 className="size-3.5" />}
-                  onClick={() => setReversando(true)}
-                >
-                  Reversar
-                </Button>
-              ) : null
-            }
-          />
-        </Card>
+      {seleccionadoId && (
+        <div ref={refDetalle}>
+          <Card className="mt-4">
+            <CardHeader
+              titulo="Detalle del asiento"
+              descripcion={
+                otroPeriodo
+                  ? `Es de ${etiquetaPeriodo(otroPeriodo)}: no aparece en la lista del periodo que se está mirando.`
+                  : undefined
+              }
+              acciones={
+                <>
+                  {otroPeriodo && (
+                    <Button
+                      tamano="sm"
+                      onClick={() => irAlPeriodo(otroPeriodo.id)}
+                    >
+                      Ver {etiquetaPeriodo(otroPeriodo)}
+                    </Button>
+                  )}
+                  <Button tamano="sm" onClick={cerrar}>
+                    Cerrar
+                  </Button>
+                </>
+              }
+            />
+            {seleccionado ? (
+              <PanelAsiento
+                asiento={seleccionado}
+                onAbrirAsiento={abrir}
+                acciones={
+                  reversable ? (
+                    <Button
+                      tamano="sm"
+                      icono={<Undo2 className="size-3.5" />}
+                      onClick={() => setReversando(true)}
+                    >
+                      Reversar
+                    </Button>
+                  ) : null
+                }
+              />
+            ) : consultaSuelta.error ? (
+              <EstadoError
+                titulo="No se pudo abrir el asiento"
+                error={consultaSuelta.error}
+                onReintentar={() => void consultaSuelta.refetch()}
+                reintentando={consultaSuelta.isFetching}
+              />
+            ) : (
+              <p
+                className="px-4 py-10 text-center text-sm text-slate-500"
+                aria-busy
+              >
+                Cargando asiento…
+              </p>
+            )}
+          </Card>
+        </div>
       )}
 
       {/* Se monta solo al abrir: así arranca con la fecha propuesta y sin el

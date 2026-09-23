@@ -41,8 +41,23 @@ export const clavesBancos = {
       cuentaBancariaId ?? 'todas',
       sinConciliar ? 'sin-conciliar' : 'todos',
     ] as const,
-  conciliacion: (cuentaBancariaId: string, fechaCorte: string) =>
-    ['bancos', 'conciliacion', cuentaBancariaId, fechaCorte] as const,
+  /**
+   * El saldo capturado forma parte de la clave: el servidor recalcula la
+   * ecuación con él, así que dos saldos distintos son dos resultados distintos.
+   * Sin saldo manda el importado en la ficha de la cuenta.
+   */
+  conciliacion: (
+    cuentaBancariaId: string,
+    fechaCorte: string,
+    saldoBanco?: string,
+  ) =>
+    [
+      'bancos',
+      'conciliacion',
+      cuentaBancariaId,
+      fechaCorte,
+      saldoBanco ?? 'importado',
+    ] as const,
   conciliaciones: (cuentaBancariaId?: string) =>
     ['bancos', 'conciliaciones', cuentaBancariaId ?? 'todas'] as const,
   revaluacion: (periodoId: string) =>
@@ -202,7 +217,11 @@ export function useConciliacion(
   saldoBanco?: string,
 ) {
   return useQuery({
-    queryKey: clavesBancos.conciliacion(cuentaBancariaId ?? '', fechaCorte),
+    queryKey: clavesBancos.conciliacion(
+      cuentaBancariaId ?? '',
+      fechaCorte,
+      saldoBanco,
+    ),
     queryFn: ({ signal }) =>
       servicioBancos.conciliacion(
         { cuentaBancariaId: cuentaBancariaId!, fechaCorte, saldoBanco },
@@ -211,6 +230,13 @@ export function useConciliacion(
     enabled: Boolean(cuentaBancariaId) && Boolean(fechaCorte),
     staleTime: 0,
     gcTime: 0,
+    // Mientras se recalcula con otro saldo u otra fecha se sigue viendo la
+    // conciliación anterior de la MISMA cuenta, en vez de vaciar la pantalla a
+    // cada cambio. La de otra cuenta no se enseña nunca: serían cifras ajenas.
+    placeholderData: (previo, consultaPrevia) =>
+      consultaPrevia?.queryKey[2] === (cuentaBancariaId ?? '')
+        ? previo
+        : undefined,
   })
 }
 

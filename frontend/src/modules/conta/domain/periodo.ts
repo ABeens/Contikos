@@ -156,7 +156,7 @@ function verificacion(
 
 /* ------------------------------------------------------ Los puntos */
 
-/** 0 — el periodo tiene que estar abierto. Cerrar lo cerrado no es cerrar. */
+/** 0: el periodo tiene que estar abierto. Cerrar lo cerrado no es cerrar. */
 function comprobarEstado(periodo: Periodo): VerificacionCierre {
   if (periodo.estado === 'abierto') {
     return verificacion(
@@ -175,7 +175,7 @@ function comprobarEstado(periodo: Periodo): VerificacionCierre {
   )
 }
 
-/** 1 — los meses se cierran en orden. */
+/** 1: los meses se cierran en orden. */
 function comprobarAnterior(
   periodo: Periodo,
   periodos: readonly Periodo[],
@@ -203,7 +203,7 @@ function comprobarAnterior(
   )
 }
 
-/** 2 — no se cierra un mes que todavía no ha terminado. */
+/** 2: no se cierra un mes que todavía no ha terminado. */
 function comprobarFecha(
   periodo: Periodo,
   fechaReferencia: string,
@@ -224,7 +224,7 @@ function comprobarFecha(
 }
 
 /**
- * 3 — integridad de fechas.
+ * 3: integridad de fechas.
  *
  * La pertenencia de un asiento a un periodo la da su fecha, así que lo que se
  * comprueba es que las OTRAS dos formas de decirlo digan lo mismo: el
@@ -272,7 +272,7 @@ function comprobarRango(
   )
 }
 
-/** 4 — el mes cuadra, libro por libro. Uno por libro: cada mayor es suyo. */
+/** 4: el mes cuadra, libro por libro. Uno por libro: cada mayor es suyo. */
 function comprobarBalanza(
   periodo: Periodo,
   asientos: readonly Asiento[],
@@ -305,7 +305,7 @@ function comprobarBalanza(
 }
 
 /**
- * 5 — los auxiliares cuadran contra sus cuentas de control.
+ * 5: los auxiliares cuadran contra sus cuentas de control.
  *
  * LIMITACIÓN CONOCIDA: se compara el saldo de la cuenta de control contra la
  * suma de sus líneas por auxiliar DEL PROPIO MAYOR, no contra el auxiliar de
@@ -368,7 +368,7 @@ function comprobarAuxiliares(
   )
 }
 
-/** 6 — la depreciación del mes corrió (docs/03 §5, punto 3). */
+/** 6: la depreciación del mes corrió (docs/03 §5, punto 3). */
 function comprobarDepreciacion(
   periodo: Periodo,
   contexto: ContextoCierre,
@@ -399,7 +399,7 @@ function comprobarDepreciacion(
   )
 }
 
-/** 7 — las cuentas bancarias están conciliadas (docs/03 §5, docs/06 §2.3). */
+/** 7: las cuentas bancarias están conciliadas (docs/03 §5, docs/06 §2.3). */
 function comprobarConciliacion(
   periodo: Periodo,
   contexto: ContextoCierre,
@@ -425,7 +425,7 @@ function comprobarConciliacion(
   )
 }
 
-/** 8 — la revaluación en moneda extranjera corrió (docs/06 §6). */
+/** 8: la revaluación en moneda extranjera corrió (docs/06 §6). */
 function comprobarRevaluacion(
   periodo: Periodo,
   contexto: ContextoCierre,
@@ -455,7 +455,7 @@ function comprobarRevaluacion(
 }
 
 /**
- * 9 — el punto del checklist que todavía no tiene módulo.
+ * 9: el punto del checklist que todavía no tiene módulo.
  *
  * Se declara desde ahora, en `ok` y con el detalle que lo explica, para que el
  * checklist de docs/03 §5 esté completo en pantalla: el día que exista nómina,

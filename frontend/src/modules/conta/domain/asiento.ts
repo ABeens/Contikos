@@ -17,7 +17,7 @@ import {
 } from '@/shared/asiento/libro'
 
 /**
- * Validación del asiento — docs/02-contrato-asientos.md §3.
+ * Validación del asiento (docs/02-contrato-asientos.md §3).
  *
  * Estas mismas reglas las aplica el backend. Aquí se replican para dar
  * retroalimentación inmediata durante la captura, NO para sustituirlas: el
@@ -323,7 +323,7 @@ export function validarAsiento(
    */
   const uniforme = tratamientoUniforme(solicitud.lineas)
 
-  // 2 — al menos dos líneas
+  // 2: al menos dos líneas
   if (solicitud.lineas.length < 2) {
     errores.push({
       codigo: 'ASIENTO_INSUFICIENTE',
@@ -353,7 +353,7 @@ export function validarAsiento(
     })
   }
 
-  // 10 — tipo de cambio
+  // 10: tipo de cambio
   let tc: Decimal
   try {
     tc = new Decimal(solicitud.tipoCambio)
@@ -367,7 +367,7 @@ export function validarAsiento(
     })
   }
 
-  // 7 — periodo abierto
+  // 7: periodo abierto
   const periodo = periodoDeFecha(solicitud.fecha, contexto.periodos)
   if (!periodo) {
     errores.push({
@@ -396,7 +396,7 @@ export function validarAsiento(
       })
     }
 
-    // 4 — sin importes negativos
+    // 4: sin importes negativos
     if (cargo.esNegativo() || abono.esNegativo()) {
       errores.push({
         codigo: 'IMPORTE_NEGATIVO',
@@ -405,7 +405,7 @@ export function validarAsiento(
       })
     }
 
-    // 3 — cargo o abono, no ambos, no ninguno
+    // 3: cargo o abono, no ambos, no ninguno
     const tieneCargo = cargo.esPositivo()
     const tieneAbono = abono.esPositivo()
     if (tieneCargo && tieneAbono) {
@@ -422,7 +422,7 @@ export function validarAsiento(
       })
     }
 
-    // 5 y 6 — cuenta válida, activa y de detalle
+    // 5 y 6: cuenta válida, activa y de detalle
     const cuenta = porCodigo.get(linea.cuenta)
     if (!linea.cuenta || !cuenta) {
       errores.push({
@@ -447,7 +447,7 @@ export function validarAsiento(
           linea: indice,
         })
       }
-      // docs/03 §2 — las cuentas de control solo las mueve su módulo dueño
+      // docs/03 §2: las cuentas de control solo las mueve su módulo dueño
       if (cuenta.esCuentaControl && contexto.esManual) {
         errores.push({
           codigo: 'CUENTA_CONTROL',
@@ -455,7 +455,7 @@ export function validarAsiento(
           linea: indice,
         })
       }
-      // 8 — auxiliar obligatorio
+      // 8: auxiliar obligatorio
       if (cuenta.requiereAuxiliar && !linea.auxiliarId) {
         errores.push({
           codigo: 'AUXILIAR_REQUERIDO',
@@ -466,7 +466,7 @@ export function validarAsiento(
     }
   })
 
-  // 1 — el cuadre, libro por libro. Sin tolerancia: o cuadra exacto, o se
+  // 1: el cuadre, libro por libro. Sin tolerancia: o cuadra exacto, o se
   // rechaza. Un libro descuadrado invalida el asiento entero: no se contabiliza
   // "la mitad buena" dejando el otro libro roto.
   for (const resumen of uniforme ? totales.slice(0, 1) : totales) {

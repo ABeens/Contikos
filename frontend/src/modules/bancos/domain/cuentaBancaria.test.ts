@@ -31,7 +31,7 @@ function solicitud(
 ): SolicitudCuentaBancaria {
   return {
     banco: 'Banco Popular',
-    nombre: 'BP — corriente colones',
+    nombre: 'BP, corriente colones',
     numeroCuenta: '200-01-999-000111-2',
     iban: null,
     tipo: 'cheques',
@@ -65,7 +65,7 @@ describe('Cuenta de control', () => {
 
   it('acepta la suya propia al editar', () => {
     const resultado = validarCuentaBancaria(
-      solicitud({ nombre: 'BN — otro alias' }),
+      solicitud({ nombre: 'BN, otro alias' }),
       contexto(),
       'bco-001',
     )
@@ -183,7 +183,7 @@ describe('Serialización', () => {
     })
     expect(ficha.saldoLibros).toBe('2867375.00')
     expect(ficha.cuentaContableNombre).toBe(
-      'Banco Nacional — cuenta corriente colones',
+      'Banco Nacional, cuenta corriente colones',
     )
     expect(ficha.movimientosSinConciliar).toBe(3)
   })

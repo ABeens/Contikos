@@ -17,13 +17,17 @@ export interface SelectorCuentaProps {
   className?: string
   autoFocus?: boolean
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void
+  /** Dentro de un `Field`: su `id` asocia la etiqueta visible al control. */
+  id?: string
+  /** Dentro de un `Field`: asocia el mensaje de error o de ayuda. */
+  'aria-describedby'?: string
 }
 
 /**
  * Buscador de cuenta contable.
  *
  * Solo ofrece cuentas de detalle y activas: son las únicas que reciben
- * movimientos (docs/03 §2). Usa `datalist` nativo — funciona con teclado sin
+ * movimientos (docs/03 §2). Usa `datalist` nativo: funciona con teclado sin
  * capturar el Tab ni el Enter, que en esta pantalla tienen significado propio
  * (docs/14 §8).
  */
@@ -38,6 +42,8 @@ export function SelectorCuenta({
   className,
   autoFocus,
   onKeyDown,
+  id,
+  'aria-describedby': describedBy,
 }: SelectorCuentaProps) {
   const listaId = useId()
 
@@ -48,6 +54,7 @@ export function SelectorCuenta({
   return (
     <>
       <input
+        id={id}
         list={listaId}
         value={value}
         autoFocus={autoFocus}
@@ -55,7 +62,9 @@ export function SelectorCuenta({
         onKeyDown={onKeyDown}
         disabled={disabled}
         placeholder="Código de cuenta"
-        aria-label={etiqueta}
+        // Con `id` la etiqueta visible del Field ya da el nombre accesible.
+        aria-label={id ? undefined : etiqueta}
+        aria-describedby={describedBy}
         aria-invalid={error}
         className={cn(
           inputClass,

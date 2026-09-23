@@ -18,7 +18,7 @@ import {
  * tiene movimientos: lo que ya está asentado en el mayor no se puede reescribir
  * cambiando la definición de la cuenta debajo.
  *
- * El alta incluye la presentación —el renglón del estado financiero y la nota—
+ * El alta incluye la presentación (el renglón del estado financiero y la nota)
  * porque en una cuenta de detalle es obligatoria: sin ella el saldo se registra
  * en el mayor y no aparece en ningún reporte, y la balanza sigue cuadrando
  * mientras tanto (docs/03 §2 bis).

@@ -1,15 +1,16 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
-import { CircleAlert, LogIn, Pencil, Plus } from 'lucide-react'
+import { useIsMutating } from '@tanstack/react-query'
+import { LogIn, Pencil, Plus } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
-import { ApiError } from '@/shared/api/client'
+import { DialogoConfirmacion } from '@/shared/ui/DialogoConfirmacion'
+import { MensajeError } from '@/shared/ui/MensajeError'
 import { formatIdentificacion } from '@/shared/fiscal/identificacion'
 import type { Empresa } from '@/shared/api/contracts/empresas'
-import { useEmpresa } from '@/app/empresa'
+import { useAbrirEmpresa, useEmpresa } from '@/app/empresa'
 import { DialogoEmpresa } from '../components/DialogoEmpresa'
 import { aSolicitud, MESES } from '../domain/empresa'
-import { useGuardarEmpresa } from '../api/queries'
+import { useEmpresas, useGuardarEmpresa } from '../api/queries'
 
 /**
  * Catálogo de empresas del grupo (docs/01 §4.1).
@@ -21,32 +22,58 @@ import { useGuardarEmpresa } from '../api/queries'
  * pantalla de una empresa vea datos de otra.
  */
 export function EmpresasPage() {
-  const { empresa: abierta, empresas, cambiarEmpresa } = useEmpresa()
-  const navigate = useNavigate()
+  const { empresa: abierta, empresas, cambiandoEmpresa } = useEmpresa()
+  // El catálogo llega por el contexto, que no se monta sin él. Lo que puede
+  // fallar es una relectura posterior: se dice, en vez de enseñar en silencio
+  // una lista que quizá ya no es la del servidor.
+  const lectura = useEmpresas()
+  const abrirEmpresa = useAbrirEmpresa()
   const guardar = useGuardarEmpresa()
+  const escribiendo = useIsMutating() > 0
 
   const [editando, setEditando] = useState<Empresa | null>(null)
   const [creando, setCreando] = useState(false)
-  const [abriendo, setAbriendo] = useState<string | null>(null)
+  const [porDesactivar, setPorDesactivar] = useState<Empresa | null>(null)
 
-  const error = guardar.error instanceof ApiError ? guardar.error : null
-  const ocupado = guardar.isPending || abriendo !== null
+  const ocupado = guardar.isPending || cambiandoEmpresa
 
-  const alternarActiva = (empresa: Empresa) =>
-    guardar.mutate({
-      datos: { ...aSolicitud(empresa), activa: !empresa.activa },
-      id: empresa.id,
-    })
-
-  const abrir = async (id: string) => {
-    setAbriendo(id)
-    try {
-      await cambiarEmpresa(id)
-      void navigate('/')
-    } finally {
-      setAbriendo(null)
-    }
+  const alternarActiva = (empresa: Empresa, alTerminar?: () => void) => {
+    guardar.reset()
+    guardar.mutate(
+      {
+        datos: { ...aSolicitud(empresa), activa: !empresa.activa },
+        id: empresa.id,
+      },
+      { onSuccess: alTerminar },
+    )
   }
+
+  // Desactivar se confirma: saca la empresa del selector de todo el grupo.
+  // Activar no hace daño y va directo.
+  const pedirAlternar = (empresa: Empresa) => {
+    if (!empresa.activa) {
+      alternarActiva(empresa)
+      return
+    }
+    guardar.reset()
+    setPorDesactivar(empresa)
+  }
+
+  const cerrarDesactivacion = () => {
+    if (guardar.isPending) return
+    setPorDesactivar(null)
+    guardar.reset()
+  }
+
+  // Abrir otra empresa navega primero al inicio: si hay algo que impida salir
+  // de aquí, ahí se pregunta. Con una escritura en curso no se ofrece (ver el
+  // selector de la barra superior).
+  const motivoNoAbrir = (empresa: Empresa): string | null =>
+    !empresa.activa
+      ? 'Una empresa inactiva no se puede abrir'
+      : escribiendo || cambiandoEmpresa
+        ? 'Espere a que termine la operación en curso'
+        : null
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -64,14 +91,12 @@ export function EmpresasPage() {
         }
       />
 
-      {error && (
-        <div className="mb-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset">
-          <p className="flex items-center gap-1.5 text-sm font-medium text-red-800">
-            <CircleAlert className="size-4 shrink-0" />
-            {error.codigo}: {error.message}
-          </p>
-        </div>
+      {/* El error de activar se ve aquí; el de desactivar, dentro de su
+          confirmación, que es donde está mirando el usuario. */}
+      {!porDesactivar && (
+        <MensajeError error={guardar.error} className="mb-4" />
       )}
+      <MensajeError error={lectura.error} className="mb-4" />
 
       <Card>
         <CardHeader
@@ -137,12 +162,10 @@ export function EmpresasPage() {
                         {!esAbierta && (
                           <IconoAccion
                             titulo={
-                              empresa.activa
-                                ? `Abrir ${empresa.codigo}`
-                                : 'Una empresa inactiva no se puede abrir'
+                              motivoNoAbrir(empresa) ?? `Abrir ${empresa.codigo}`
                             }
-                            deshabilitado={ocupado || !empresa.activa}
-                            onClick={() => void abrir(empresa.id)}
+                            deshabilitado={motivoNoAbrir(empresa) !== null}
+                            onClick={() => abrirEmpresa(empresa.id)}
                           >
                             <LogIn className="size-4" />
                           </IconoAccion>
@@ -159,7 +182,7 @@ export function EmpresasPage() {
                         <button
                           type="button"
                           disabled={ocupado}
-                          onClick={() => alternarActiva(empresa)}
+                          onClick={() => pedirAlternar(empresa)}
                           className="mt-0.5 block w-full text-right text-[11px] text-slate-500 hover:text-brand-700 disabled:opacity-40"
                         >
                           {empresa.activa ? 'Desactivar' : 'Activar'}
@@ -188,6 +211,26 @@ export function EmpresasPage() {
           }}
         />
       )}
+
+      <DialogoConfirmacion
+        abierto={porDesactivar !== null}
+        titulo={`Desactivar ${porDesactivar?.codigo ?? ''}`}
+        textoConfirmar="Desactivar"
+        textoConfirmando="Desactivando…"
+        pendiente={guardar.isPending}
+        error={guardar.error}
+        onConfirmar={() =>
+          porDesactivar &&
+          alternarActiva(porDesactivar, () => setPorDesactivar(null))
+        }
+        onCancelar={cerrarDesactivacion}
+      >
+        <p>
+          {porDesactivar?.nombre} deja de ofrecerse en el selector de empresa.
+          Sus datos siguen guardados y se puede volver a activar cuando haga
+          falta.
+        </p>
+      </DialogoConfirmacion>
     </div>
   )
 }
@@ -204,13 +247,18 @@ function IconoAccion({
   children: React.ReactNode
 }) {
   return (
+    // `aria-disabled` y no `disabled`: un botón deshabilitado no recibe foco
+    // ni eventos del puntero, así que su `title` (que es justo el motivo por
+    // el que no se puede) no lo veía nadie.
     <button
       type="button"
       title={titulo}
       aria-label={titulo}
-      disabled={deshabilitado}
-      onClick={onClick}
-      className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-brand-700 disabled:pointer-events-none disabled:opacity-30"
+      aria-disabled={deshabilitado || undefined}
+      onClick={() => {
+        if (!deshabilitado) onClick()
+      }}
+      className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-brand-700 aria-disabled:cursor-not-allowed aria-disabled:opacity-30 aria-disabled:hover:bg-transparent aria-disabled:hover:text-slate-400"
     >
       {children}
     </button>

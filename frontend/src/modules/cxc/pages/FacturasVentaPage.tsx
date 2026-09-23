@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Plus, Search } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
+import { LinkBoton } from '@/shared/ui/LinkBoton'
 import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
 import { DataTable } from '@/shared/ui/DataTable'
 import { Input } from '@/shared/ui/Field'
@@ -16,6 +17,7 @@ import { useTarifasImpuesto } from '@/shared/api/catalogos'
 import { useAsientosDeDocumento } from '@/shared/api/trazabilidad'
 import type { FacturaVenta } from '@/shared/api/contracts/cxc'
 import { useAsientoDeFactura, useCobros, useFacturasVenta } from '../api/queries'
+import { DocumentoNoEncontrado, SeccionDetalle } from '@/shared/ui/Detalle'
 
 /**
  * Facturas emitidas y su asiento.
@@ -28,10 +30,18 @@ import { useAsientoDeFactura, useCobros, useFacturasVenta } from '../api/queries
  * de atrás del navegador devuelve al listado (docs/14 §6).
  */
 export function FacturasVentaPage() {
-  const { data: facturas = [], isLoading } = useFacturasVenta()
+  const {
+    data: facturas = [],
+    isLoading,
+    isSuccess,
+    error,
+    refetch,
+  } = useFacturasVenta()
   const navegar = useNavigate()
   const { id } = useParams()
   const [filtro, setFiltro] = useState('')
+  // Las filas que deja ver el filtro: el contador cuenta lo que se ve.
+  const [visibles, setVisibles] = useState<number | null>(null)
 
   // La seleccionada sale de la ruta, no de un clic: entrar con el enlace y
   // hacer clic en la fila tienen que dejar la pantalla en el mismo estado.
@@ -110,11 +120,13 @@ export function FacturasVentaPage() {
         titulo="Facturas de venta"
         descripcion="Cada factura emitida crea la cuenta por cobrar del cliente y su asiento."
         acciones={
-          <Link to="/cxc/facturas/nueva">
-            <Button variante="primario" icono={<Plus className="size-4" />}>
-              Nueva factura
-            </Button>
-          </Link>
+          <LinkBoton
+            to="/cxc/facturas/nueva"
+            variante="primario"
+            icono={<Plus className="size-4" />}
+          >
+            Nueva factura
+          </LinkBoton>
         }
       />
 
@@ -125,37 +137,45 @@ export function FacturasVentaPage() {
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
             placeholder="Buscar por número, comprobante o cliente…"
+            aria-label="Buscar facturas"
             className="h-8 max-w-sm border-0 px-0 focus:ring-0"
           />
           <span className="ml-auto text-xs text-slate-500">
-            {facturas.length} facturas
+            {filtro.trim() && visibles !== null
+              ? `${visibles} de ${facturas.length} facturas`
+              : `${facturas.length} facturas`}
           </span>
         </div>
 
-        {isLoading ? (
-          <p className="px-4 py-10 text-center text-sm text-slate-500">
-            Cargando facturas…
-          </p>
-        ) : (
-          <DataTable
-            columns={columnas}
-            data={facturas}
-            filtro={filtro}
-            onRowClick={(f) => navegar(`/cxc/facturas/${f.id}`)}
-            vacio={{
-              titulo: 'Sin facturas emitidas',
-              descripcion: 'Emita la primera para crear una cuenta por cobrar.',
-            }}
-          />
-        )}
+        <DataTable
+          columns={columnas}
+          data={facturas}
+          filtro={filtro}
+          cargando={isLoading}
+          error={error}
+          onReintentar={() => void refetch()}
+          alFiltrar={setVisibles}
+          esSeleccionada={(f) => f.id === id}
+          onRowClick={(f) => navegar(`/cxc/facturas/${f.id}`)}
+          vacio={{
+            titulo: 'Sin facturas emitidas',
+            descripcion: 'Emita la primera para crear una cuenta por cobrar.',
+          }}
+        />
       </Card>
 
-      {seleccionada && (
+      {seleccionada ? (
         <DetalleFactura
+          key={seleccionada.id}
           factura={seleccionada}
           onCerrar={() => navegar('/cxc/facturas')}
         />
-      )}
+      ) : id && isSuccess ? (
+        <DocumentoNoEncontrado
+          id={id}
+          onCerrar={() => navegar('/cxc/facturas')}
+        />
+      ) : null}
     </div>
   )
 }
@@ -185,7 +205,7 @@ function DetalleFactura({
   const manuales = relacionados.filter((a) => a.id !== factura.asientoId)
 
   return (
-    <>
+    <SeccionDetalle etiqueta={`Detalle de la factura ${factura.numeroInterno}`}>
       <Card className="mt-4">
         <CardHeader
           titulo={`Factura ${factura.numeroInterno}`}
@@ -368,7 +388,7 @@ function DetalleFactura({
             {manuales.map((a) => (
               <li key={a.id}>
                 <Link
-                  to={`/conta/asientos?q=${encodeURIComponent(a.codigo)}`}
+                  to={`/conta/asientos?asiento=${encodeURIComponent(a.id)}`}
                   className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-brand-50"
                 >
                   <span className="font-mono text-xs font-medium text-slate-700">
@@ -386,7 +406,7 @@ function DetalleFactura({
           </ul>
         </Card>
       )}
-    </>
+    </SeccionDetalle>
   )
 }
 

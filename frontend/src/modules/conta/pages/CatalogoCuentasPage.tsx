@@ -21,10 +21,12 @@ import {
 } from '../api/queries'
 
 export function CatalogoCuentasPage() {
-  const { data: cuentas = [], isLoading } = useCuentas()
+  const consultaCuentas = useCuentas()
+  const { data: cuentas = [], isLoading } = consultaCuentas
   const { data: clasificaciones = [] } = useClasificacionesNiif()
   const { data: notas = [] } = useNotasEeff()
-  const { data: asientos = [] } = useAsientos()
+  const consultaAsientos = useAsientos()
+  const { data: asientos = [] } = consultaAsientos
 
   const [filtro, setFiltro] = useState('')
   const [soloPendientes, setSoloPendientes] = useState(false)
@@ -43,6 +45,19 @@ export function CatalogoCuentasPage() {
       new Set(asientos.flatMap((a) => a.lineas.map((l) => l.cuentaCodigo))),
     [asientos],
   )
+
+  /**
+   * Mientras no se sabe qué cuentas tienen movimientos, no se edita ninguna.
+   *
+   * Con el conjunto vacío toda cuenta parecería libre, y el diálogo dejaría
+   * invertir la naturaleza de una que ya tiene saldo en la balanza. Que el
+   * servidor lo rechace después no quita que la pantalla lo haya ofrecido.
+   */
+  const motivoSinEdicion = consultaAsientos.isError
+    ? 'No se pudo comprobar qué cuentas tienen movimientos. Recargue la página para editar.'
+    : consultaAsientos.isLoading
+      ? 'Comprobando qué cuentas tienen movimientos…'
+      : null
 
   // Los renglones y las notas se resuelven una vez y no por celda: la tabla
   // pinta el catálogo entero y buscar en un array por fila se nota.
@@ -188,19 +203,25 @@ export function CatalogoCuentasPage() {
         id: 'editar',
         header: '',
         meta: { ancho: '44px' },
+        // El envoltorio frena el clic sobre el lápiz apagado: algunos
+        // navegadores lo entregan a la fila, y abriría la clasificación
+        // cuando el usuario apuntaba a otra cosa.
         cell: ({ row }) => (
-          <button
-            type="button"
-            aria-label={`Editar la cuenta ${row.original.codigo}`}
-            title="Editar la cuenta"
-            onClick={(e) => {
-              e.stopPropagation()
-              setEditando(row.original)
-            }}
-            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-brand-700"
-          >
-            <Pencil className="size-3.5" />
-          </button>
+          <span onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              aria-label={`Editar la cuenta ${row.original.codigo}`}
+              title={motivoSinEdicion ?? 'Editar la cuenta'}
+              disabled={motivoSinEdicion !== null}
+              onClick={(e) => {
+                e.stopPropagation()
+                setEditando(row.original)
+              }}
+              className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+            >
+              <Pencil className="size-3.5" />
+            </button>
+          </span>
         ),
       },
       {
@@ -226,7 +247,7 @@ export function CatalogoCuentasPage() {
         },
       },
     ],
-    [porId],
+    [porId, motivoSinEdicion],
   )
 
   return (
@@ -268,25 +289,42 @@ export function CatalogoCuentasPage() {
           </span>
         </div>
 
-        {isLoading ? (
-          <p className="px-4 py-10 text-center text-sm text-slate-500">
-            Cargando catálogo…
-          </p>
-        ) : (
-          <DataTable
-            columns={columnas}
-            data={visibles}
-            filtro={filtro}
-            onRowClick={setClasificando}
-            maxAltura="calc(100vh - 260px)"
-            vacio={{
-              titulo: soloPendientes ? 'Todo clasificado' : 'Sin resultados',
-              descripcion: soloPendientes
-                ? 'Todas las cuentas de detalle tienen su renglón del estado financiero y su nota.'
-                : 'Ninguna cuenta coincide con la búsqueda.',
-            }}
-          />
+        {motivoSinEdicion && consultaAsientos.isError && (
+          <div
+            role="alert"
+            className="flex flex-wrap items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800"
+          >
+            No se pudo comprobar qué cuentas tienen movimientos: la edición de
+            cuentas queda desactivada hasta saberlo.
+            <Button
+              tamano="sm"
+              onClick={() => void consultaAsientos.refetch()}
+              disabled={consultaAsientos.isFetching}
+            >
+              {consultaAsientos.isFetching ? 'Reintentando…' : 'Reintentar'}
+            </Button>
+          </div>
         )}
+
+        <DataTable
+          columns={columnas}
+          data={visibles}
+          filtro={filtro}
+          cargando={isLoading}
+          error={consultaCuentas.error}
+          onReintentar={() => void consultaCuentas.refetch()}
+          // Jerárquica: ordenar por nombre separaría a cada cuenta de su
+          // madre y dejaría la sangría sin sentido.
+          ordenable={false}
+          onRowClick={setClasificando}
+          maxAltura="calc(100vh - 260px)"
+          vacio={{
+            titulo: soloPendientes ? 'Todo clasificado' : 'Sin cuentas',
+            descripcion: soloPendientes
+              ? 'Todas las cuentas de detalle tienen su renglón del estado financiero y su nota.'
+              : 'El catálogo no tiene cuentas.',
+          }}
+        />
       </Card>
 
       {clasificando && (
@@ -301,7 +339,7 @@ export function CatalogoCuentasPage() {
         />
       )}
 
-      {(creando || editando) && (
+      {(creando || (editando && !motivoSinEdicion)) && (
         <DialogoCuenta
           key={editando?.id ?? 'nueva'}
           abierto

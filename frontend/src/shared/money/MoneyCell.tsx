@@ -24,8 +24,9 @@ export function MoneyCell({
   mostrarSimbolo = false,
   className,
 }: MoneyCellProps) {
+  // Sin importe: un guion tenue, que no se confunde con un cero.
   if (valor === null || valor === undefined || valor === '') {
-    return <span className="text-slate-300">—</span>
+    return <span className="text-slate-300">-</span>
   }
 
   const money =

@@ -162,6 +162,9 @@ export function useContabilizarDepreciacion() {
       void cliente.invalidateQueries({ queryKey: clavesActivos.todo })
       void cliente.invalidateQueries({ queryKey: ['conta', 'asientos'] })
       void cliente.invalidateQueries({ queryKey: ['conta', 'balanza'] })
+      // Mismo motivo que la revaluación: el cierre de periodo comprueba que la
+      // corrida del mes esté contabilizada, y la lista de periodos lo refleja.
+      void cliente.invalidateQueries({ queryKey: ['conta', 'periodos'] })
     },
   })
 }

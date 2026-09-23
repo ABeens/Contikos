@@ -13,7 +13,11 @@ export interface FieldProps {
   ayuda?: string
   requerido?: boolean
   className?: string
-  children: (props: { id: string; 'aria-invalid': boolean }) => ReactNode
+  children: (props: {
+    id: string
+    'aria-invalid': boolean
+    'aria-describedby'?: string
+  }) => ReactNode
 }
 
 export function Field({
@@ -25,17 +29,29 @@ export function Field({
   children,
 }: FieldProps) {
   const id = useId()
+  // El error (o la ayuda) se asocia al control: un lector de pantalla lo lee
+  // al llegar al campo, no solo quien lo ve debajo.
+  const idNota = `${id}-nota`
+  const hayNota = Boolean(error || ayuda)
   return (
     <div className={cn('flex flex-col gap-1', className)}>
       <label htmlFor={id} className="text-xs font-medium text-slate-600">
         {label}
         {requerido && <span className="ml-0.5 text-red-500">*</span>}
       </label>
-      {children({ id, 'aria-invalid': Boolean(error) })}
+      {children({
+        id,
+        'aria-invalid': Boolean(error),
+        'aria-describedby': hayNota ? idNota : undefined,
+      })}
       {error ? (
-        <p className="text-xs text-red-600">{error}</p>
+        <p id={idNota} className="text-xs text-red-600">
+          {error}
+        </p>
       ) : ayuda ? (
-        <p className="text-xs text-slate-400">{ayuda}</p>
+        <p id={idNota} className="text-xs text-slate-400">
+          {ayuda}
+        </p>
       ) : null}
     </div>
   )

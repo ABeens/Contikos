@@ -385,6 +385,20 @@ const handlersConciliacion = [
       )
     }
 
+    // Un corte se cierra una vez. Cerrar otra vez el mismo día, o uno anterior
+    // al último cerrado, archivaría una segunda foto de algo ya firmado: la
+    // pantalla lo impide, pero la regla es del servidor.
+    const posterior = conciliaciones.find(
+      (c) => c.cuentaBancariaId === cuentaBancariaId && c.fechaCorte >= fechaCorte,
+    )
+    if (posterior) {
+      return errorApi(
+        'CONCILIACION_YA_CERRADA',
+        `La cuenta ya tiene una conciliación cerrada al ${posterior.fechaCorte}`,
+        ['Elija una fecha de corte posterior a la última conciliación cerrada'],
+      )
+    }
+
     if (!resumen.puedeCerrar) {
       return errorApi(
         'CONCILIACION_CON_DIFERENCIA',

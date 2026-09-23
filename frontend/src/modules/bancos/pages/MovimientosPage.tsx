@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Plus } from 'lucide-react'
-import { Button } from '@/shared/ui/Button'
-import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
+import { LinkBoton } from '@/shared/ui/LinkBoton'
+import { Card, CardHeader, EstadoError, PageHeader } from '@/shared/ui/Layout'
 import { DataTable } from '@/shared/ui/DataTable'
 import { EstadoBadge } from '@/shared/ui/EstadoBadge'
 import { Field, Select } from '@/shared/ui/Field'
@@ -27,7 +27,8 @@ import { etiquetaTipoMovimiento } from '../domain/movimiento'
  */
 export function MovimientosPage() {
   const [parametros, setParametros] = useSearchParams()
-  const { data: cuentas = [] } = useCuentasBancarias()
+  const consultaCuentas = useCuentasBancarias()
+  const { data: cuentas = [] } = consultaCuentas
   const [filtro, setFiltro] = useState('')
 
   // Sin cuenta en la URL se abre la primera del catálogo: una pantalla de
@@ -35,9 +36,8 @@ export function MovimientosPage() {
   const cuentaId = parametros.get('cuenta') ?? cuentas[0]?.id ?? ''
   const cuenta = cuentas.find((c) => c.id === cuentaId)
 
-  const { data: movimientos = [], isLoading } = useMovimientosBancarios(
-    cuentaId || undefined,
-  )
+  const consulta = useMovimientosBancarios(cuentaId || undefined)
+  const { data: movimientos = [] } = consulta
 
   const columnas = useMemo<ColumnDef<MovimientoBancario, unknown>[]>(
     () => [
@@ -54,8 +54,11 @@ export function MovimientosPage() {
         cell: ({ row }) => etiquetaTipoMovimiento(row.original.tipo),
       },
       {
-        accessorKey: 'concepto',
+        // Se busca por concepto Y referencia, que es lo que promete el
+        // buscador: la referencia es lo que el banco imprime en su estado.
+        id: 'concepto',
         header: 'Concepto',
+        accessorFn: (m) => `${m.concepto} ${m.referencia ?? ''}`,
         cell: ({ row }) => (
           <div>
             <p className="text-slate-800">{row.original.concepto}</p>
@@ -98,7 +101,7 @@ export function MovimientosPage() {
               {row.original.asientoId}
             </Link>
           ) : (
-            <span className="text-xs text-slate-400">—</span>
+            <span className="text-xs text-slate-400">Sin asiento</span>
           ),
       },
       {
@@ -129,11 +132,17 @@ export function MovimientosPage() {
         titulo="Movimientos bancarios"
         descripcion="Lo que registró la empresa. Los cobros y los pagos llegan de sus módulos; las comisiones, los intereses y los traspasos nacen aquí."
         acciones={
-          <Link to="/bancos/movimientos/nuevo">
-            <Button variante="primario" icono={<Plus className="size-4" />}>
-              Registrar movimiento
-            </Button>
-          </Link>
+          <LinkBoton
+            to={
+              cuentaId
+                ? `/bancos/movimientos/nuevo?cuenta=${cuentaId}`
+                : '/bancos/movimientos/nuevo'
+            }
+            variante="primario"
+            icono={<Plus className="size-4" />}
+          >
+            Registrar movimiento
+          </LinkBoton>
         }
       />
 
@@ -144,11 +153,10 @@ export function MovimientosPage() {
               <Select
                 {...p}
                 value={cuentaId}
+                // Sin `replace`: cada cuenta es una entrada del historial, que
+                // es lo que permite que atrás devuelva a la anterior.
                 onChange={(e) =>
-                  setParametros(
-                    e.target.value ? { cuenta: e.target.value } : {},
-                    { replace: true },
-                  )
+                  setParametros(e.target.value ? { cuenta: e.target.value } : {})
                 }
               >
                 {cuentas.map((c) => (
@@ -225,15 +233,21 @@ export function MovimientosPage() {
             />
           }
         />
-        {isLoading ? (
-          <p className="px-4 py-10 text-center text-sm text-slate-500">
-            Cargando movimientos…
-          </p>
+        {consultaCuentas.error && cuentas.length === 0 ? (
+          <EstadoError
+            titulo="No se pudieron cargar las cuentas bancarias"
+            error={consultaCuentas.error}
+            onReintentar={() => void consultaCuentas.refetch()}
+            reintentando={consultaCuentas.isFetching}
+          />
         ) : (
           <DataTable
             columns={columnas}
             data={movimientos}
             filtro={filtro}
+            cargando={consulta.isLoading || consultaCuentas.isLoading}
+            error={consulta.error}
+            onReintentar={() => void consulta.refetch()}
             vacio={{
               titulo: 'Sin movimientos',
               descripcion:

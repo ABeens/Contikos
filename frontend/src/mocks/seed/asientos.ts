@@ -70,7 +70,7 @@ const SEMILLAS: AsientoSemilla[] = [
   },
   {
     fecha: '2026-07-03',
-    concepto: 'Factura electrónica FE-00000112 — Consultoría julio',
+    concepto: 'Factura electrónica FE-00000112, Consultoría julio',
     origen: { modulo: 'cxc', tipo: 'factura', id: 'fac-112' },
     lineas: [
       {
@@ -85,14 +85,14 @@ const SEMILLAS: AsientoSemilla[] = [
   },
   {
     fecha: '2026-07-15',
-    concepto: 'Cobro FE-00000112 — transferencia BN',
+    concepto: 'Cobro FE-00000112, transferencia BN',
     origen: { modulo: 'cxc', tipo: 'cobro', id: 'cob-088' },
     lineas: [
       {
         cuenta: '1.1.01.010',
         concepto: 'Transferencia recibida',
         cargo: '3390000.00',
-        auxiliar: { tipo: 'banco', id: 'bco-001', nombre: 'BN — corriente colones' },
+        auxiliar: { tipo: 'banco', id: 'bco-001', nombre: 'BN, corriente colones' },
       },
       {
         cuenta: '1.1.02.001',
@@ -104,7 +104,7 @@ const SEMILLAS: AsientoSemilla[] = [
   },
   {
     fecha: '2026-07-20',
-    concepto: 'Factura proveedor 4521 — servicios contables',
+    concepto: 'Factura proveedor 4521, servicios contables',
     origen: { modulo: 'cxp', tipo: 'factura', id: 'fpr-4521' },
     lineas: [
       { cuenta: '6.1.02.003', concepto: 'Honorarios contables', cargo: '450000.00' },
@@ -191,7 +191,7 @@ const SEMILLAS: AsientoSemilla[] = [
         cuenta: '1.1.01.010',
         concepto: 'Transferencia emitida',
         abono: '508500.00',
-        auxiliar: { tipo: 'banco', id: 'bco-001', nombre: 'BN — corriente colones' },
+        auxiliar: { tipo: 'banco', id: 'bco-001', nombre: 'BN, corriente colones' },
       },
     ],
   },
@@ -206,7 +206,7 @@ const SEMILLAS: AsientoSemilla[] = [
         cuenta: '1.1.01.010',
         concepto: 'Cargo automático',
         abono: '14125.00',
-        auxiliar: { tipo: 'banco', id: 'bco-001', nombre: 'BN — corriente colones' },
+        auxiliar: { tipo: 'banco', id: 'bco-001', nombre: 'BN, corriente colones' },
       },
     ],
   },

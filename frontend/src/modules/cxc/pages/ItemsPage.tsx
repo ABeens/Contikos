@@ -22,12 +22,19 @@ import { DialogoItem } from '../components/DialogoItem'
  * editable.
  */
 export function ItemsPage() {
-  const { data: items = [], isLoading } = useItems()
+  const {
+    data: items = [],
+    isLoading,
+    error,
+    refetch,
+  } = useItems()
   const { data: cuentas = [] } = useCuentas()
   // La tabla entera, sin fecha: el catálogo no es un documento y su tarifa se
   // nombra igual aunque la vigencia de esa fila ya esté cerrada.
   const { data: tarifas = [] } = useTarifasImpuesto()
   const [filtro, setFiltro] = useState('')
+  // Las filas que deja ver el filtro: el contador cuenta lo que se ve.
+  const [visibles, setVisibles] = useState<number | null>(null)
   const [editando, setEditando] = useState<ItemCatalogo | null>(null)
   const [creando, setCreando] = useState(false)
 
@@ -140,30 +147,31 @@ export function ItemsPage() {
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
             placeholder="Buscar por código, nombre o cuenta…"
+            aria-label="Buscar productos y servicios"
             className="h-8 max-w-sm border-0 px-0 focus:ring-0"
           />
           <span className="ml-auto text-xs text-slate-500">
-            {items.length} items
+            {filtro.trim() && visibles !== null
+              ? `${visibles} de ${items.length} items`
+              : `${items.length} items`}
           </span>
         </div>
 
-        {isLoading ? (
-          <p className="px-4 py-10 text-center text-sm text-slate-500">
-            Cargando catálogo…
-          </p>
-        ) : (
-          <DataTable
-            columns={columnas}
-            data={items}
-            filtro={filtro}
-            onRowClick={setEditando}
-            vacio={{
-              titulo: 'Sin productos ni servicios',
-              descripcion:
-                'Dé de alta el primero: la factura precargará su cuenta y su tarifa.',
-            }}
-          />
-        )}
+        <DataTable
+          columns={columnas}
+          data={items}
+          filtro={filtro}
+          cargando={isLoading}
+          error={error}
+          onReintentar={() => void refetch()}
+          alFiltrar={setVisibles}
+          onRowClick={setEditando}
+          vacio={{
+            titulo: 'Sin productos ni servicios',
+            descripcion:
+              'Dé de alta el primero: la factura precargará su cuenta y su tarifa.',
+          }}
+        />
       </Card>
 
       {(creando || editando) && (

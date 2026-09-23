@@ -197,11 +197,15 @@ export function useAsientoDeCobro(id: string | undefined) {
  * cambian a la vez) y, en `conta`, los asientos y la balanza. Dejar la balanza
  * en caché después de mover la cuenta de clientes enseñaría una contabilidad
  * que ya no es la vigente, y el descuadre aparente sería del todo real.
+ *
+ * También `bancos`: el cobro entra (y su anulación sale) como movimiento de la
+ * cuenta bancaria, y el saldo y la conciliación de tesorería lo enseñan.
  */
 function invalidarPorCobro(cliente: ReturnType<typeof useQueryClient>): void {
   void cliente.invalidateQueries({ queryKey: ['cxc'] })
   void cliente.invalidateQueries({ queryKey: ['conta', 'asientos'] })
   void cliente.invalidateQueries({ queryKey: ['conta', 'balanza'] })
+  void cliente.invalidateQueries({ queryKey: ['bancos'] })
 }
 
 /** Registra el cobro y, con él, su asiento y el nuevo saldo de las facturas. */

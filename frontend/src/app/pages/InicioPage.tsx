@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 import { CircleCheck, CircleAlert } from 'lucide-react'
-import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
+import { Card, CardHeader, EstadoError, PageHeader } from '@/shared/ui/Layout'
 import { MoneyCell } from '@/shared/money/MoneyCell'
 import { formatFecha } from '@/shared/format/fecha'
 import { formatNumeroAsiento } from '@/shared/asiento/formato'
@@ -10,22 +10,32 @@ import { useAsientos, useBalanza } from '@/modules/conta/api/queries'
 /**
  * Portada.
  *
- * Contesta tres preguntas del día — cuánto se movió, si cuadra y qué se
- * registró — y nada más. El diagrama de la arquitectura y la parrilla de los
+ * Contesta tres preguntas del día (cuánto se movió, si cuadra y qué se
+ * registró) y nada más. El diagrama de la arquitectura y la parrilla de los
  * doce periodos ocupaban la mitad de la pantalla para decir algo que no cambia
  * de un día para otro.
  */
 export function InicioPage() {
   const { periodoActivo, cargando } = useEmpresa()
-  const { data: fiscal } = useBalanza(periodoActivo?.id, 'fiscal')
-  const { data: corporativa } = useBalanza(periodoActivo?.id, 'corporativo')
-  // Sin periodo resuelto no se pide el mayor entero: llegaría para que lo
-  // sustituyera un instante después la consulta del periodo.
-  const { data: asientos = [] } = useAsientos(
+  const consultaFiscal = useBalanza(periodoActivo?.id, 'fiscal')
+  const consultaCorporativa = useBalanza(periodoActivo?.id, 'corporativo')
+  const { data: fiscal } = consultaFiscal
+  const { data: corporativa } = consultaCorporativa
+  // Sin periodo no se pide nada: la consulta sin periodo es el mayor entero,
+  // que llegaría para que la sustituyera un instante después la del periodo.
+  // Y una empresa sin periodos no tiene "asientos del periodo" que contar.
+  const consultaAsientos = useAsientos(
     periodoActivo?.id,
     undefined,
-    !cargando,
+    Boolean(periodoActivo),
   )
+  const { data: asientos = [] } = consultaAsientos
+  // Mientras no hay datos no se enseña un cero: "0 asientos" es una
+  // afirmación, y todavía no se sabe.
+  const asientosListos = consultaAsientos.isSuccess
+  // Una empresa sin ningún periodo no está "cargando": no tiene qué contar.
+  const sinPeriodo = !cargando && !periodoActivo
+  const errorBalanza = consultaFiscal.error ?? consultaCorporativa.error
   const cargadas = Boolean(fiscal && corporativa)
   const cuadran = Boolean(fiscal?.cuadra && corporativa?.cuadra)
   // Los dos libros suelen mover lo mismo. El corporativo solo se enseña cuando
@@ -44,12 +54,25 @@ export function InicioPage() {
       <div className="mb-4 grid gap-3 sm:grid-cols-3">
         <Indicador
           etiqueta="Asientos del periodo"
-          valor={String(asientos.length)}
+          valor={
+            asientosListos
+              ? String(asientos.length)
+              : consultaAsientos.isError || sinPeriodo
+                ? SIN_DATO
+                : CARGANDO
+          }
+          nota={consultaAsientos.isError ? 'No se pudo consultar' : undefined}
         />
         <Indicador
           etiqueta="Movimientos del periodo"
           valor={
-            fiscal ? <MoneyCell valor={fiscal.totalCargos} mostrarSimbolo /> : '—'
+            fiscal ? (
+              <MoneyCell valor={fiscal.totalCargos} mostrarSimbolo />
+            ) : consultaFiscal.isError || sinPeriodo ? (
+              SIN_DATO
+            ) : (
+              CARGANDO
+            )
           }
           nota={
             difieren ? (
@@ -76,10 +99,13 @@ export function InicioPage() {
                 )}
                 {cuadran ? 'Cuadran' : 'No cuadra'}
               </span>
+            ) : errorBalanza || sinPeriodo ? (
+              SIN_DATO
             ) : (
-              '—'
+              CARGANDO
             )
           }
+          nota={errorBalanza ? 'No se pudo consultar la balanza' : undefined}
         />
       </div>
 
@@ -95,32 +121,54 @@ export function InicioPage() {
             </Link>
           }
         />
-        {recientes.length === 0 ? (
+        {consultaAsientos.isError ? (
+          <EstadoError
+            titulo="No se pudieron cargar los asientos"
+            error={consultaAsientos.error}
+            onReintentar={() => void consultaAsientos.refetch()}
+            reintentando={consultaAsientos.isFetching}
+          />
+        ) : sinPeriodo ? (
+          <p className="px-4 py-8 text-center text-sm text-slate-500">
+            Esta empresa todavía no tiene periodos contables.
+          </p>
+        ) : !asientosListos ? (
+          <p
+            className="px-4 py-8 text-center text-sm text-slate-400"
+            aria-busy
+          >
+            Cargando…
+          </p>
+        ) : recientes.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-slate-500">
             Sin asientos en el periodo.
           </p>
         ) : (
           <ul className="divide-y divide-slate-100">
             {recientes.map((asiento) => (
-              <li
-                key={asiento.id}
-                className="flex items-center gap-3 px-4 py-2 text-sm"
-              >
-                <span className="font-mono text-xs text-slate-500">
-                  {formatNumeroAsiento(asiento.numero)}
-                </span>
-                <span className="w-20 shrink-0 text-xs text-slate-500">
-                  {formatFecha(asiento.fecha)}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-slate-700">
-                  {asiento.concepto}
-                </span>
-                <span className="tabular shrink-0 text-slate-800">
-                  <MoneyCell
-                    valor={asiento.totales[0]?.totalCargos ?? '0'}
-                    moneda={asiento.moneda}
-                  />
-                </span>
+              <li key={asiento.id}>
+                {/* Cada asiento abre su detalle, por la misma dirección que
+                    usan los demás módulos para enlazarlo. */}
+                <Link
+                  to={`/conta/asientos?asiento=${encodeURIComponent(asiento.id)}`}
+                  className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-slate-50"
+                >
+                  <span className="font-mono text-xs text-slate-500">
+                    {formatNumeroAsiento(asiento.numero)}
+                  </span>
+                  <span className="w-20 shrink-0 text-xs text-slate-500">
+                    {formatFecha(asiento.fecha)}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-slate-700">
+                    {asiento.concepto}
+                  </span>
+                  <span className="tabular shrink-0 text-slate-800">
+                    <MoneyCell
+                      valor={asiento.totales[0]?.totalCargos ?? '0'}
+                      moneda={asiento.moneda}
+                    />
+                  </span>
+                </Link>
               </li>
             ))}
           </ul>
@@ -136,6 +184,16 @@ export function InicioPage() {
     </div>
   )
 }
+
+/** Todavía no se sabe. El lector de pantalla oye "cargando", no "puntos". */
+const CARGANDO = (
+  <span className="text-slate-300">
+    <span aria-hidden>…</span>
+    <span className="sr-only">Cargando</span>
+  </span>
+)
+/** No se pudo saber. Distinto de cero, y distinto de "cargando". */
+const SIN_DATO = '-'
 
 function Indicador({
   etiqueta,

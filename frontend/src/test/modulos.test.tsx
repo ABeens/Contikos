@@ -426,15 +426,25 @@ describe('Activos fijos', () => {
     await usuario.click(
       screen.getByRole('button', { name: /Dar de alta y contabilizar/ }),
     )
+    // Escribe en el mayor: pide confirmación antes.
+    const dialogo = await screen.findByRole('dialog')
+    await usuario.click(
+      within(dialogo).getByRole('button', {
+        name: /Dar de alta y contabilizar/,
+      }),
+    )
 
     await waitFor(() =>
       expect(
         screen.getByRole('heading', { name: 'Activos fijos' }),
       ).toBeInTheDocument(),
     )
+    // El nombre sale en la fila y en la ficha que se abre sola.
     const fila = (
-      await screen.findByText('Servidor aportado por socios')
-    ).closest('tr')!
+      await screen.findAllByText('Servidor aportado por socios')
+    )
+      .map((e) => e.closest('tr'))
+      .find(Boolean)!
     expect(within(fila).getByText('Alta directa')).toBeInTheDocument()
   })
 
@@ -629,7 +639,7 @@ describe('Catálogo de cuentas', () => {
     })
     await crearCuenta(usuario, {
       codigo: '1.2.02.004',
-      nombre: 'Dep. acumulada — maquinaria',
+      nombre: 'Dep. acumulada, maquinaria',
       naturaleza: 'acreedora',
     })
 
@@ -658,9 +668,10 @@ describe('Catálogo de cuentas', () => {
 
     const fila = (await screen.findByText('Maquinaria pesada')).closest('tr')!
     expect(within(fila).getByText(/1\.2\.01\.004/)).toBeInTheDocument()
-    // Dos altas completas —con su presentación— y el mapeo de una categoría en
-    // una sola prueba: no le alcanza el límite general de la suite.
-  }, 45_000)
+    // Dos altas completas (con su presentación) y el mapeo de una categoría en
+    // una sola prueba: no le alcanza el límite general de la suite. Con 45 s ya
+    // se pasaba en máquinas lentas, también antes de estos cambios.
+  }, 90_000)
 })
 
 describe('Monedas', () => {

@@ -127,7 +127,7 @@ export const rutas: RouteObject[] = [
         element: (
           <ModuloPendientePage
             titulo="Recursos humanos"
-            fase="Fase 7 del roadmap — decisión D-06 pendiente"
+            fase="Fase 7 del roadmap, decisión D-06 pendiente"
             descripcion="Planilla y cargas sociales. El módulo más dependiente de la legislación local."
             alcance={[
               'Empleados y catálogo de conceptos',

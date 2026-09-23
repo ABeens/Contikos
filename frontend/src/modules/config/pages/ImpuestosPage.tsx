@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { CircleAlert, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
-import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
+import { Card, CardHeader, EstadoError, PageHeader } from '@/shared/ui/Layout'
 import { Dialogo } from '@/shared/ui/Dialogo'
 import { formatFecha, hoyISO } from '@/shared/format/fecha'
 import { vigenteEn } from '@/shared/fiscal/impuestos'
@@ -30,7 +30,8 @@ const TIPOS: Record<string, string> = {
 export function ImpuestosPage() {
   // La tabla entera, sin fecha: aquí se mantienen también las vigencias
   // cerradas y las futuras, que es justo lo que la captura no ve.
-  const { data: tarifas = [], isLoading } = useTarifasImpuesto()
+  const consulta = useTarifasImpuesto()
+  const { data: tarifas = [], isLoading } = consulta
   const eliminar = useEliminarTarifaImpuesto()
 
   const [editando, setEditando] = useState<TarifaImpuesto | null>(null)
@@ -92,6 +93,15 @@ export function ImpuestosPage() {
           <p className="px-4 py-10 text-center text-sm text-slate-500">
             Cargando impuestos…
           </p>
+        ) : consulta.isError && filas.length === 0 ? (
+          // "Sin tarifas" y "no se pudieron leer" no son lo mismo: con la
+          // tabla vacía la captura cae a las tarifas por defecto.
+          <EstadoError
+            titulo="No se pudo cargar la tabla de impuestos"
+            error={consulta.error}
+            onReintentar={() => void consulta.refetch()}
+            reintentando={consulta.isFetching}
+          />
         ) : filas.length === 0 ? (
           <p className="px-4 py-10 text-center text-sm text-slate-500">
             Sin tarifas. Mientras la tabla esté vacía, la captura solo ofrece
@@ -225,6 +235,7 @@ export function ImpuestosPage() {
       <Dialogo
         abierto={porEliminar !== null}
         onCerrar={cerrarEliminacion}
+        bloqueado={eliminar.isPending}
         titulo={`Eliminar ${porEliminar?.codigo ?? ''}`}
         descripcion={
           porEliminar
@@ -237,7 +248,7 @@ export function ImpuestosPage() {
         }
         acciones={
           <>
-            <Button onClick={cerrarEliminacion}>
+            <Button onClick={cerrarEliminacion} disabled={eliminar.isPending}>
               {enUso ? 'Cerrar' : 'Cancelar'}
             </Button>
             {!enUso && (
@@ -303,16 +314,22 @@ function IconoAccion({
   children: React.ReactNode
 }) {
   return (
+    // `aria-disabled` y no `disabled`: un botón deshabilitado no recibe foco
+    // ni eventos del puntero, así que su `title` no lo veía nadie.
     <button
       type="button"
       title={titulo}
       aria-label={titulo}
-      disabled={deshabilitado}
-      onClick={onClick}
-      className={`rounded p-1 text-slate-400 disabled:pointer-events-none disabled:opacity-30 ${
-        peligro
-          ? 'hover:bg-red-50 hover:text-red-600'
-          : 'hover:bg-slate-100 hover:text-brand-700'
+      aria-disabled={deshabilitado || undefined}
+      onClick={() => {
+        if (!deshabilitado) onClick()
+      }}
+      className={`rounded p-1 text-slate-400 aria-disabled:cursor-not-allowed aria-disabled:opacity-30 ${
+        deshabilitado
+          ? ''
+          : peligro
+            ? 'hover:bg-red-50 hover:text-red-600'
+            : 'hover:bg-slate-100 hover:text-brand-700'
       }`}
     >
       {children}

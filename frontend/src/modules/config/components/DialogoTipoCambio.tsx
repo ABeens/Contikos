@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import Decimal from 'decimal.js'
-import { CircleAlert } from 'lucide-react'
+import { CircleAlert, CircleCheck } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { Dialogo } from '@/shared/ui/Dialogo'
 import { Field, Select } from '@/shared/ui/Field'
+import { EstadoError } from '@/shared/ui/Layout'
 import { formatFechaLarga } from '@/shared/format/fecha'
 import { ApiError } from '@/shared/api/client'
 import type {
@@ -15,7 +16,11 @@ import {
   type CambioContraFuncional,
 } from '@/shared/fiscal/tipoCambio'
 import { aSolicitud } from '../domain/moneda'
-import { useAplicarTipoCambio, useTipoCambioDelDia } from '../api/queries'
+import {
+  useAplicarTipoCambio,
+  useTipoCambioDelDia,
+  type ResultadoTipoCambio,
+} from '../api/queries'
 
 /**
  * Trae el tipo de cambio del día y lo lleva al catálogo (docs/13 §7).
@@ -90,16 +95,27 @@ export function DialogoTipoCambio({
     ...new Set(filas.flatMap((f) => (f.cambio?.nota ? [f.cambio.nota] : []))),
   ]
 
-  const error = [consulta.error, aplicar.error].find(
-    (e): e is ApiError => e instanceof ApiError,
+  /**
+   * Resultado del último intento, moneda por moneda. Solo se guarda cuando
+   * alguna falló: si todas entraron, el diálogo se cierra y no hay nada que
+   * contar.
+   */
+  const [resultados, setResultados] = useState<ResultadoTipoCambio[] | null>(
+    null,
   )
 
-  const confirmar = async () => {
+  const confirmar = () => {
+    if (aplicar.isPending || porAplicar.length === 0) return
     const solicitudes: SolicitudMoneda[] = porAplicar.flatMap((f) =>
       f.nuevo === null ? [] : [{ ...aSolicitud(f.moneda), tipoCambio: f.nuevo }],
     )
-    await aplicar.mutateAsync(solicitudes)
-    onCerrar()
+    setResultados(null)
+    aplicar.mutate(solicitudes, {
+      onSuccess: (r) => {
+        if (r.every((x) => !x.error)) onCerrar()
+        else setResultados(r)
+      },
+    })
   }
 
   return (
@@ -113,13 +129,17 @@ export function DialogoTipoCambio({
           : 'Publicado por el Ministerio de Hacienda'
       }
       className="w-[min(94vw,44rem)]"
+      bloqueado={aplicar.isPending}
+      alEnviar={confirmar}
       acciones={
         <>
-          <Button onClick={onCerrar}>Cancelar</Button>
+          <Button onClick={onCerrar} disabled={aplicar.isPending}>
+            {resultados ? 'Cerrar' : 'Cancelar'}
+          </Button>
           <Button
+            type="submit"
             variante="primario"
             disabled={porAplicar.length === 0 || aplicar.isPending}
-            onClick={() => void confirmar()}
           >
             {aplicar.isPending
               ? 'Aplicando…'
@@ -130,18 +150,25 @@ export function DialogoTipoCambio({
         </>
       }
     >
-      {error && (
-        <div className="mb-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset">
-          <p className="flex items-center gap-1.5 text-sm font-medium text-red-800">
-            <CircleAlert className="size-4 shrink-0" />
-            {error.codigo}: {error.message}
-          </p>
-        </div>
-      )}
+      {resultados && <ResumenResultados resultados={resultados} />}
 
       {consulta.isLoading ? (
         <p className="py-8 text-center text-sm text-slate-500">
           Consultando el tipo de cambio…
+        </p>
+      ) : !tabla && consulta.isError ? (
+        // Un fallo de la fuente no es "no hay nada que aplicar": se dice, y se
+        // puede volver a pedir sin cerrar el diálogo.
+        <EstadoError
+          titulo="No se pudo consultar el tipo de cambio del día"
+          error={consulta.error}
+          onReintentar={() => void consulta.refetch()}
+          reintentando={consulta.isFetching}
+        />
+      ) : tabla && filas.length === 0 ? (
+        <p className="py-8 text-center text-sm text-slate-500">
+          El catálogo no tiene monedas extranjeras: no hay ningún tipo de
+          cambio que traer. Dé de alta una moneda antes.
         </p>
       ) : tabla ? (
         <div className="flex flex-col gap-4">
@@ -246,5 +273,54 @@ export function DialogoTipoCambio({
         </div>
       ) : null}
     </Dialogo>
+  )
+}
+
+/**
+ * Qué entró y qué no. Las monedas que fallaron siguen en la tabla como
+ * pendientes, así que volver a pulsar Aplicar reintenta solo esas.
+ */
+function ResumenResultados({
+  resultados,
+}: {
+  resultados: readonly ResultadoTipoCambio[]
+}) {
+  return (
+    <div
+      role="alert"
+      className="mb-4 rounded-md bg-red-50 p-3 text-sm ring-1 ring-red-200 ring-inset"
+    >
+      <p className="font-medium text-red-800">
+        No se pudo aplicar el tipo de cambio a todas las monedas
+      </p>
+      <ul className="mt-1.5 space-y-1 text-xs">
+        {resultados.map((r) => (
+          <li key={r.codigo} className="flex items-start gap-1.5">
+            {r.error ? (
+              <>
+                <CircleAlert className="mt-px size-3.5 shrink-0 text-red-600" />
+                <span className="text-red-700">
+                  <span className="font-mono font-semibold">{r.codigo}</span>{' '}
+                  no se actualizó.{' '}
+                  {r.error instanceof ApiError
+                    ? `${r.error.codigo}: ${r.error.message}`
+                    : r.error instanceof Error
+                      ? r.error.message
+                      : 'Error desconocido.'}
+                </span>
+              </>
+            ) : (
+              <>
+                <CircleCheck className="mt-px size-3.5 shrink-0 text-emerald-600" />
+                <span className="text-slate-700">
+                  <span className="font-mono font-semibold">{r.codigo}</span>{' '}
+                  quedó en {r.guardada?.tipoCambio}.
+                </span>
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }

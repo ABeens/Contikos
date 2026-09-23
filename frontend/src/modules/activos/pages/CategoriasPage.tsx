@@ -17,7 +17,8 @@ import { DialogoCategoria } from '../components/DialogoCategoria'
  * lo que evita que dos equipos iguales terminen en cuentas distintas.
  */
 export function CategoriasPage() {
-  const { data: categorias = [], isLoading } = useCategorias()
+  const consulta = useCategorias()
+  const { data: categorias = [] } = consulta
   const { data: cuentas = [] } = useCuentas()
   const [editando, setEditando] = useState<CategoriaActivo | null>(null)
   const [creando, setCreando] = useState(false)
@@ -104,22 +105,20 @@ export function CategoriasPage() {
       />
 
       <Card>
-        {isLoading ? (
-          <p className="px-4 py-10 text-center text-sm text-slate-500">
-            Cargando categorías…
-          </p>
-        ) : (
-          <DataTable
-            columns={columnas}
-            data={categorias}
-            onRowClick={setEditando}
-            vacio={{
-              titulo: 'Sin categorías configuradas',
-              descripcion:
-                'Dé de alta la primera: sin categoría no se puede registrar un activo.',
-            }}
-          />
-        )}
+        <DataTable
+          columns={columnas}
+          data={categorias}
+          onRowClick={setEditando}
+          esSeleccionada={(c) => c.id === editando?.id}
+          cargando={consulta.isLoading}
+          error={consulta.error}
+          onReintentar={() => void consulta.refetch()}
+          vacio={{
+            titulo: 'Sin categorías configuradas',
+            descripcion:
+              'Dé de alta la primera: sin categoría no se puede registrar un activo.',
+          }}
+        />
       </Card>
 
       {(creando || editando) && (

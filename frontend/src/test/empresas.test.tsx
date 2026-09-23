@@ -5,6 +5,8 @@ import { setupServer } from 'msw/node'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { Providers } from '@/app/providers'
 import { rutas } from '@/app/router'
+import { AppShell } from '@/app/layout/AppShell'
+import { useAvisoSalida } from '@/shared/ui/AvisoSalida'
 import { handlers } from '@/mocks/handlers'
 import {
   EMPRESA_INICIAL,
@@ -79,18 +81,117 @@ describe('Cambio de empresa', () => {
     // Clientes de la empresa principal.
     await screen.findByText('Inversiones Tecnológicas del Valle S.A.')
 
-    const selector = await screen.findByLabelText('Empresa')
-    expect(selector).toHaveDisplayValue('SCK · Soluciones Contikos S.A.')
-    await usuario.selectOptions(selector, 'emp-002')
+    const selector = await screen.findByRole('button', { name: /^Empresa:/ })
+    expect(selector).toHaveAccessibleName(
+      'Empresa: SCK · Soluciones Contikos S.A.',
+    )
+    await usuario.click(selector)
+    await usuario.click(
+      await screen.findByRole('menuitemradio', {
+        name: 'DCP · Distribuidora Contikos del Pacífico S.A.',
+      }),
+    )
 
     // Se vuelve al inicio y la empresa abierta es la otra.
     await waitFor(() => expect(empresaActiva()).toBe('emp-002'))
-    await waitFor(() =>
-      expect(screen.getByLabelText('Empresa')).toHaveDisplayValue(
-        'DCP · Distribuidora Contikos del Pacífico S.A.',
-      ),
-    )
+    expect(
+      await screen.findByRole('button', {
+        name: 'Empresa: DCP · Distribuidora Contikos del Pacífico S.A.',
+      }),
+    ).toBeInTheDocument()
     expect(await screen.findByText('Resumen')).toBeInTheDocument()
+  })
+
+  it('las flechas del teclado recorren el selector sin cambiar de empresa', async () => {
+    const usuario = userEvent.setup()
+    montar('/cxc/clientes')
+    await screen.findByText('Inversiones Tecnológicas del Valle S.A.')
+
+    const selector = await screen.findByRole('button', { name: /^Empresa:/ })
+    selector.focus()
+    await usuario.keyboard('{Enter}')
+    await screen.findByRole('menu')
+    await usuario.keyboard('{ArrowDown}{ArrowDown}{ArrowUp}')
+
+    // Moverse por la lista no abre nada: solo Enter o un clic.
+    expect(empresaActiva()).toBe(EMPRESA_INICIAL)
+    await usuario.keyboard('{Escape}')
+    expect(empresaActiva()).toBe(EMPRESA_INICIAL)
+    expect(
+      screen.getByText('Inversiones Tecnológicas del Valle S.A.'),
+    ).toBeInTheDocument()
+  })
+
+  it('con un formulario a medias, cancelar el aviso deja la empresa como estaba', async () => {
+    const usuario = userEvent.setup()
+    // Una pantalla mínima con cambios sin guardar, dentro del armazón real
+    // (que es donde vive el selector de empresa).
+    function FormularioSucio() {
+      const { aviso } = useAvisoSalida(true)
+      return (
+        <>
+          <p>Formulario a medias</p>
+          {aviso}
+        </>
+      )
+    }
+    const router = createMemoryRouter(
+      [
+        {
+          path: '/',
+          element: <AppShell />,
+          children: [
+            { index: true, element: <p>Inicio de prueba</p> },
+            { path: 'captura', element: <FormularioSucio /> },
+          ],
+        },
+      ],
+      { initialEntries: ['/captura'] },
+    )
+    render(
+      <Providers>
+        <RouterProvider router={router} />
+      </Providers>,
+    )
+    await screen.findByText('Formulario a medias')
+
+    const elegirDcp = async () => {
+      await usuario.click(
+        await screen.findByRole('button', { name: /^Empresa:/ }),
+      )
+      await usuario.click(
+        await screen.findByRole('menuitemradio', { name: /^DCP/ }),
+      )
+    }
+
+    // Cancelar: ni se navega ni se cambia de empresa.
+    await elegirDcp()
+    const aviso = await screen.findByRole('dialog', {
+      name: '¿Descartar los cambios?',
+    })
+    await usuario.click(within(aviso).getByRole('button', { name: 'Cancelar' }))
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: '¿Descartar los cambios?' }),
+      ).toBeNull(),
+    )
+    expect(screen.getByText('Formulario a medias')).toBeInTheDocument()
+    expect(empresaActiva()).toBe(EMPRESA_INICIAL)
+    expect(router.state.location.pathname).toBe('/captura')
+
+    // Descartar: primero se sale al inicio y después se cambia.
+    await elegirDcp()
+    const otraVez = await screen.findByRole('dialog', {
+      name: '¿Descartar los cambios?',
+    })
+    await usuario.click(
+      within(otraVez).getByRole('button', { name: 'Descartar y salir' }),
+    )
+    await waitFor(() => expect(empresaActiva()).toBe('emp-002'))
+    expect(await screen.findByText('Inicio de prueba')).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/')
+    // La orden de cambio no se queda en el historial.
+    expect(router.state.location.state).toBeNull()
   })
 
   it('cada empresa tiene sus propios clientes, proveedores y mayor', async () => {
@@ -243,12 +344,13 @@ describe('Catálogo de empresas', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(await screen.findByText('Contikos Norte S.A.')).toBeInTheDocument()
 
-    const selector = screen.getByLabelText('Empresa')
-    await waitFor(() =>
-      expect(
-        within(selector).getByRole('option', { name: 'NOR · Contikos Norte S.A.' }),
-      ).toBeInTheDocument(),
-    )
+    await usuario.click(screen.getByRole('button', { name: /^Empresa:/ }))
+    expect(
+      await screen.findByRole('menuitemradio', {
+        name: 'NOR · Contikos Norte S.A.',
+      }),
+    ).toBeInTheDocument()
+    await usuario.keyboard('{Escape}')
 
     // Se abre y arranca sin terceros: nada de las otras se filtró.
     await usuario.click(screen.getByRole('button', { name: 'Abrir NOR' }))

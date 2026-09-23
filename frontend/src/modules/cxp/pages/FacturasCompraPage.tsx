@@ -1,5 +1,11 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import {
   Building2,
@@ -10,6 +16,9 @@ import {
   TriangleAlert,
 } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
+import { LinkBoton } from '@/shared/ui/LinkBoton'
+import { DialogoConfirmacion } from '@/shared/ui/DialogoConfirmacion'
+import { MensajeError } from '@/shared/ui/MensajeError'
 import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
 import { DataTable } from '@/shared/ui/DataTable'
 import { Input } from '@/shared/ui/Field'
@@ -21,7 +30,7 @@ import { nombreTarifa } from '@/shared/fiscal/impuestos'
 import { useCuentas, useTarifasImpuesto } from '@/shared/api/catalogos'
 import { cuentaPorCodigo, esCuentaDeActivoFijo } from '@/shared/cuentas/cuenta'
 import { useAsientosDeDocumento } from '@/shared/api/trazabilidad'
-import { ApiError } from '@/shared/api/client'
+import type { Adjunto } from '@/shared/api/contracts/comunes'
 import type { FacturaCompra } from '@/shared/api/contracts/cxp'
 import {
   useAbrirAdjunto,
@@ -29,9 +38,20 @@ import {
   useAsientoDeFacturaCompra,
   useEliminarAdjunto,
   useFacturasCompra,
+  usePagos,
 } from '../api/queries'
 import { tamanoLegible } from '../domain/adjunto'
 import { SelectorAdjuntos } from '../components/SelectorAdjuntos'
+import { DocumentoNoEncontrado, SeccionDetalle } from '@/shared/ui/Detalle'
+
+/**
+ * Lo que la captura le pasa al detalle al navegar. Si la factura se registró
+ * y la subida de adjuntos falló, el error viaja aquí: la pantalla de captura
+ * ya no existe para enseñarlo.
+ */
+export interface EstadoDetalleFactura {
+  errorAdjuntos?: string
+}
 
 /**
  * Facturas recibidas, su asiento y los activos que capitalizaron.
@@ -40,17 +60,26 @@ import { SelectorAdjuntos } from '../components/SelectorAdjuntos'
  * compra se envía por enlace y el botón de atrás vuelve al listado.
  */
 export function FacturasCompraPage() {
-  const { data: facturas = [], isLoading } = useFacturasCompra()
+  const {
+    data: facturas = [],
+    isLoading,
+    isSuccess,
+    error,
+    refetch,
+  } = useFacturasCompra()
   const navegar = useNavigate()
   const { id } = useParams()
   const [parametros, setParametros] = useSearchParams()
   const [filtro, setFiltro] = useState('')
+  // Las filas que deja ver el filtro: el contador cuenta lo que se ve.
+  const [visibles, setVisibles] = useState<number | null>(null)
 
   // `?factura=` es la vuelta desde la ficha del activo: quien llega desde el
   // inventario quiere ver la compra que lo reconoció, no buscarla otra vez.
   // Se sigue admitiendo para no romper los enlaces que ya existen.
   const pedida = parametros.get('factura')
-  const seleccionada = facturas.find((f) => f.id === (id ?? pedida)) ?? null
+  const idAbierta = id ?? pedida
+  const seleccionada = facturas.find((f) => f.id === idAbierta) ?? null
 
   const cerrarDetalle = () => {
     if (id) {
@@ -131,11 +160,13 @@ export function FacturasCompraPage() {
         titulo="Facturas de gasto"
         descripcion="Cada factura registrada crea la cuenta por pagar del proveedor y su asiento."
         acciones={
-          <Link to="/cxp/facturas/nueva">
-            <Button variante="primario" icono={<Plus className="size-4" />}>
-              Nueva factura
-            </Button>
-          </Link>
+          <LinkBoton
+            to="/cxp/facturas/nueva"
+            variante="primario"
+            icono={<Plus className="size-4" />}
+          >
+            Nueva factura
+          </LinkBoton>
         }
       />
 
@@ -146,34 +177,44 @@ export function FacturasCompraPage() {
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
             placeholder="Buscar por folio o proveedor…"
+            aria-label="Buscar facturas"
             className="h-8 max-w-sm border-0 px-0 focus:ring-0"
           />
           <span className="ml-auto text-xs text-slate-500">
-            {facturas.length} facturas
+            {filtro.trim() && visibles !== null
+              ? `${visibles} de ${facturas.length} facturas`
+              : `${facturas.length} facturas`}
           </span>
         </div>
 
-        {isLoading ? (
-          <p className="px-4 py-10 text-center text-sm text-slate-500">
-            Cargando facturas…
-          </p>
-        ) : (
-          <DataTable
-            columns={columnas}
-            data={facturas}
-            filtro={filtro}
-            onRowClick={(f) => navegar(`/cxp/facturas/${f.id}`)}
-            vacio={{
-              titulo: 'Sin facturas registradas',
-              descripcion: 'Registre la primera para crear una cuenta por pagar.',
-            }}
-          />
-        )}
+        <DataTable
+          columns={columnas}
+          data={facturas}
+          filtro={filtro}
+          cargando={isLoading}
+          error={error}
+          onReintentar={() => void refetch()}
+          alFiltrar={setVisibles}
+          esSeleccionada={(f) => f.id === idAbierta}
+          onRowClick={(f) => navegar(`/cxp/facturas/${f.id}`)}
+          vacio={{
+            titulo: 'Sin facturas registradas',
+            descripcion: 'Registre la primera para crear una cuenta por pagar.',
+          }}
+        />
       </Card>
 
-      {seleccionada && (
-        <DetalleFactura factura={seleccionada} onCerrar={cerrarDetalle} />
-      )}
+      {/* `key`: cada factura abre su propio detalle, sin arrastrar el diálogo
+          ni los errores de la anterior. */}
+      {seleccionada ? (
+        <DetalleFactura
+          key={seleccionada.id}
+          factura={seleccionada}
+          onCerrar={cerrarDetalle}
+        />
+      ) : idAbierta && isSuccess ? (
+        <DocumentoNoEncontrado id={idAbierta} onCerrar={cerrarDetalle} />
+      ) : null}
     </div>
   )
 }
@@ -190,10 +231,18 @@ function DetalleFactura({
   const agregar = useAgregarAdjuntos()
   const eliminar = useEliminarAdjunto()
   const abrir = useAbrirAdjunto()
+  /** Adjunto que espera confirmación para eliminarse. */
+  const [aEliminar, setAEliminar] = useState<Adjunto | null>(null)
+  // Quién bajó este saldo, igual que en las facturas de venta: la relación
+  // entre pago y factura es N a N, así que se le pregunta a los pagos.
+  const { data: pagos = [] } = usePagos({ facturaId: factura.id })
 
-  const errorAdjuntos = [agregar.error, eliminar.error, abrir.error].find(
-    (e): e is ApiError => e instanceof ApiError,
-  )
+  // La subida que falló al registrar: llega por la navegación desde la
+  // captura. Deja de enseñarse en cuanto se vuelve a adjuntar con éxito.
+  const estado = useLocation().state as EstadoDetalleFactura | null
+  const errorRegistro = agregar.isSuccess ? undefined : estado?.errorAdjuntos
+
+  const errorAdjuntos = agregar.error ?? abrir.error
   // La tabla entera: la tarifa se nombra por la fecha de emisión de la
   // factura, que puede caer en una vigencia ya cerrada.
   const { data: tarifas = [] } = useTarifasImpuesto()
@@ -221,7 +270,7 @@ function DetalleFactura({
   )
 
   return (
-    <>
+    <SeccionDetalle etiqueta={`Detalle de la factura ${factura.folioProveedor}`}>
       <Card className="mt-4">
         <CardHeader
           titulo={`Factura ${factura.folioProveedor}`}
@@ -354,11 +403,21 @@ function DetalleFactura({
           }
         />
 
-        {errorAdjuntos && (
-          <p className="border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">
-            {errorAdjuntos.message}
-          </p>
+        {errorRegistro && (
+          <div
+            role="alert"
+            className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800"
+          >
+            La factura quedó registrada, pero sus adjuntos no se subieron:{' '}
+            {errorRegistro} Vuelva a agregarlos aquí.
+          </div>
         )}
+
+        {errorAdjuntos ? (
+          <div className="border-b border-red-200 px-4 py-2">
+            <MensajeError error={errorAdjuntos} />
+          </div>
+        ) : null}
 
         {factura.adjuntos.length === 0 ? (
           <p className="px-4 py-6 text-center text-sm text-slate-500">
@@ -374,8 +433,14 @@ function DetalleFactura({
               >
                 <button
                   type="button"
+                  // La pestaña se abre en el propio clic: si esperara a la
+                  // descarga, el navegador la bloquearía como ventana emergente.
                   onClick={() =>
-                    abrir.mutate({ facturaId: factura.id, adjuntoId: adjunto.id })
+                    abrir.abrir({
+                      facturaId: factura.id,
+                      adjuntoId: adjunto.id,
+                      nombre: adjunto.nombre,
+                    })
                   }
                   className="flex min-w-0 flex-1 items-center gap-2 text-left text-slate-700 hover:text-brand-700"
                 >
@@ -390,12 +455,10 @@ function DetalleFactura({
                   title={`Eliminar ${adjunto.nombre}`}
                   aria-label={`Eliminar ${adjunto.nombre}`}
                   disabled={eliminar.isPending}
-                  onClick={() =>
-                    eliminar.mutate({
-                      facturaId: factura.id,
-                      adjuntoId: adjunto.id,
-                    })
-                  }
+                  onClick={() => {
+                    eliminar.reset()
+                    setAEliminar(adjunto)
+                  }}
                   className="shrink-0 rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:pointer-events-none disabled:opacity-30"
                 >
                   <Trash2 className="size-4" />
@@ -405,6 +468,31 @@ function DetalleFactura({
           </ul>
         )}
       </Card>
+
+      {aEliminar && (
+        <DialogoConfirmacion
+          abierto
+          titulo={`¿Eliminar ${aEliminar.nombre}?`}
+          descripcion="El archivo se borra de la factura. El asiento y los saldos no cambian."
+          textoConfirmar="Eliminar adjunto"
+          textoConfirmando="Eliminando…"
+          peligro
+          pendiente={eliminar.isPending}
+          error={eliminar.error}
+          onConfirmar={() =>
+            eliminar.mutate(
+              { facturaId: factura.id, adjuntoId: aEliminar.id },
+              { onSuccess: () => setAEliminar(null) },
+            )
+          }
+          onCancelar={() => setAEliminar(null)}
+        >
+          <p>
+            Si es el comprobante del proveedor, la factura se queda sin su
+            respaldo ante una revisión.
+          </p>
+        </DialogoConfirmacion>
+      )}
 
       <Card className="mt-4">
         <CardHeader titulo="Asiento generado" />
@@ -421,6 +509,63 @@ function DetalleFactura({
         )}
       </Card>
 
+      {pagos.length > 0 && (
+        <Card className="mt-4">
+          <CardHeader
+            titulo="Pagos aplicados"
+            descripcion="Lo que ha bajado el saldo de esta factura, pago a pago."
+          />
+          <table className="w-full text-sm" aria-label="Pagos de la factura">
+            <thead className="bg-slate-50 text-xs font-semibold text-slate-600">
+              <tr>
+                <th className="px-4 py-2 text-left">Pago</th>
+                <th className="w-28 px-3 py-2 text-left">Fecha</th>
+                <th className="px-3 py-2 text-right">Aplicado</th>
+                <th className="w-32 px-4 py-2 text-left">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pagos.map((pago) => {
+                const aplicacion = pago.aplicaciones.find(
+                  (a) => a.facturaId === factura.id,
+                )
+                return (
+                  <tr
+                    key={pago.id}
+                    className="border-b border-slate-100 last:border-0"
+                  >
+                    <td className="px-4 py-1.5">
+                      <Link
+                        to={`/cxp/pagos/${pago.id}`}
+                        className="font-mono text-xs font-medium text-brand-700 hover:underline"
+                      >
+                        {pago.folio}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-1.5 text-slate-600">
+                      {formatFecha(pago.fecha)}
+                    </td>
+                    <td className="px-3 py-1.5 text-right">
+                      <MoneyCell
+                        valor={aplicacion?.importe ?? '0'}
+                        moneda={factura.moneda}
+                      />
+                    </td>
+                    <td className="px-4 py-1.5">
+                      <EstadoBadge
+                        estado={
+                          pago.estado === 'anulado' ? 'cancelado' : 'contabilizado'
+                        }
+                      />
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
       {manuales.length > 0 && (
         <Card className="mt-4">
           <CardHeader
@@ -431,7 +576,7 @@ function DetalleFactura({
             {manuales.map((a) => (
               <li key={a.id}>
                 <Link
-                  to={`/conta/asientos?q=${encodeURIComponent(a.codigo)}`}
+                  to={`/conta/asientos?asiento=${encodeURIComponent(a.id)}`}
                   className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-brand-50"
                 >
                   <span className="font-mono text-xs font-medium text-slate-700">
@@ -449,6 +594,6 @@ function DetalleFactura({
           </ul>
         </Card>
       )}
-    </>
+    </SeccionDetalle>
   )
 }

@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Database, RotateCcw } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { Card } from '@/shared/ui/Layout'
 import { restablecerAlmacen } from '@/shared/almacen/almacen'
+import { USAR_MOCKS } from '@/shared/api/entorno'
 
 /**
  * Restablecer los datos de demostración.
@@ -18,9 +19,32 @@ import { restablecerAlmacen } from '@/shared/almacen/almacen'
  * semilla se siembra al importar los módulos de datos, así que hay que volver
  * a arrancar la aplicación para que se aplique. Es un borrado completo, no una
  * operación de negocio, y desaparece con el backend.
+ *
+ * Solo se ofrece con el mock encendido. Contra la API real no hay nada en el
+ * navegador que restablecer, y un botón que dice "borrar todo" en un sistema
+ * con datos de verdad es una invitación a un susto.
  */
 export function DatosDemostracion() {
+  if (!USAR_MOCKS) return null
+  return <Restablecer />
+}
+
+function Restablecer() {
   const [confirmando, setConfirmando] = useState(false)
+  const botonera = useRef<HTMLDivElement>(null)
+  const huboConfirmacion = useRef(false)
+
+  // El botón que se pulsó desaparece al pedir confirmación: sin mover el foco,
+  // quien va con teclado se queda en el vacío. Al pedirla, el foco va a
+  // Cancelar (la opción segura, con `autoFocus`); al cancelar, de vuelta a
+  // Restablecer.
+  useEffect(() => {
+    if (confirmando) {
+      huboConfirmacion.current = true
+    } else if (huboConfirmacion.current) {
+      botonera.current?.querySelector('button')?.focus()
+    }
+  }, [confirmando])
 
   function restablecer() {
     restablecerAlmacen()
@@ -41,21 +65,24 @@ export function DatosDemostracion() {
           <p className="mt-0.5 text-xs text-slate-600">
             Mientras no exista la API, todo lo capturado se guarda en este
             navegador y sobrevive a recargar la página. Restablecer devuelve
-            catálogos, asientos y documentos a su estado de fábrica.
+            catálogos, asientos, documentos y el catálogo de empresas a su
+            estado de fábrica.
           </p>
 
           {confirmando && (
-            <p className="mt-2 text-xs font-medium text-amber-800">
-              Se borrará todo lo capturado en este navegador. No se puede
-              deshacer.
+            <p role="alert" className="mt-2 text-xs font-medium text-amber-800">
+              Se borrará todo lo capturado en este navegador, en todas las
+              empresas, y también las empresas que haya dado de alta. No se
+              puede deshacer.
             </p>
           )}
         </div>
 
-        <div className="flex gap-2">
+        <div ref={botonera} className="flex gap-2">
           {confirmando ? (
             <>
               <Button
+                autoFocus
                 tamano="sm"
                 variante="fantasma"
                 onClick={() => setConfirmando(false)}

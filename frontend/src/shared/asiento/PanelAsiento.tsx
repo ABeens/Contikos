@@ -254,7 +254,7 @@ export function PanelAsiento({
                 colSpan={columnas}
                 className="px-4 py-2 text-right text-xs text-red-700"
               >
-                El asiento no cuadra — esto no debería ocurrir nunca
+                El asiento no cuadra. Esto no debería ocurrir nunca.
               </td>
             </tr>
           )}

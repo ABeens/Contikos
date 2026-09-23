@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, type Query } from '@tanstack/react-query'
 import { usePeriodos } from '@/modules/conta/api/queries'
-import { useMonedas } from '@/modules/config/api/queries'
-import { useEmpresas } from '@/modules/empresas/api/queries'
-import { empresasAbribles } from '@/modules/empresas/domain/empresa'
+import { consultaMonedas, useMonedas } from '@/modules/config/api/queries'
+import { clavesEmpresas, useEmpresas } from '@/modules/empresas/api/queries'
 import { restablecerMonedas } from '@/shared/money/money'
 import { empresaActiva, establecerEmpresaActiva } from '@/shared/almacen/almacen'
 import { ContextoEmpresaReact, type ContextoEmpresa } from './empresa'
+
+function esClaveMonedas(clave: readonly unknown[]): boolean {
+  return clave.length === consultaMonedas.queryKey.length &&
+    consultaMonedas.queryKey.every((parte, i) => clave[i] === parte)
+}
 
 function Cargando({ mensaje }: { mensaje: string }) {
   return (
@@ -27,8 +31,11 @@ function Cargando({ mensaje }: { mensaje: string }) {
  * Si la petición falla, se monta igual: el catálogo por defecto es un respaldo
  * razonable y es preferible a una pantalla en blanco.
  *
- * Al cambiar de empresa vuelve a esperar: el catálogo de monedas es de cada
- * empresa, y mientras llega el nuevo no hay nada correcto que enseñar.
+ * Al cambiar de empresa normalmente NO vuelve a esperar: `cambiarEmpresa`
+ * trae el catálogo de la nueva antes de soltar la caché, así que la consulta
+ * nunca queda sin datos. Solo si esa lectura falla se reinicia con el resto, y
+ * entonces sí se espera: el catálogo es de cada empresa, y mientras llega el
+ * nuevo no hay nada correcto que enseñar.
  */
 export function ProveedorMonedas({ children }: { children: ReactNode }) {
   const { isLoading } = useMonedas()
@@ -52,34 +59,73 @@ export function ProveedorEmpresa({ children }: { children: ReactNode }) {
     setPeriodoId((abierto ?? periodos[periodos.length - 1]).id)
   }, [periodos, periodoId])
 
+  const [cambiandoEmpresa, setCambiandoEmpresa] = useState(false)
+
+  /**
+   * Cambia de empresa YA, sin preguntar a la pantalla abierta.
+   *
+   * No se llama desde las pantallas: se llega aquí a través de
+   * `useAbrirEmpresa`, que primero navega al inicio (y deja que un formulario
+   * con cambios lo impida) y solo si la navegación se completa pide el cambio.
+   * Hacerlo al revés dejaba la pantalla vieja montada, pidiendo sus datos a la
+   * empresa nueva mientras se reiniciaba la caché.
+   */
   const cambiarEmpresa = useCallback(
     async (id: string) => {
-      if (id === empresaId) return
-      // Primero el almacén: a partir de aquí los servicios mandan la nueva
-      // cabecera y el mock sirve la nueva empresa.
-      establecerEmpresaActiva(id)
-      // El registro de monedas es de la empresa anterior hasta que llegue el
-      // catálogo de la nueva; entre tanto, el de fábrica.
-      restablecerMonedas()
-      setPeriodoId(null)
-      setEmpresaId(id)
-      // Toda la caché es de la otra empresa. Reiniciar en vez de invalidar:
-      // invalidar seguiría enseñando lo viejo mientras llega lo nuevo.
-      await cliente.resetQueries()
+      if (id === empresaActiva()) return
+      setCambiandoEmpresa(true)
+      try {
+        // Primero el almacén: a partir de aquí los servicios mandan la nueva
+        // cabecera y el mock sirve la nueva empresa.
+        establecerEmpresaActiva(id)
+
+        // El catálogo de monedas de la nueva se trae ANTES de soltar la caché.
+        // Si se reiniciara con el resto, `ProveedorMonedas` volvería a su
+        // pantalla de carga y desmontaría la aplicación entera (router
+        // incluido) durante el cambio: un parpadeo completo que además
+        // perdería el foco y el scroll de la barra lateral.
+        let monedasListas = true
+        try {
+          await cliente.fetchQuery({ ...consultaMonedas, staleTime: 0 })
+        } catch {
+          // Sin catálogo nuevo, el de fábrica: mejor que el de la otra empresa.
+          restablecerMonedas()
+          monedasListas = false
+        }
+
+        setPeriodoId(null)
+        setEmpresaId(id)
+
+        // Todo lo demás es de la otra empresa. Reiniciar en vez de invalidar:
+        // invalidar seguiría enseñando lo viejo mientras llega lo nuevo. El
+        // catálogo de empresas es del grupo y sobrevive: reiniciarlo haría que
+        // este mismo proveedor volviera a "Cargando empresas…".
+        await cliente.resetQueries({
+          predicate: (q: Query) =>
+            q.queryKey[0] !== clavesEmpresas.todo[0] &&
+            (!monedasListas || !esClaveMonedas(q.queryKey)),
+        })
+      } finally {
+        setCambiandoEmpresa(false)
+      }
     },
-    [cliente, empresaId],
+    [cliente],
   )
 
   /**
-   * La empresa recordada puede haber dejado de existir o de estar activa
-   * (otra sesión la desactivó). Se entra en la primera que se pueda abrir en
-   * vez de quedarse en una que ya no se ofrece.
+   * La empresa recordada puede haber dejado de existir (otro navegador la
+   * borró, o el almacén se restableció). Sin ella no hay nada montado que
+   * proteger, así que se entra directamente en la primera activa.
+   *
+   * La que existe pero quedó inactiva no se resuelve aquí sino bajo el router
+   * (`useAplicarCambioEmpresa`): hay una pantalla abierta, y salir de ella
+   * pasa por navegar al inicio como cualquier otro cambio.
    */
   useEffect(() => {
     if (!empresas?.length) return
-    if (empresas.some((e) => e.id === empresaId && e.activa)) return
-    const abrible = empresasAbribles(empresas, empresaId)[0]
-    if (abrible && abrible.id !== empresaId) void cambiarEmpresa(abrible.id)
+    if (empresas.some((e) => e.id === empresaId)) return
+    const activa = empresas.find((e) => e.activa)
+    if (activa) void cambiarEmpresa(activa.id)
   }, [empresas, empresaId, cambiarEmpresa])
 
   const empresa = empresas?.find((e) => e.id === empresaId)
@@ -91,13 +137,22 @@ export function ProveedorEmpresa({ children }: { children: ReactNode }) {
             empresa,
             empresas: empresas ?? [],
             cambiarEmpresa,
+            cambiandoEmpresa,
             periodos: periodos ?? [],
             periodoActivo: periodos?.find((p) => p.id === periodoId),
             setPeriodoActivo: setPeriodoId,
             cargando: isLoading,
           }
         : null,
-    [empresa, empresas, cambiarEmpresa, periodos, periodoId, isLoading],
+    [
+      empresa,
+      empresas,
+      cambiarEmpresa,
+      cambiandoEmpresa,
+      periodos,
+      periodoId,
+      isLoading,
+    ],
   )
 
   if (!valor) {
@@ -106,7 +161,9 @@ export function ProveedorEmpresa({ children }: { children: ReactNode }) {
         mensaje={
           cargandoEmpresas || !empresas
             ? 'Cargando empresas…'
-            : 'No hay ninguna empresa activa a la que entrar.'
+            : empresas.some((e) => e.activa)
+              ? 'Abriendo empresa…'
+              : 'No hay ninguna empresa activa a la que entrar.'
         }
       />
     )

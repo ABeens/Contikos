@@ -143,6 +143,16 @@ describe('Cierre de periodo', () => {
     expect(boton).toBeEnabled()
     await usuario.click(boton)
 
+    // Cerrar escribe en el mayor: se confirma, y la confirmación dice qué
+    // deja de pasar y con qué motivo queda en la bitácora.
+    const confirmacion = await screen.findByRole('dialog')
+    expect(
+      within(confirmacion).getByText(/no admite asientos/),
+    ).toBeInTheDocument()
+    await usuario.click(
+      within(confirmacion).getByRole('button', { name: 'Cerrar Agosto 2026' }),
+    )
+
     expect(
       await screen.findByText('Agosto 2026 quedó cerrado'),
     ).toBeInTheDocument()

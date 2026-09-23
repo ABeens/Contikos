@@ -2,21 +2,33 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { CircleAlert, FileText, PenLine, Save } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
-import { Card, CardHeader, EstadoVacio, PageHeader } from '@/shared/ui/Layout'
+import {
+  Card,
+  CardHeader,
+  EstadoError,
+  EstadoVacio,
+  PageHeader,
+} from '@/shared/ui/Layout'
 import { Field, Input, Select } from '@/shared/ui/Field'
 import { SelectorCuenta } from '@/shared/ui/SelectorCuenta'
+import { DialogoConfirmacion } from '@/shared/ui/DialogoConfirmacion'
+import { useAvisoSalida } from '@/shared/ui/AvisoSalida'
 import { MoneyInput } from '@/shared/money/MoneyInput'
 import { MoneyCell } from '@/shared/money/MoneyCell'
+import { AsientoPropuesto } from '@/shared/asiento/AsientoPropuesto'
 import { formatFecha, hoyISO } from '@/shared/format/fecha'
 import { ApiError } from '@/shared/api/client'
 import {
-  configuracionMoneda,
   monedaFuncional,
   monedasActivas,
   type Moneda,
 } from '@/shared/money/money'
 import { cn } from '@/shared/ui/cn'
-import { useCuentas, usePeriodos } from '@/shared/api/catalogos'
+import {
+  useCuentas,
+  usePeriodos,
+  useTipoCambioVigente,
+} from '@/shared/api/catalogos'
 import type {
   AltaPendiente,
   SolicitudActivoDesdeFactura,
@@ -29,7 +41,7 @@ import {
   useCategorias,
 } from '../api/queries'
 import {
-  lineasAsientoAltaManual,
+  armarAsientoAltaManual,
   validarAltaDesdeFactura,
   validarAltaManual,
 } from '../domain/activo'
@@ -44,14 +56,39 @@ import {
 
 type Modo = 'factura' | 'manual'
 
+/** Lo que cada subformulario necesita de la página para el aviso de salida. */
+interface PropsSubformulario {
+  alCambiarSucio: (sucio: boolean) => void
+  permitirSalida: () => void
+}
+
 export function AltaActivoPage() {
   const [parametros, setParametros] = useSearchParams()
   const modo: Modo = parametros.get('modo') === 'manual' ? 'manual' : 'factura'
 
-  const setModo = (nuevo: Modo) => {
+  /**
+   * Un solo aviso de salida para la página: el router admite un único
+   * bloqueador a la vez. El subformulario visible avisa de si tiene algo
+   * capturado.
+   */
+  const [sucio, setSucio] = useState(false)
+  const { aviso, permitirSalida } = useAvisoSalida(sucio)
+  /** Modo al que se quiere cambiar con datos capturados en el actual. */
+  const [modoPendiente, setModoPendiente] = useState<Modo | null>(null)
+
+  const aplicarModo = (nuevo: Modo) => {
     const nuevos = new URLSearchParams(parametros)
     nuevos.set('modo', nuevo)
     setParametros(nuevos, { replace: true })
+    setSucio(false)
+  }
+
+  // Las dos puertas no comparten datos: cambiar de una a otra con algo
+  // capturado lo perdería, así que se pregunta antes.
+  const setModo = (nuevo: Modo) => {
+    if (nuevo === modo) return
+    if (sucio) setModoPendiente(nuevo)
+    else aplicarModo(nuevo)
   }
 
   return (
@@ -80,7 +117,37 @@ export function AltaActivoPage() {
         />
       </div>
 
-      {modo === 'factura' ? <AltaDesdeFactura /> : <AltaManual />}
+      {modo === 'factura' ? (
+        <AltaDesdeFactura
+          alCambiarSucio={setSucio}
+          permitirSalida={permitirSalida}
+        />
+      ) : (
+        <AltaManual alCambiarSucio={setSucio} permitirSalida={permitirSalida} />
+      )}
+
+      <DialogoConfirmacion
+        abierto={modoPendiente !== null}
+        titulo="¿Descartar lo capturado?"
+        textoConfirmar={
+          modoPendiente === 'manual'
+            ? 'Descartar y pasar a registro manual'
+            : 'Descartar y pasar a factura'
+        }
+        peligro
+        onConfirmar={() => {
+          if (modoPendiente) aplicarModo(modoPendiente)
+          setModoPendiente(null)
+        }}
+        onCancelar={() => setModoPendiente(null)}
+      >
+        <p>
+          Cada puerta de alta tiene sus propios datos. Si cambia ahora, lo que
+          ha capturado en esta se pierde.
+        </p>
+      </DialogoConfirmacion>
+
+      {aviso}
     </div>
   )
 }
@@ -115,36 +182,54 @@ function BotonModo({
 
 /* ------------------------------------------------ Desde factura de CxP */
 
-function AltaDesdeFactura() {
+function AltaDesdeFactura({
+  alCambiarSucio,
+  permitirSalida,
+}: PropsSubformulario) {
   const navegar = useNavigate()
   const [parametros] = useSearchParams()
-  const { data: pendientes = [], isLoading } = useAltasPendientes()
+  const consultaPendientes = useAltasPendientes()
+  const { data: pendientes = [], isLoading } = consultaPendientes
   const { data: categorias = [] } = useCategorias()
   const alta = useAltaDesdeFactura()
 
   const [seleccion, setSeleccion] = useState<AltaPendiente | null>(null)
-  const [datos, setDatos] = useState({
+  const vacios = {
     nombre: '',
     categoriaId: '',
     fechaInicioDepreciacion: hoyISO(),
     ubicacion: '',
     responsable: '',
     numeroSerie: '',
-  })
+  }
+  const [datos, setDatos] = useState(vacios)
+  /** Lo que propuso la línea elegida: tocar algo encima es lo que se perdería. */
+  const [propuestos, setPropuestos] = useState(vacios)
   const [intento, setIntento] = useState(false)
 
   const elegir = useCallback((pendiente: AltaPendiente) => {
-    setSeleccion(pendiente)
-    setDatos({
+    const propuesta = {
       nombre: pendiente.descripcion,
       categoriaId: pendiente.categoriaSugeridaId ?? '',
       fechaInicioDepreciacion: pendiente.fecha,
       ubicacion: '',
       responsable: '',
       numeroSerie: '',
-    })
+    }
+    setSeleccion(pendiente)
+    setDatos(propuesta)
+    setPropuestos(propuesta)
     setIntento(false)
   }, [])
+
+  const sucio =
+    seleccion !== null &&
+    (Object.keys(datos) as (keyof typeof datos)[]).some(
+      (campo) => datos[campo] !== propuestos[campo],
+    )
+  useEffect(() => {
+    alCambiarSucio(sucio)
+  }, [sucio, alCambiarSucio])
 
   /**
    * Línea que pide la URL, cuando se llega desde la factura en CxP.
@@ -192,11 +277,17 @@ function AltaDesdeFactura() {
 
   const errorServidor = alta.error instanceof ApiError ? alta.error : null
 
-  const guardar = async () => {
+  const guardar = () => {
     setIntento(true)
     if (!solicitud || !validacion.valido) return
-    await alta.mutateAsync(solicitud)
-    navegar('/activos')
+    alta.mutate(solicitud, {
+      onSuccess: (creado) => {
+        permitirSalida()
+        // Como en diferidos: se abre la ficha recién creada, que es lo que
+        // quien registra quiere comprobar.
+        navegar(`/activos?activo=${creado.id}`)
+      },
+    })
   }
 
   return (
@@ -221,6 +312,13 @@ function AltaDesdeFactura() {
           <p className="px-4 py-10 text-center text-sm text-slate-500">
             Buscando compras pendientes…
           </p>
+        ) : consultaPendientes.error && pendientes.length === 0 ? (
+          <EstadoError
+            titulo="No se pudieron cargar las compras pendientes"
+            error={consultaPendientes.error}
+            onReintentar={() => void consultaPendientes.refetch()}
+            reintentando={consultaPendientes.isFetching}
+          />
         ) : pendientes.length === 0 ? (
           <EstadoVacio
             titulo="No hay compras pendientes de registrar"
@@ -299,7 +397,7 @@ function AltaDesdeFactura() {
               <Button
                 variante="primario"
                 icono={<Save className="size-4" />}
-                onClick={() => void guardar()}
+                onClick={guardar}
                 disabled={alta.isPending}
               >
                 {alta.isPending ? 'Registrando…' : 'Registrar activo'}
@@ -418,7 +516,7 @@ function AltaDesdeFactura() {
 
 /* ------------------------------------------------------- Alta directa */
 
-function AltaManual() {
+function AltaManual({ alCambiarSucio, permitirSalida }: PropsSubformulario) {
   const navegar = useNavigate()
   const { data: categorias = [] } = useCategorias()
   const { data: cuentas = [] } = useCuentas()
@@ -427,7 +525,7 @@ function AltaManual() {
 
   const funcional = monedaFuncional()
 
-  const [datos, setDatos] = useState({
+  const [inicial] = useState(() => ({
     nombre: '',
     descripcion: '',
     categoriaId: '',
@@ -439,10 +537,33 @@ function AltaManual() {
     ubicacion: '',
     responsable: '',
     numeroSerie: '',
-  })
+  }))
+  const [datos, setDatos] = useState(inicial)
   const [moneda, setMoneda] = useState<Moneda>(funcional)
-  const [tipoCambio, setTipoCambio] = useState('1')
+  /** Lo tecleado en el tipo de cambio; nulo mientras se acepte el propuesto. */
+  const [tcTecleado, setTcTecleado] = useState<string | null>(null)
   const [intento, setIntento] = useState(false)
+  const [confirmando, setConfirmando] = useState(false)
+
+  /**
+   * El tipo de cambio de la FECHA DE ADQUISICIÓN (docs/13 §7), igual que el
+   * movimiento bancario lo toma del día del movimiento. Se deriva en cada
+   * render: la tasa llega del servidor después de elegir la moneda, y cambia
+   * si cambia la fecha. Mientras nadie teclee otro, manda el vigente.
+   */
+  const vigente = useTipoCambioVigente(moneda, datos.fechaAdquisicion)
+  const tipoCambio =
+    moneda === funcional ? '1' : (tcTecleado ?? vigente.data?.compra ?? '')
+
+  const sucio =
+    moneda !== funcional ||
+    tcTecleado !== null ||
+    (Object.keys(datos) as (keyof typeof datos)[]).some(
+      (campo) => datos[campo] !== inicial[campo],
+    )
+  useEffect(() => {
+    alCambiarSucio(sucio)
+  }, [sucio, alCambiarSucio])
 
   const cambiar = (cambios: Partial<typeof datos>) =>
     setDatos((prev) => ({ ...prev, ...cambios }))
@@ -473,27 +594,54 @@ function AltaManual() {
     [solicitud, categorias, cuentas, periodos],
   )
 
-  const lineasAsiento = useMemo(
+  /**
+   * El asiento que se emitiría, con la misma función que lo emite el servidor
+   * y en moneda funcional, como el de los movimientos de tesorería. Sin tipo
+   * de cambio no hay conversión posible y no se enseña nada.
+   */
+  const asiento = useMemo(
     () =>
-      categoria && datos.cuentaContrapartida
-        ? lineasAsientoAltaManual(solicitud, categoria, {
-            id: 'nuevo',
-            nombre: datos.nombre || 'Activo por registrar',
-          })
-        : [],
-    [categoria, datos.cuentaContrapartida, datos.nombre, solicitud],
+      categoria && datos.cuentaContrapartida && Number(tipoCambio) > 0
+        ? armarAsientoAltaManual(
+            solicitud,
+            categoria,
+            {
+              id: 'nuevo',
+              codigo: 'por asignar',
+              nombre: datos.nombre || 'Activo por registrar',
+            },
+            funcional,
+          )
+        : null,
+    [
+      categoria,
+      datos.cuentaContrapartida,
+      datos.nombre,
+      solicitud,
+      tipoCambio,
+      funcional,
+    ],
   )
 
   const nombreCuenta = (codigo: string) =>
-    cuentas.find((c) => c.codigo === codigo)?.nombre ?? ''
+    cuentas.find((c) => c.codigo === codigo)?.nombre ?? codigo
 
-  const errorServidor = alta.error instanceof ApiError ? alta.error : null
-
-  const guardar = async () => {
+  /** Primero se valida; si pasa, se confirma con el resumen delante. */
+  const pedirConfirmacion = () => {
     setIntento(true)
     if (!validacion.valido) return
-    await alta.mutateAsync(solicitud)
-    navegar('/activos')
+    alta.reset()
+    setConfirmando(true)
+  }
+
+  const guardar = () => {
+    alta.mutate(solicitud, {
+      onSuccess: (creado) => {
+        setConfirmando(false)
+        permitirSalida()
+        navegar(`/activos?activo=${creado.id}`)
+      },
+    })
   }
 
   return (
@@ -505,10 +653,10 @@ function AltaManual() {
             <Button
               variante="primario"
               icono={<Save className="size-4" />}
-              onClick={() => void guardar()}
+              onClick={pedirConfirmacion}
               disabled={alta.isPending}
             >
-              {alta.isPending ? 'Contabilizando…' : 'Dar de alta y contabilizar'}
+              Dar de alta y contabilizar
             </Button>
           }
         />
@@ -623,13 +771,9 @@ function AltaManual() {
                 {...p}
                 value={moneda}
                 onChange={(e) => {
-                  const nueva = e.target.value
-                  setMoneda(nueva)
-                  setTipoCambio(
-                    nueva === funcional
-                      ? '1'
-                      : configuracionMoneda(nueva).tipoCambio,
-                  )
+                  setMoneda(e.target.value)
+                  // Lo tecleado era para la otra moneda.
+                  setTcTecleado(null)
                 }}
               >
                 {monedasActivas().map((m) => (
@@ -644,14 +788,22 @@ function AltaManual() {
           <Field
             label="Tipo de cambio"
             requerido
-            ayuda={moneda === funcional ? 'Moneda funcional' : 'Referencia BCCR'}
+            ayuda={
+              moneda === funcional
+                ? 'Moneda funcional'
+                : vigente.isLoading
+                  ? 'Buscando el del día…'
+                  : vigente.isError && tcTecleado === null
+                    ? 'Sin tasa publicada ese día: captúrelo'
+                    : 'Compra del día de adquisición'
+            }
           >
             {(p) => (
               <Input
                 {...p}
                 value={tipoCambio}
                 disabled={moneda === funcional}
-                onChange={(e) => setTipoCambio(e.target.value)}
+                onChange={(e) => setTcTecleado(e.target.value)}
                 className="tabular text-right"
               />
             )}
@@ -716,66 +868,77 @@ function AltaManual() {
       </Card>
 
       <Card>
-        <CardHeader titulo="Asiento que se generará" />
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-xs font-semibold text-slate-600">
-            <tr>
-              <th className="px-4 py-2 text-left">Cuenta</th>
-              <th className="px-3 py-2 text-left">Concepto</th>
-              <th className="w-36 px-3 py-2 text-right">Cargo</th>
-              <th className="w-36 px-4 py-2 text-right">Abono</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lineasAsiento.map((linea, indice) => (
-              <tr
-                key={`${linea.cuenta}-${indice}`}
-                className="border-b border-slate-100 last:border-0"
-              >
-                <td className="px-4 py-1.5 text-slate-700">
-                  {nombreCuenta(linea.cuenta)}{' '}
-                  <span className="font-mono text-xs text-slate-400">
-                    {linea.cuenta}
-                  </span>
-                </td>
-                <td className="px-3 py-1.5 text-xs text-slate-500">
-                  {linea.concepto}
-                </td>
-                <td className="px-3 py-1.5 text-right">
-                  <MoneyCell valor={linea.cargo} moneda={moneda} ocultarCero />
-                </td>
-                <td className="px-4 py-1.5 text-right">
-                  <MoneyCell valor={linea.abono} moneda={moneda} ocultarCero />
-                </td>
-              </tr>
-            ))}
-            {lineasAsiento.length === 0 && (
-              <tr>
-                <td
-                  colSpan={4}
-                  className="px-4 py-6 text-center text-sm text-slate-500"
-                >
-                  Elija la categoría y la contrapartida para ver el asiento.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        <CardHeader
+          titulo="Asiento que se generará"
+          descripcion={`Expresado en ${funcional}, que es la moneda del mayor.`}
+        />
+        {asiento ? (
+          <AsientoPropuesto asiento={asiento} nombreCuenta={nombreCuenta} />
+        ) : (
+          <p className="px-4 py-6 text-center text-sm text-slate-500">
+            {moneda !== funcional && !(Number(tipoCambio) > 0)
+              ? 'Indique el tipo de cambio para ver el asiento.'
+              : 'Elija la categoría y la contrapartida para ver el asiento.'}
+          </p>
+        )}
       </Card>
 
       <ResumenErrores
-        visible={(intento && !validacion.valido) || Boolean(errorServidor)}
-        titulo={
-          errorServidor
-            ? `${errorServidor.codigo}: ${errorServidor.message}`
-            : 'El activo no se puede dar de alta'
-        }
-        mensajes={
-          errorServidor?.detalles.length
-            ? errorServidor.detalles
-            : validacion.errores.map((e) => e.mensaje)
-        }
+        visible={intento && !validacion.valido}
+        titulo="El activo no se puede dar de alta"
+        mensajes={validacion.errores.map((e) => e.mensaje)}
       />
+
+      {/* El error del servidor va dentro del diálogo: fuera quedaría tapado
+          por el overlay. */}
+      <DialogoConfirmacion
+        abierto={confirmando}
+        titulo="¿Dar de alta y contabilizar?"
+        descripcion="Se crea la ficha del activo y se emite su asiento en el mayor."
+        textoConfirmar="Dar de alta y contabilizar"
+        textoConfirmando="Contabilizando…"
+        pendiente={alta.isPending}
+        error={alta.error}
+        onConfirmar={guardar}
+        onCancelar={() => {
+          setConfirmando(false)
+          alta.reset()
+        }}
+      >
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
+          <dt className="text-slate-500">Activo</dt>
+          <dd>{datos.nombre}</dd>
+          <dt className="text-slate-500">Categoría</dt>
+          <dd>{categoria?.nombre ?? ''}</dd>
+          <dt className="text-slate-500">Fecha de adquisición</dt>
+          <dd>{formatFecha(datos.fechaAdquisicion)}</dd>
+          <dt className="text-slate-500">Costo</dt>
+          <dd>
+            <MoneyCell
+              valor={datos.costoAdquisicion || '0'}
+              moneda={moneda}
+              mostrarSimbolo
+            />
+            {moneda !== funcional && (
+              <span className="ml-1 text-xs text-slate-500">
+                al {tipoCambio}
+              </span>
+            )}
+          </dd>
+          {asiento && (
+            <>
+              <dt className="text-slate-500">En el mayor</dt>
+              <dd>
+                <MoneyCell
+                  valor={asiento.lineas[0]?.cargo ?? '0'}
+                  moneda={funcional}
+                  mostrarSimbolo
+                />
+              </dd>
+            </>
+          )}
+        </dl>
+      </DialogoConfirmacion>
     </>
   )
 }

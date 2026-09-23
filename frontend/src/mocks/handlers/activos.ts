@@ -20,7 +20,7 @@ import {
 import { esCuentaDeActivoFijo } from '@/shared/cuentas/cuenta'
 import type { SolicitudAsiento } from '@/shared/api/contracts/conta'
 import {
-  lineasAsientoAltaManual,
+  armarAsientoAltaManual,
   valorResidualDe,
   vidaUtilDe,
   validarAltaDesdeFactura,
@@ -550,17 +550,15 @@ export const handlersActivos = [
       solicitud.valorResidual,
     )
 
-    const solicitudAsiento: SolicitudAsiento = {
-      fecha: solicitud.fechaAdquisicion,
-      concepto: `Alta de activo fijo ${codigo}: ${solicitud.nombre}`,
-      moneda: solicitud.moneda,
-      tipoCambio: solicitud.tipoCambio,
-      origen: { modulo: 'activos', tipo: 'alta', id },
-      lineas: lineasAsientoAltaManual(solicitud, categoria, {
-        id,
-        nombre: solicitud.nombre,
-      }),
-    }
+    // En moneda funcional, como los movimientos de tesorería: la balanza suma
+    // los importes de las líneas tal cual, y un costo en dólares sumado como
+    // si fueran colones descuadraría el mayor contra el auxiliar.
+    const solicitudAsiento: SolicitudAsiento = armarAsientoAltaManual(
+      solicitud,
+      categoria,
+      { id, codigo, nombre: solicitud.nombre },
+      monedaFuncional(),
+    )
 
     const emision = emitirAsiento(solicitudAsiento)
     if (!emision.ok) {

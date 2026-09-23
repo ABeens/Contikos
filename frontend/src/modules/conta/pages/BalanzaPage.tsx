@@ -12,14 +12,17 @@ import type {
   RenglonBalanza,
   RenglonComparativo,
 } from '@/shared/api/contracts/conta'
-import { useEmpresa } from '@/app/empresa'
 import { useBalanza, useBalanzaComparativa, usePeriodos } from '../api/queries'
+import { usePeriodoEnUrl } from '../hooks/usePeriodoEnUrl'
 import { esLibro, etiquetaLibro } from '@/shared/asiento/libro'
 import { SelectorLibro } from '@/shared/asiento/Libros'
 import { cn } from '@/shared/ui/cn'
 
 export function BalanzaPage() {
-  const { periodoActivo } = useEmpresa()
+  // El periodo va en la URL (`?periodo=`) igual que el libro: la balanza que
+  // se envía por enlace es la de un mes concreto, no la del mes que tenga
+  // activo quien la abre.
+  const periodoActivo = usePeriodoEnUrl()
   const { data: periodos = [] } = usePeriodos()
   const [parametros, setParametros] = useSearchParams()
   // El libro va en la URL como cualquier otro filtro: un contador debe poder
@@ -38,7 +41,16 @@ export function BalanzaPage() {
    * URL: el comparativo de agosto contra julio es un reporte concreto y tiene
    * que poder enviarse por enlace.
    */
-  const comparadoCon = parametros.get('comparar')
+  // Comparar un mes consigo mismo no es un reporte: daría variación cero en
+  // todas las cuentas. Un enlace así (o uno con un periodo que no existe) se
+  // trata como si no pidiera comparar, en vez de enseñar una tabla absurda.
+  const parametroComparar = parametros.get('comparar')
+  const comparadoCon =
+    parametroComparar &&
+    parametroComparar !== periodoActivo?.id &&
+    periodos.some((p) => p.id === parametroComparar)
+      ? parametroComparar
+      : null
   const setComparadoCon = (nuevo: string | null) => {
     const nuevos = new URLSearchParams(parametros)
     if (nuevo) nuevos.set('comparar', nuevo)
@@ -47,17 +59,19 @@ export function BalanzaPage() {
   }
   const comparando = Boolean(comparadoCon)
 
-  const { data: balanza, isLoading } = useBalanza(periodoActivo?.id, libro)
+  const consultaBalanza = useBalanza(periodoActivo?.id, libro)
+  const { data: balanza, isLoading } = consultaBalanza
   // Los dos periodos van en el orden en que se leen: A es el de referencia
   // (el anterior) y B el que se está mirando, para que la variación sea "lo
   // que pasó desde entonces" y no al revés.
+  const consultaComparativa = useBalanzaComparativa(
+    comparadoCon ?? undefined,
+    periodoActivo?.id,
+    libro,
+    comparando,
+  )
   const { data: comparativa, isLoading: cargandoComparativa } =
-    useBalanzaComparativa(
-      comparadoCon ?? undefined,
-      periodoActivo?.id,
-      libro,
-      comparando,
-    )
+    consultaComparativa
   const [soloDetalle, setSoloDetalle] = useState(false)
 
   const renglones = useMemo(
@@ -279,13 +293,20 @@ export function BalanzaPage() {
 
         {comparando ? (
           cargandoComparativa ? (
-            <p className="px-4 py-10 text-center text-sm text-slate-500">
+            <p
+              className="px-4 py-10 text-center text-sm text-slate-500"
+              aria-busy
+            >
               Calculando la comparativa…
             </p>
           ) : (
             <DataTable
               columns={columnasComparativas}
               data={renglonesComparativa}
+              error={consultaComparativa.error}
+              onReintentar={() => void consultaComparativa.refetch()}
+              // Jerárquica: ordenar separaría cada cuenta de su madre.
+              ordenable={false}
               maxAltura="calc(100vh - 265px)"
               vacio={{
                 titulo: 'Sin movimientos en ninguno de los dos periodos',
@@ -295,13 +316,21 @@ export function BalanzaPage() {
             />
           )
         ) : isLoading ? (
-          <p className="px-4 py-10 text-center text-sm text-slate-500">
+          <p
+            className="px-4 py-10 text-center text-sm text-slate-500"
+            aria-busy
+          >
             Calculando balanza…
           </p>
         ) : (
           <DataTable
             columns={columnas}
             data={renglones}
+            error={consultaBalanza.error}
+            onReintentar={() => void consultaBalanza.refetch()}
+            // Jerárquica: ordenar separaría cada cuenta de su madre y dejaría
+            // los subtotales lejos de lo que suman.
+            ordenable={false}
             maxAltura="calc(100vh - 265px)"
             vacio={{
               titulo: 'Sin movimientos en el periodo',

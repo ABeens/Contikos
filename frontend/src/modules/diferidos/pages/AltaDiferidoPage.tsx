@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { CircleAlert, Save } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
-import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
+import { Card, CardHeader, EstadoError, PageHeader } from '@/shared/ui/Layout'
 import { Field, Input, Select } from '@/shared/ui/Field'
 import { SelectorCuenta } from '@/shared/ui/SelectorCuenta'
 import { SelectorAuxiliar } from '@/shared/ui/SelectorAuxiliar'
+import { useAvisoSalida } from '@/shared/ui/AvisoSalida'
 import { MoneyInput } from '@/shared/money/MoneyInput'
 import { MoneyCell } from '@/shared/money/MoneyCell'
 import { formatFecha, hoyISO } from '@/shared/format/fecha'
@@ -20,20 +21,32 @@ import {
 } from '@/shared/auxiliares/auxiliar'
 import type { AuxiliarTipo } from '@/shared/api/contracts/comunes'
 import type {
+  Diferido,
   SolicitudDiferido,
+  TerceroDiferido,
   TipoDiferido,
 } from '@/shared/api/contracts/diferidos'
-import { tablaAmortizacion, validarDiferido } from '../domain/diferido'
-import { useGuardarDiferido } from '../api/queries'
+import {
+  PLAZO_MAXIMO_MESES,
+  tablaAmortizacion,
+  validarDiferido,
+  validarEdicion,
+} from '../domain/diferido'
+import { useDiferido, useGuardarDiferido } from '../api/queries'
 
 /**
- * Alta de un diferido (docs/15 §3.1).
+ * Alta de un diferido (docs/15 §3.1), y su edición mientras no tenga cuotas
+ * contabilizadas (docs/15 §3.3).
  *
  * La pantalla enseña el plan completo antes de guardar, cuota a cuota: es la
  * única forma de comprobar de un vistazo que el monto cierra exacto en cero en
  * la última y que el reparto es el que se esperaba. Y dice en voz alta lo que
  * más confunde de este módulo: el alta NO genera asiento, porque el importe ya
  * está en la cuenta de balance desde que se pagó o se cobró.
+ *
+ * Con `?editar=<id>` carga ese diferido y guarda encima de él. No hay ruta
+ * propia para la edición: el formulario es el mismo y la regla que la limita
+ * (sin cuotas contabilizadas) la aplican el dominio y el servidor.
  */
 
 /** Tercero que exige cada tipo. Coincide con la cuenta de balance que le toca. */
@@ -43,27 +56,84 @@ const AUXILIAR_DE: Record<TipoDiferido, AuxiliarTipo> = {
 }
 
 export function AltaDiferidoPage() {
+  const [parametros] = useSearchParams()
+  const editarId = parametros.get('editar') ?? undefined
+  const consulta = useDiferido(editarId)
+
+  if (!editarId) return <FormularioDiferido />
+
+  if (consulta.isLoading) {
+    return (
+      <p className="px-4 py-10 text-center text-sm text-slate-500">
+        Cargando el diferido…
+      </p>
+    )
+  }
+
+  if (!consulta.data) {
+    return (
+      <div className="mx-auto max-w-5xl">
+        <PageHeader titulo="Editar diferido" />
+        <Card>
+          <EstadoError
+            titulo="No se pudo cargar el diferido"
+            error={consulta.error}
+            onReintentar={() => void consulta.refetch()}
+            reintentando={consulta.isFetching}
+          />
+        </Card>
+      </div>
+    )
+  }
+
+  // La clave remonta el formulario si cambia el diferido: sus valores
+  // iniciales salen de él y no se deben mezclar con los de otro.
+  return <FormularioDiferido key={consulta.data.id} diferido={consulta.data} />
+}
+
+function FormularioDiferido({ diferido }: { diferido?: Diferido }) {
   const navegar = useNavigate()
   const { data: cuentas = [] } = useCuentas()
   const { data: periodos = [] } = usePeriodos()
   const guardar = useGuardarDiferido()
+  const editando = diferido !== undefined
+  const edicion = diferido ? validarEdicion(diferido) : null
 
-  const [tipo, setTipo] = useState<TipoDiferido>('gasto')
-  const [datos, setDatos] = useState({
-    descripcion: '',
-    monto: '',
-    moneda: monedaFuncional(),
-    cuentaDiferido: '',
-    cuentaDestino: '',
-    fechaInicio: hoyISO(),
-    plazoMeses: '12',
-  })
-  const [textoTercero, setTextoTercero] = useState('')
+  const [inicial] = useState(() => ({
+    tipo: diferido?.tipo ?? ('gasto' as TipoDiferido),
+    datos: {
+      descripcion: diferido?.descripcion ?? '',
+      monto: diferido?.monto ?? '',
+      moneda: diferido?.moneda ?? monedaFuncional(),
+      cuentaDiferido: diferido?.cuentaDiferido ?? '',
+      cuentaDestino: diferido?.cuentaDestino ?? '',
+      fechaInicio: diferido?.fechaInicio ?? hoyISO(),
+      plazoMeses: String(diferido?.plazoMeses ?? 12),
+    },
+    textoTercero: diferido?.tercero?.nombre ?? '',
+  }))
+
+  const [tipo, setTipo] = useState<TipoDiferido>(inicial.tipo)
+  const [datos, setDatos] = useState(inicial.datos)
+  const [textoTercero, setTextoTercero] = useState(inicial.textoTercero)
   const [intentado, setIntentado] = useState(false)
 
   const auxiliares = useAuxiliares([AUXILIAR_DE[tipo]])
   const catalogoTercero = auxiliares.get(AUXILIAR_DE[tipo]) ?? []
-  const tercero = resolverAuxiliar(catalogoTercero, textoTercero)
+  const resuelto = resolverAuxiliar(catalogoTercero, textoTercero)
+
+  /**
+   * El tercero de la solicitud. Al editar, mientras el texto sea el nombre que
+   * ya tenía, se conserva tal cual: el catálogo puede no resolverlo por nombre
+   * (dos terceros con el mismo) y eso no debería borrarlo.
+   */
+  const tercero: TerceroDiferido | null = resuelto
+    ? { tipo: AUXILIAR_DE[tipo], id: resuelto.id, nombre: resuelto.nombre }
+    : diferido?.tercero &&
+        tipo === diferido.tipo &&
+        textoTercero === inicial.textoTercero
+      ? diferido.tercero
+      : null
 
   const cambiar = (campo: keyof typeof datos, valor: string) =>
     setDatos((previos) => ({ ...previos, [campo]: valor }))
@@ -71,19 +141,27 @@ export function AltaDiferidoPage() {
   // Cambiar de tipo cambia el papel de las dos cuentas y del tercero: dejar lo
   // capturado sería ofrecer un mapeo que ya no puede ser válido.
   const cambiarTipo = (nuevo: TipoDiferido) => {
+    if (nuevo === tipo) return
     setTipo(nuevo)
     setDatos((previos) => ({ ...previos, cuentaDiferido: '', cuentaDestino: '' }))
     setTextoTercero('')
   }
 
+  const sucio =
+    tipo !== inicial.tipo ||
+    textoTercero !== inicial.textoTercero ||
+    (Object.keys(datos) as (keyof typeof datos)[]).some(
+      (campo) => datos[campo] !== inicial.datos[campo],
+    )
+  const { aviso, permitirSalida } = useAvisoSalida(sucio)
+
   const plazoMeses = Number(datos.plazoMeses) || 0
+  const plazoExcedido = plazoMeses > PLAZO_MAXIMO_MESES
 
   const solicitud: SolicitudDiferido = {
     tipo,
     descripcion: datos.descripcion,
-    tercero: tercero
-      ? { tipo: AUXILIAR_DE[tipo], id: tercero.id, nombre: tercero.nombre }
-      : null,
+    tercero,
     monto: datos.monto || '0',
     moneda: datos.moneda,
     cuentaDiferido: datos.cuentaDiferido,
@@ -99,33 +177,54 @@ export function AltaDiferidoPage() {
     [tipo, datos, tercero?.id, cuentas, periodos],
   )
 
+  // Un plazo por encima del tope no se proyecta: sería una tabla de miles de
+  // renglones para un dato que la validación va a rechazar de todos modos.
   const plan = useMemo(
     () =>
-      tablaAmortizacion({
-        monto: datos.monto || '0',
-        plazoMeses,
-        fechaInicio: datos.fechaInicio,
-        moneda: datos.moneda,
-      }),
-    [datos.monto, plazoMeses, datos.fechaInicio, datos.moneda],
+      plazoExcedido
+        ? []
+        : tablaAmortizacion({
+            monto: datos.monto || '0',
+            plazoMeses,
+            fechaInicio: datos.fechaInicio,
+            moneda: datos.moneda,
+          }),
+    [datos.monto, plazoMeses, plazoExcedido, datos.fechaInicio, datos.moneda],
   )
+
+  const volver = diferido ? `/diferidos?diferido=${diferido.id}` : '/diferidos'
 
   const enviar = () => {
     setIntentado(true)
-    if (!validacion.valido) return
+    if (!validacion.valido || (edicion && !edicion.valido)) return
     guardar.mutate(
-      { datos: solicitud },
-      { onSuccess: (creado) => navegar(`/diferidos?diferido=${creado.id}`) },
+      { datos: solicitud, id: diferido?.id },
+      {
+        onSuccess: (guardado) => {
+          // El formulario sigue "sucio" en este instante: se deja salir.
+          permitirSalida()
+          navegar(`/diferidos?diferido=${guardado.id}`)
+        },
+      },
     )
   }
 
-  const errores = intentado ? validacion.errores : []
+  const errores = [
+    ...(edicion?.errores ?? []),
+    ...(intentado ? validacion.errores : []),
+  ]
 
   return (
     <div className="mx-auto max-w-5xl">
       <PageHeader
-        titulo="Registrar diferido"
-        descripcion="El plan de reconocimiento de un gasto pagado o de un ingreso cobrado por adelantado."
+        titulo={
+          diferido ? `Editar ${diferido.codigo}` : 'Registrar diferido'
+        }
+        descripcion={
+          editando
+            ? 'Solo mientras no tenga cuotas contabilizadas: después, lo que cambie ya no cuadraría con el mayor.'
+            : 'El plan de reconocimiento de un gasto pagado o de un ingreso cobrado por adelantado.'
+        }
       />
 
       <div
@@ -177,7 +276,7 @@ export function AltaDiferidoPage() {
                 value={textoTercero}
                 onChange={setTextoTercero}
                 onBlur={() =>
-                  tercero && setTextoTercero(textoAuxiliar(tercero))
+                  resuelto && setTextoTercero(textoAuxiliar(resuelto))
                 }
                 auxiliares={auxiliaresVigentes(catalogoTercero)}
               />
@@ -211,12 +310,22 @@ export function AltaDiferidoPage() {
             )}
           </Field>
 
-          <Field label="Plazo en meses" requerido>
+          <Field
+            label="Plazo en meses"
+            requerido
+            ayuda={`De 1 a ${PLAZO_MAXIMO_MESES} meses.`}
+            error={
+              plazoExcedido
+                ? `El plazo no puede pasar de ${PLAZO_MAXIMO_MESES} meses`
+                : undefined
+            }
+          >
             {(props) => (
               <Input
                 {...props}
                 type="number"
                 min={1}
+                max={PLAZO_MAXIMO_MESES}
                 value={datos.plazoMeses}
                 onChange={(e) => cambiar('plazoMeses', e.target.value)}
               />
@@ -282,8 +391,8 @@ export function AltaDiferidoPage() {
             aria-label="Errores del diferido"
             className="border-t border-slate-200 px-4 py-2 text-sm text-red-700"
           >
-            {errores.map((e) => (
-              <li key={e.codigo} className="flex items-start gap-2 py-0.5">
+            {errores.map((e, i) => (
+              <li key={`${e.codigo}-${i}`} className="flex items-start gap-2 py-0.5">
                 <CircleAlert className="mt-0.5 size-4 shrink-0" />
                 {e.mensaje}
               </li>
@@ -299,19 +408,26 @@ export function AltaDiferidoPage() {
           </span>
           <div className="ml-auto flex items-center gap-3">
             {guardar.error && (
-              <span className="text-sm text-red-700">
+              <span role="alert" className="text-sm text-red-700">
                 {guardar.error instanceof ApiError
                   ? guardar.error.message
-                  : 'No se pudo registrar el diferido'}
+                  : 'No se pudo guardar el diferido'}
               </span>
             )}
+            <Button onClick={() => navegar(volver)} disabled={guardar.isPending}>
+              Cancelar
+            </Button>
             <Button
               variante="primario"
               icono={<Save className="size-4" />}
               onClick={enviar}
-              disabled={guardar.isPending}
+              disabled={guardar.isPending || (edicion ? !edicion.valido : false)}
             >
-              {guardar.isPending ? 'Guardando…' : 'Registrar diferido'}
+              {guardar.isPending
+                ? 'Guardando…'
+                : editando
+                  ? 'Guardar cambios'
+                  : 'Registrar diferido'}
             </Button>
           </div>
         </div>
@@ -365,6 +481,8 @@ export function AltaDiferidoPage() {
           </div>
         </Card>
       )}
+
+      {aviso}
     </div>
   )
 }

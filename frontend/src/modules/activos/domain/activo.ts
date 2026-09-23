@@ -4,6 +4,7 @@ import type {
   Cuenta,
   LineaSolicitud,
   Periodo,
+  SolicitudAsiento,
 } from '@/shared/api/contracts/conta'
 import type {
   Activo,
@@ -149,10 +150,26 @@ export function lineasAsientoAltaManual(
   solicitud: SolicitudActivoManual,
   categoria: CategoriaActivo,
   activo: { id: string; nombre: string },
+  /**
+   * Con la moneda funcional, el costo se convierte al tipo de cambio de la
+   * solicitud: el mayor se lleva en funcional (docs/01 §4.2). Sin ella, las
+   * líneas quedan en la moneda del activo.
+   */
+  funcional?: Moneda,
 ): LineaSolicitud[] {
-  const costo = new Money(solicitud.costoAdquisicion, solicitud.moneda)
-    .redondear()
-    .toApi()
+  const convertir = funcional !== undefined && solicitud.moneda !== funcional
+  const costo = convertir
+    ? new Money(
+        new Decimal(solicitud.costoAdquisicion || '0').times(
+          new Decimal(solicitud.tipoCambio || '0'),
+        ),
+        funcional,
+      )
+        .redondear()
+        .toApi()
+    : new Money(solicitud.costoAdquisicion, solicitud.moneda)
+        .redondear()
+        .toApi()
 
   return [
     {
@@ -170,6 +187,31 @@ export function lineasAsientoAltaManual(
       abono: costo,
     },
   ]
+}
+
+/**
+ * El asiento completo del alta directa, en moneda funcional.
+ *
+ * Mismo criterio que los movimientos de tesorería: los importes del asiento
+ * son los del mayor, así que la moneda es la funcional y el tipo de cambio 1;
+ * la ficha conserva la moneda del activo y el tipo con el que se convirtió.
+ * Lo usan el servidor al emitirlo y la pantalla al proponerlo, para que lo
+ * que se revisa sea lo que entra.
+ */
+export function armarAsientoAltaManual(
+  solicitud: SolicitudActivoManual,
+  categoria: CategoriaActivo,
+  activo: { id: string; codigo: string; nombre: string },
+  funcional: Moneda,
+): SolicitudAsiento {
+  return {
+    fecha: solicitud.fechaAdquisicion,
+    concepto: `Alta de activo fijo ${activo.codigo}: ${activo.nombre}`,
+    moneda: funcional,
+    tipoCambio: '1',
+    origen: { modulo: 'activos', tipo: 'alta', id: activo.id },
+    lineas: lineasAsientoAltaManual(solicitud, categoria, activo, funcional),
+  }
 }
 
 /* --------------------------------------------------- Categorías */

@@ -1,11 +1,10 @@
 import { useState } from 'react'
-import { CircleAlert } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { Dialogo } from '@/shared/ui/Dialogo'
 import { Field, Input, Select } from '@/shared/ui/Field'
+import { MensajeError } from '@/shared/ui/MensajeError'
 import { SelectorCuenta } from '@/shared/ui/SelectorCuenta'
 import { MoneyInput } from '@/shared/money/MoneyInput'
-import { ApiError } from '@/shared/api/client'
 import { monedaFuncional, monedasActivas } from '@/shared/money/money'
 import { type IdTarifaIva } from '@/shared/fiscal/iva'
 import { opcionesTarifa } from '@/shared/fiscal/impuestos'
@@ -18,7 +17,7 @@ import type {
   TipoItem,
 } from '@/shared/api/contracts/cxc'
 import { useGuardarItem } from '../api/queries'
-import { validarItem } from '../domain/item'
+import { validarItem, type CodigoErrorItem } from '../domain/item'
 
 /**
  * Alta y edición de un producto o servicio (docs/04 §1.1).
@@ -83,17 +82,30 @@ export function DialogoItem({
   )
   const [intento, setIntento] = useState(false)
 
-  const cambiar = (cambios: Partial<SolicitudItemCatalogo>) =>
+  const cambiar = (cambios: Partial<SolicitudItemCatalogo>) => {
     setDatos((prev) => ({ ...prev, ...cambios }))
+    // El rechazo del servidor era de los datos de antes: al corregir, estorba.
+    if (guardar.isError) guardar.reset()
+  }
 
   const validacion = validarItem(datos, { cuentas, items, item })
-  const errorServidor = guardar.error instanceof ApiError ? guardar.error : null
 
-  const enviar = async () => {
+  /** El error local de un campo, junto al campo y no en una lista aparte. */
+  const errorDe = (...codigos: CodigoErrorItem[]) =>
+    intento
+      ? validacion.errores.find((e) => codigos.includes(e.codigo))?.mensaje
+      : undefined
+
+  // Primero lo local: un rechazo del servidor no tapa lo que falta capturar.
+  const errorServidor =
+    intento && !validacion.valido ? null : guardar.error
+
+  const enviar = () => {
     setIntento(true)
     if (!validacion.valido) return
-    await guardar.mutateAsync({ datos, id: item?.id })
-    onCerrar()
+    // El rechazo se enseña desde `guardar.error`; aquí solo se evita dejar la
+    // promesa suelta y cerrar sobre un item que no se guardó.
+    guardar.mutateAsync({ datos, id: item?.id }).then(onCerrar, () => undefined)
   }
 
   return (
@@ -103,12 +115,16 @@ export function DialogoItem({
       titulo={creando ? 'Nuevo producto o servicio' : item.nombre}
       descripcion="Lo que se precarga al facturar: precio, tarifa de IVA y cuenta de ingreso."
       className="w-[min(94vw,42rem)]"
+      bloqueado={guardar.isPending}
+      alEnviar={enviar}
       acciones={
         <>
-          <Button onClick={onCerrar}>Cancelar</Button>
+          <Button onClick={onCerrar} disabled={guardar.isPending}>
+            Cancelar
+          </Button>
           <Button
+            type="submit"
             variante="primario"
-            onClick={() => void enviar()}
             disabled={guardar.isPending}
           >
             {guardar.isPending ? 'Guardando…' : 'Guardar'}
@@ -117,7 +133,12 @@ export function DialogoItem({
       }
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Código" requerido ayuda="Es lo que se teclea al facturar">
+        <Field
+          label="Código"
+          requerido
+          ayuda="Es lo que se teclea al facturar"
+          error={errorDe('CODIGO_REQUERIDO', 'CODIGO_DUPLICADO')}
+        >
           {(p) => (
             <Input
               {...p}
@@ -142,7 +163,12 @@ export function DialogoItem({
           )}
         </Field>
 
-        <Field label="Nombre" requerido className="sm:col-span-2">
+        <Field
+          label="Nombre"
+          requerido
+          className="sm:col-span-2"
+          error={errorDe('NOMBRE_REQUERIDO')}
+        >
           {(p) => (
             <Input
               {...p}
@@ -168,7 +194,11 @@ export function DialogoItem({
           )}
         </Field>
 
-        <Field label="Precio de lista" ayuda="Cero: precio a convenir">
+        <Field
+          label="Precio de lista"
+          ayuda="Cero: precio a convenir"
+          error={errorDe('PRECIO_INVALIDO')}
+        >
           {(p) => (
             <MoneyInput
               {...p}
@@ -183,6 +213,7 @@ export function DialogoItem({
           label="Moneda del precio"
           requerido
           ayuda="Solo se precarga en facturas de esta moneda"
+          error={errorDe('MONEDA_INVALIDA')}
         >
           {(p) => (
             <Select
@@ -210,7 +241,11 @@ export function DialogoItem({
         </p>
 
         <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Tarifa de IVA" requerido>
+          <Field
+            label="Tarifa de IVA"
+            requerido
+            error={errorDe('TARIFA_INVALIDA')}
+          >
             {(p) => (
               <Select
                 {...p}
@@ -232,13 +267,15 @@ export function DialogoItem({
             label="Cuenta de ingreso"
             requerido
             ayuda="De detalle, activa y de tipo ingreso"
+            error={errorDe('CUENTA_INVALIDA')}
           >
-            {() => (
+            {(p) => (
               <SelectorCuenta
                 value={datos.cuentaIngreso}
                 onChange={(codigo) => cambiar({ cuentaIngreso: codigo })}
                 cuentas={cuentas}
                 etiqueta="Cuenta de ingreso del item"
+                error={p['aria-invalid']}
               />
             )}
           </Field>
@@ -259,22 +296,7 @@ export function DialogoItem({
         </span>
       </label>
 
-      {(intento && !validacion.valido) || errorServidor ? (
-        <div className="mt-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset">
-          <p className="flex items-center gap-1.5 text-sm font-medium text-red-800">
-            <CircleAlert className="size-4" />
-            {errorServidor ? errorServidor.message : 'Revise los datos'}
-          </p>
-          <ul className="mt-1.5 ml-6 list-disc space-y-0.5 text-xs text-red-700">
-            {(errorServidor?.detalles.length
-              ? errorServidor.detalles
-              : validacion.errores.map((e) => e.mensaje)
-            ).map((m, i) => (
-              <li key={i}>{m}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+      <MensajeError error={errorServidor} className="mt-4" />
     </Dialogo>
   )
 }

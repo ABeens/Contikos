@@ -48,6 +48,15 @@ export const TIPO_ORIGEN_AMORTIZACION = 'amortizacion_diferidos'
 /** Tipo de origen del reconocimiento de golpe al cancelar (docs/15 §3.4). */
 export const TIPO_ORIGEN_CANCELACION = 'cancelacion_diferido'
 
+/**
+ * Plazo máximo de un diferido: cincuenta años.
+ *
+ * Nada que se pague por adelantado se reconoce en más tiempo, y un plazo sin
+ * tope convierte un error de tecleo (un cero de más) en una tabla de miles de
+ * cuotas que la pantalla intenta pintar entera.
+ */
+export const PLAZO_MAXIMO_MESES = 600
+
 export type CodigoErrorDiferido =
   | 'DESCRIPCION_REQUERIDA'
   | 'MONTO_INVALIDO'
@@ -321,6 +330,11 @@ export function validarDiferido(
     errores.push({
       codigo: 'PLAZO_INVALIDO',
       mensaje: 'El plazo debe ser de al menos un mes',
+    })
+  } else if (solicitud.plazoMeses > PLAZO_MAXIMO_MESES) {
+    errores.push({
+      codigo: 'PLAZO_INVALIDO',
+      mensaje: `El plazo no puede pasar de ${PLAZO_MAXIMO_MESES} meses (${PLAZO_MAXIMO_MESES / 12} años)`,
     })
   }
 

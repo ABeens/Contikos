@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { CircleAlert, HandCoins, Wand2 } from 'lucide-react'
+import { HandCoins, Wand2 } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
 import { Field, Input, Select } from '@/shared/ui/Field'
@@ -8,11 +8,10 @@ import { MoneyInput } from '@/shared/money/MoneyInput'
 import { MoneyCell } from '@/shared/money/MoneyCell'
 import { formatMoney } from '@/shared/money/format'
 import { formatFecha, hoyISO } from '@/shared/format/fecha'
-import { ApiError } from '@/shared/api/client'
+import { useAvisoSalida } from '@/shared/ui/AvisoSalida'
 import { claveEfectivo, opcionesDeEfectivo } from '@/shared/cuentas/efectivo'
 import { MEDIOS_PAGO, type MedioPago } from '@/shared/api/contracts/terceros'
 import {
-  configuracionMoneda,
   monedaFuncional,
   monedasActivas,
   type Moneda,
@@ -38,6 +37,8 @@ import {
   useMapeoCxc,
   useRegistrarCobro,
 } from '../api/queries'
+import { useTipoCambioDocumento } from '@/shared/api/tipoCambioDocumento'
+import { ResumenErrores } from '@/shared/ui/ResumenErrores'
 
 /**
  * Captura de un cobro (docs/04 §2.2).
@@ -69,7 +70,8 @@ export function CobroPage() {
   const [clienteId, setClienteId] = useState('')
   const [fecha, setFecha] = useState(hoyISO)
   const [moneda, setMoneda] = useState<Moneda>(funcional)
-  const [tipoCambio, setTipoCambio] = useState('1')
+  const tc = useTipoCambioDocumento(moneda, fecha)
+  const tipoCambio = tc.tipoCambio
   const [medio, setMedio] = useState<MedioPago>('04')
   const [referencia, setReferencia] = useState('')
   // Vacío = todavía la del mapeo. Se resuelve al leer y no con un efecto: el
@@ -80,6 +82,8 @@ export function CobroPage() {
   /** Lo aplicado a cada factura, por id. Sin entrada = no se aplica nada. */
   const [aplicado, setAplicado] = useState<Record<string, string>>({})
   const [intentoEnvio, setIntentoEnvio] = useState(false)
+  /** Sube en cada envío fallido: el resumen de errores toma el foco. */
+  const [fallos, setFallos] = useState(0)
 
   // Las facturas del cliente, no las de todos: es lo único que este cobro
   // puede pagar, y pedir la cartera entera para filtrarla en la pantalla sería
@@ -180,12 +184,9 @@ export function CobroPage() {
     setAplicado({})
     const elegido = clientes.find((c) => c.id === id)
     if (!elegido) return
+    // El tipo de cambio lo propone `useTipoCambioDocumento` para la moneda
+    // del cliente y la fecha del cobro.
     setMoneda(elegido.moneda)
-    setTipoCambio(
-      elegido.moneda === funcional
-        ? '1'
-        : configuracionMoneda(elegido.moneda).tipoCambio,
-    )
     // Cómo suele pagar este cliente. Sigue siendo editable.
     if (elegido.medioPago) setMedio(elegido.medioPago)
   }
@@ -209,18 +210,40 @@ export function CobroPage() {
     )
   }
 
+  // Hay algo capturado que se perdería al salir.
+  const sucio = Boolean(
+    clienteId ||
+      importeRecibido ||
+      referencia.trim() ||
+      Object.values(aplicado).some((v) => v !== ''),
+  )
+  const { aviso, permitirSalida } = useAvisoSalida(sucio && !registrar.isSuccess)
+
   const guardar = async () => {
     setIntentoEnvio(true)
-    if (!calculo.valido) return
+    registrar.reset()
+    if (!calculo.valido) {
+      setFallos((n) => n + 1)
+      return
+    }
     // El rechazo del servidor (periodo cerrado, saldo que cambió en otra
     // pestaña) se enseña desde `registrar.error`: se atrapa aquí para no dejar
     // la promesa suelta y para no navegar sobre un cobro que no nació.
     const cobro = await registrar.mutateAsync(solicitud).catch(() => null)
-    if (!cobro) return
-    navegar('/cxc/cobros')
+    if (!cobro) {
+      setFallos((n) => n + 1)
+      return
+    }
+    permitirSalida()
+    // Al detalle del cobro recién nacido, como el pago: es donde se ve su
+    // asiento y a qué facturas quedó aplicado.
+    navegar(`/cxc/cobros/${cobro.id}`)
   }
 
-  const errorServidor = registrar.error instanceof ApiError ? registrar.error : null
+  // El rechazo del servidor es de la solicitud que se envió. En cuanto se toca
+  // algo deja de ser de lo que hay en pantalla y se deja de enseñar.
+  const errorServidor =
+    registrar.variables === solicitud ? registrar.error : null
   const erroresDe = (facturaId: string) =>
     intentoEnvio
       ? calculo.errores.filter(
@@ -239,9 +262,10 @@ export function CobroPage() {
           <>
             <Button onClick={() => navegar('/cxc/cobros')}>Cancelar</Button>
             <Button
+              type="submit"
+              form="form-cobro"
               variante="primario"
               icono={<HandCoins className="size-4" />}
-              onClick={() => void guardar()}
               disabled={registrar.isPending}
             >
               {registrar.isPending ? 'Registrando…' : 'Registrar cobro'}
@@ -250,8 +274,21 @@ export function CobroPage() {
         }
       />
 
+      {aviso}
+
       <Card className="mb-4">
-        <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Enter en un campo del encabezado registra el cobro. La tabla de
+            aplicaciones queda fuera del formulario: ahí Enter no debe enviar
+            a medio reparto. */}
+        <form
+          id="form-cobro"
+          noValidate
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (!registrar.isPending) void guardar()
+          }}
+          className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4"
+        >
           <Field label="Cliente" requerido className="lg:col-span-2">
             {(p) => (
               <Select
@@ -299,13 +336,7 @@ export function CobroPage() {
                 {...p}
                 value={moneda}
                 onChange={(e) => {
-                  const nueva = e.target.value
-                  setMoneda(nueva)
-                  setTipoCambio(
-                    nueva === funcional
-                      ? '1'
-                      : configuracionMoneda(nueva).tipoCambio,
-                  )
+                  setMoneda(e.target.value)
                   // El reparto anterior era en otra moneda: no se conserva.
                   setAplicado({})
                 }}
@@ -324,8 +355,8 @@ export function CobroPage() {
             requerido
             ayuda={
               moneda === funcional
-                ? 'Moneda funcional'
-                : 'La diferencia contra el de la factura se contabiliza aparte'
+                ? tc.ayuda
+                : `${tc.ayuda ?? ''} La diferencia contra el de la factura se contabiliza aparte.`.trim()
             }
           >
             {(p) => (
@@ -333,7 +364,7 @@ export function CobroPage() {
                 {...p}
                 value={tipoCambio}
                 disabled={moneda === funcional}
-                onChange={(e) => setTipoCambio(e.target.value)}
+                onChange={(e) => tc.editar(e.target.value)}
                 className="tabular text-right"
               />
             )}
@@ -412,7 +443,7 @@ export function CobroPage() {
               </span>
             </div>
           )}
-        </div>
+        </form>
       </Card>
 
       <Card className="mb-4">
@@ -621,24 +652,16 @@ export function CobroPage() {
         </table>
       </Card>
 
-      {(intentoEnvio && !calculo.valido) || errorServidor ? (
-        <div className="mt-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset">
-          <p className="flex items-center gap-1.5 text-sm font-medium text-red-800">
-            <CircleAlert className="size-4" />
-            {errorServidor
-              ? `${errorServidor.codigo}: ${errorServidor.message}`
-              : 'El cobro no se puede registrar'}
-          </p>
-          <ul className="mt-1.5 ml-6 list-disc space-y-0.5 text-xs text-red-700">
-            {(errorServidor?.detalles.length
-              ? errorServidor.detalles
-              : calculo.errores.map((e) => e.mensaje)
-            ).map((mensaje, i) => (
-              <li key={i}>{mensaje}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+      <ResumenErrores
+        titulo="El cobro no se puede registrar"
+        errores={
+          intentoEnvio && !calculo.valido
+            ? calculo.errores.map((e) => e.mensaje)
+            : []
+        }
+        errorServidor={errorServidor}
+        senal={fallos}
+      />
     </div>
   )
 }

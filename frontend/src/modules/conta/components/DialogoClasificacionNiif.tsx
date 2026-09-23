@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { CircleAlert } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { Dialogo } from '@/shared/ui/Dialogo'
@@ -63,6 +63,7 @@ export function DialogoClasificacionNiif({
 }: DialogoClasificacionNiifProps) {
   const creando = clasificacion === undefined
   const guardar = useGuardarClasificacion()
+  const idAyudaTipos = useId()
 
   const [form, setForm] = useState<SolicitudClasificacionNiif>(() =>
     clasificacion
@@ -77,14 +78,29 @@ export function DialogoClasificacionNiif({
         }
       : { ...NUEVA },
   )
+  /**
+   * El orden se guarda como lo tecleado y se convierte al validar. Guardado
+   * como número, vaciar el campo para escribir otro lo devolvía a 0 en el
+   * acto, y el cursor saltaba detrás del cero.
+   */
+  const [ordenTexto, setOrdenTexto] = useState(() => String(form.orden))
   const [intentoEnvio, setIntentoEnvio] = useState(false)
+
+  /** El error del servidor era sobre los datos de antes de este cambio. */
+  const limpiarErrorServidor = () => {
+    if (guardar.isError) guardar.reset()
+  }
 
   const cambiar = <K extends keyof SolicitudClasificacionNiif>(
     campo: K,
     valor: SolicitudClasificacionNiif[K],
-  ) => setForm((prev) => ({ ...prev, [campo]: valor }))
+  ) => {
+    limpiarErrorServidor()
+    setForm((prev) => ({ ...prev, [campo]: valor }))
+  }
 
-  const alternarTipo = (tipo: TipoCuenta) =>
+  const alternarTipo = (tipo: TipoCuenta) => {
+    limpiarErrorServidor()
     setForm((prev) => ({
       ...prev,
       // Se conserva el orden del enum para que la lista no baile según el orden
@@ -93,15 +109,26 @@ export function DialogoClasificacionNiif({
         t === tipo ? !prev.tiposCuenta.includes(t) : prev.tiposCuenta.includes(t),
       ),
     }))
+  }
+
+  // Vacío no es cero: sin número, la validación lo rechaza en vez de guardar
+  // un orden que nadie escribió.
+  const solicitud = useMemo<SolicitudClasificacionNiif>(
+    () => ({
+      ...form,
+      orden: ordenTexto.trim() === '' ? Number.NaN : Number(ordenTexto),
+    }),
+    [form, ordenTexto],
+  )
 
   const validacion = useMemo(
     () =>
       validarClasificacion(
-        { ...form, codigo: form.codigo.trim().toUpperCase() },
+        { ...solicitud, codigo: solicitud.codigo.trim().toUpperCase() },
         { clasificaciones, notas, cuentas },
         clasificacion?.id,
       ),
-    [form, clasificaciones, notas, cuentas, clasificacion],
+    [solicitud, clasificaciones, notas, cuentas, clasificacion],
   )
 
   const errorDe = (campo: string): string | undefined =>
@@ -109,19 +136,21 @@ export function DialogoClasificacionNiif({
       ? validacion.errores.find((e) => e.campo === campo)?.mensaje
       : undefined
 
-  const enviar = async () => {
+  const enviar = () => {
     setIntentoEnvio(true)
-    if (!validacion.valido) return
-    await guardar.mutateAsync({
-      clasificacion: {
-        ...form,
-        codigo: form.codigo.trim().toUpperCase(),
-        nombre: form.nombre.trim(),
-        seccionNiif: form.seccionNiif?.trim() || null,
+    if (!validacion.valido || guardar.isPending) return
+    guardar.mutate(
+      {
+        clasificacion: {
+          ...solicitud,
+          codigo: solicitud.codigo.trim().toUpperCase(),
+          nombre: solicitud.nombre.trim(),
+          seccionNiif: solicitud.seccionNiif?.trim() || null,
+        },
+        id: clasificacion?.id,
       },
-      id: clasificacion?.id,
-    })
-    onCerrar()
+      { onSuccess: onCerrar },
+    )
   }
 
   const errorServidor = guardar.error instanceof ApiError ? guardar.error : null
@@ -130,16 +159,20 @@ export function DialogoClasificacionNiif({
     <Dialogo
       abierto={abierto}
       onCerrar={onCerrar}
+      bloqueado={guardar.isPending}
+      alEnviar={enviar}
       titulo={
         creando ? 'Nueva clasificación NIIF' : `Clasificación ${clasificacion.codigo}`
       }
       descripcion="El renglón del estado financiero en el que se presentan las cuentas que se le asignen."
       acciones={
         <>
-          <Button onClick={onCerrar}>Cancelar</Button>
+          <Button onClick={onCerrar} disabled={guardar.isPending}>
+            Cancelar
+          </Button>
           <Button
             variante="primario"
-            onClick={() => void enviar()}
+            type="submit"
             disabled={guardar.isPending}
           >
             {guardar.isPending ? 'Guardando…' : 'Guardar'}
@@ -174,9 +207,12 @@ export function DialogoClasificacionNiif({
               type="number"
               min={0}
               step={10}
-              value={String(form.orden)}
+              value={ordenTexto}
               className="tabular"
-              onChange={(e) => cambiar('orden', Number(e.target.value))}
+              onChange={(e) => {
+                limpiarErrorServidor()
+                setOrdenTexto(e.target.value)
+              }}
             />
           )}
         </Field>
@@ -229,11 +265,17 @@ export function DialogoClasificacionNiif({
           )}
         </Field>
 
-        <div className="col-span-2">
-          <p className="text-xs font-medium text-slate-600">
+        {/* Un grupo de casillas es un fieldset: el lector de pantalla anuncia
+            "Tipos de cuenta admitidos" al entrar en la primera, no solo
+            "Activo, casilla". */}
+        <fieldset
+          className="col-span-2"
+          aria-describedby={idAyudaTipos}
+        >
+          <legend className="text-xs font-medium text-slate-600">
             Tipos de cuenta admitidos <span className="text-red-500">*</span>
-          </p>
-          <p className="mt-0.5 text-xs text-slate-400">
+          </legend>
+          <p id={idAyudaTipos} className="mt-0.5 text-xs text-slate-400">
             Solo se podrán clasificar aquí cuentas de estos tipos. Casi siempre
             es uno; son varios cuando el renglón se presenta neto.
           </p>
@@ -256,7 +298,7 @@ export function DialogoClasificacionNiif({
           {errorDe('tiposCuenta') && (
             <p className="mt-1 text-xs text-red-600">{errorDe('tiposCuenta')}</p>
           )}
-        </div>
+        </fieldset>
 
         <div className="col-span-2">
           <label className="flex items-start gap-2 text-sm text-slate-700">
@@ -281,7 +323,10 @@ export function DialogoClasificacionNiif({
       </div>
 
       {(intentoEnvio && !validacion.valido) || errorServidor ? (
-        <div className="mt-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset">
+        <div
+          role="alert"
+          className="mt-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset"
+        >
           <p className="flex items-center gap-1.5 text-sm font-medium text-red-800">
             <CircleAlert className="size-4" />
             {errorServidor

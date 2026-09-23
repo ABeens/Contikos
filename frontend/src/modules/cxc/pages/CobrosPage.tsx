@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Ban, Plus, Search } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
+import { LinkBoton } from '@/shared/ui/LinkBoton'
 import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
 import { DataTable } from '@/shared/ui/DataTable'
 import { Input } from '@/shared/ui/Field'
@@ -15,6 +16,7 @@ import { MEDIOS_PAGO } from '@/shared/api/contracts/terceros'
 import type { Cobro } from '@/shared/api/contracts/cxc'
 import { useAsientoDeCobro, useCobros } from '../api/queries'
 import { DialogoAnularCobro } from '../components/DialogoAnularCobro'
+import { DocumentoNoEncontrado, SeccionDetalle } from '@/shared/ui/Detalle'
 
 /** Nombre del medio de pago según el catálogo de Hacienda. */
 function nombreMedio(codigo: string): string {
@@ -34,10 +36,18 @@ function nombreMedio(codigo: string): string {
  * enlace y el botón de atrás devuelve al listado (docs/14 §6).
  */
 export function CobrosPage() {
-  const { data: cobros = [], isLoading } = useCobros()
+  const {
+    data: cobros = [],
+    isLoading,
+    isSuccess,
+    error,
+    refetch,
+  } = useCobros()
   const navegar = useNavigate()
   const { id } = useParams()
   const [filtro, setFiltro] = useState('')
+  // Las filas que deja ver el filtro: el contador cuenta lo que se ve.
+  const [visibles, setVisibles] = useState<number | null>(null)
 
   const seleccionado = cobros.find((c) => c.id === id) ?? null
 
@@ -117,11 +127,13 @@ export function CobrosPage() {
         titulo="Cobros"
         descripcion="Lo que los clientes han pagado, a qué facturas se aplicó y el asiento que lo contabilizó."
         acciones={
-          <Link to="/cxc/cobros/nuevo">
-            <Button variante="primario" icono={<Plus className="size-4" />}>
-              Registrar cobro
-            </Button>
-          </Link>
+          <LinkBoton
+            to="/cxc/cobros/nuevo"
+            variante="primario"
+            icono={<Plus className="size-4" />}
+          >
+            Registrar cobro
+          </LinkBoton>
         }
       />
 
@@ -132,38 +144,43 @@ export function CobrosPage() {
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
             placeholder="Buscar por número, cliente o referencia…"
+            aria-label="Buscar cobros"
             className="h-8 max-w-sm border-0 px-0 focus:ring-0"
           />
           <span className="ml-auto text-xs text-slate-500">
-            {cobros.length} cobros
+            {filtro.trim() && visibles !== null
+              ? `${visibles} de ${cobros.length} cobros`
+              : `${cobros.length} cobros`}
           </span>
         </div>
 
-        {isLoading ? (
-          <p className="px-4 py-10 text-center text-sm text-slate-500">
-            Cargando cobros…
-          </p>
-        ) : (
-          <DataTable
-            columns={columnas}
-            data={cobros}
-            filtro={filtro}
-            onRowClick={(c) => navegar(`/cxc/cobros/${c.id}`)}
-            vacio={{
-              titulo: 'Sin cobros registrados',
-              descripcion:
-                'Registre el primero para bajar el saldo de una factura.',
-            }}
-          />
-        )}
+        <DataTable
+          columns={columnas}
+          data={cobros}
+          filtro={filtro}
+          cargando={isLoading}
+          error={error}
+          onReintentar={() => void refetch()}
+          alFiltrar={setVisibles}
+          esSeleccionada={(c) => c.id === id}
+          onRowClick={(c) => navegar(`/cxc/cobros/${c.id}`)}
+          vacio={{
+            titulo: 'Sin cobros registrados',
+            descripcion:
+              'Registre el primero para bajar el saldo de una factura.',
+          }}
+        />
       </Card>
 
-      {seleccionado && (
+      {seleccionado ? (
         <DetalleCobro
+          key={seleccionado.id}
           cobro={seleccionado}
           onCerrar={() => navegar('/cxc/cobros')}
         />
-      )}
+      ) : id && isSuccess ? (
+        <DocumentoNoEncontrado id={id} onCerrar={() => navegar('/cxc/cobros')} />
+      ) : null}
     </div>
   )
 }
@@ -180,7 +197,7 @@ function DetalleCobro({
   const funcional = monedaFuncional()
 
   return (
-    <>
+    <SeccionDetalle etiqueta={`Detalle del cobro ${cobro.numero}`}>
       <Card className="mt-4">
         <CardHeader
           titulo={`Cobro ${cobro.numero}`}
@@ -319,7 +336,7 @@ function DetalleCobro({
           onCerrar={() => setAnulando(false)}
         />
       )}
-    </>
+    </SeccionDetalle>
   )
 }
 

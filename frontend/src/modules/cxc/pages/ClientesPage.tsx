@@ -15,9 +15,16 @@ import { DialogoCliente } from '../components/DialogoCliente'
 
 /** Catálogo de clientes (docs/04 §1). */
 export function ClientesPage() {
-  const { data: clientes = [], isLoading } = useClientes()
+  const {
+    data: clientes = [],
+    isLoading,
+    error,
+    refetch,
+  } = useClientes()
   const { data: cuentas = [] } = useCuentas()
   const [filtro, setFiltro] = useState('')
+  // Las filas que deja ver el filtro: el contador cuenta lo que se ve.
+  const [visibles, setVisibles] = useState<number | null>(null)
   const [editando, setEditando] = useState<Cliente | null>(null)
   const [creando, setCreando] = useState(false)
 
@@ -157,29 +164,30 @@ export function ClientesPage() {
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
             placeholder="Buscar por nombre, código o identificación…"
+            aria-label="Buscar clientes"
             className="h-8 max-w-sm border-0 px-0 focus:ring-0"
           />
           <span className="ml-auto text-xs text-slate-500">
-            {clientes.length} clientes
+            {filtro.trim() && visibles !== null
+              ? `${visibles} de ${clientes.length} clientes`
+              : `${clientes.length} clientes`}
           </span>
         </div>
 
-        {isLoading ? (
-          <p className="px-4 py-10 text-center text-sm text-slate-500">
-            Cargando clientes…
-          </p>
-        ) : (
-          <DataTable
-            columns={columnas}
-            data={clientes}
-            filtro={filtro}
-            onRowClick={setEditando}
-            vacio={{
-              titulo: 'Sin clientes',
-              descripcion: 'Dé de alta el primero para poder facturar.',
-            }}
-          />
-        )}
+        <DataTable
+          columns={columnas}
+          data={clientes}
+          filtro={filtro}
+          cargando={isLoading}
+          error={error}
+          onReintentar={() => void refetch()}
+          alFiltrar={setVisibles}
+          onRowClick={setEditando}
+          vacio={{
+            titulo: 'Sin clientes',
+            descripcion: 'Dé de alta el primero para poder facturar.',
+          }}
+        />
       </Card>
 
       {(creando || editando) && (

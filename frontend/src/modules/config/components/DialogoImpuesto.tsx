@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { CircleAlert } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { Dialogo } from '@/shared/ui/Dialogo'
+import { MensajeError } from '@/shared/ui/MensajeError'
 import { Field, Input, Select } from '@/shared/ui/Field'
 import { ApiError } from '@/shared/api/client'
 import { hoyISO } from '@/shared/format/fecha'
@@ -26,16 +27,23 @@ import {
  * sigue recalculando con el porcentaje que tuvo.
  */
 
-const NUEVA: SolicitudTarifaImpuesto = {
-  codigo: '',
-  nombre: '',
-  tipo: 'iva',
-  porcentaje: '13',
-  vigenteDesde: hoyISO(),
-  vigenteHasta: null,
-  activa: true,
-  codigoHacienda: null,
-  generaImpuesto: true,
+/**
+ * Tarifa en blanco. Es una función y no una constante: con una constante, la
+ * fecha de "hoy" se calculaba al importar el módulo, y con la aplicación
+ * abierta de un día para otro la vigencia nueva proponía la fecha de ayer.
+ */
+function nueva(): SolicitudTarifaImpuesto {
+  return {
+    codigo: '',
+    nombre: '',
+    tipo: 'iva',
+    porcentaje: '13',
+    vigenteDesde: hoyISO(),
+    vigenteHasta: null,
+    activa: true,
+    codigoHacienda: null,
+    generaImpuesto: true,
+  }
 }
 
 const TIPOS: readonly { tipo: TipoImpuesto; nombre: string }[] = [
@@ -74,12 +82,16 @@ export function DialogoImpuesto({
           codigoHacienda: tarifa.codigoHacienda,
           generaImpuesto: tarifa.generaImpuesto,
         }
-      : { ...NUEVA },
+      : nueva(),
   )
   const [intento, setIntento] = useState(false)
 
-  const cambiar = (cambios: Partial<SolicitudTarifaImpuesto>) =>
+  const cambiar = (cambios: Partial<SolicitudTarifaImpuesto>) => {
     setDatos((prev) => ({ ...prev, ...cambios }))
+    // El rechazo del servidor era sobre los datos de antes: al corregirlos
+    // deja de ser cierto y no debe seguir en pantalla como si lo fuera.
+    if (guardar.error) guardar.reset()
+  }
 
   const solicitud: SolicitudTarifaImpuesto = useMemo(
     () => ({
@@ -112,11 +124,16 @@ export function DialogoImpuesto({
   // es justo lo que esta pantalla tiene que permitir.
   const tocaElPasado = !creando && solicitud.vigenteDesde <= hoyISO()
 
-  const enviar = async () => {
+  // Con `mutate` y no `mutateAsync`: el rechazo del servidor se pinta desde
+  // `guardar.error`, y un `await` sin `catch` lo dejaba además como promesa
+  // rechazada sin atender.
+  const enviar = () => {
     setIntento(true)
-    if (!validacion.valido) return
-    await guardar.mutateAsync({ datos: solicitud, id: tarifa?.id })
-    onCerrar()
+    if (!validacion.valido || guardar.isPending) return
+    guardar.mutate(
+      { datos: solicitud, id: tarifa?.id },
+      { onSuccess: onCerrar },
+    )
   }
 
   return (
@@ -126,12 +143,16 @@ export function DialogoImpuesto({
       titulo={creando ? 'Nueva tarifa' : `Tarifa ${tarifa.codigo}`}
       descripcion="El código es lo que las facturas guardan; el porcentaje se resuelve por la fecha del documento."
       className="w-[min(94vw,42rem)]"
+      bloqueado={guardar.isPending}
+      alEnviar={enviar}
       acciones={
         <>
-          <Button onClick={onCerrar}>Cancelar</Button>
+          <Button onClick={onCerrar} disabled={guardar.isPending}>
+            Cancelar
+          </Button>
           <Button
+            type="submit"
             variante="primario"
-            onClick={() => void enviar()}
             disabled={guardar.isPending}
           >
             {guardar.isPending ? 'Guardando…' : 'Guardar'}
@@ -294,7 +315,9 @@ export function DialogoImpuesto({
         <div className="mt-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset">
           <p className="flex items-center gap-1.5 text-sm font-medium text-red-800">
             <CircleAlert className="size-4" />
-            {errorServidor ? errorServidor.message : 'Revise los datos'}
+            {errorServidor
+              ? `${errorServidor.codigo}: ${errorServidor.message}`
+              : 'Revise los datos'}
           </p>
           <ul className="mt-1.5 ml-6 list-disc space-y-0.5 text-xs text-red-700">
             {(errorServidor
@@ -306,6 +329,12 @@ export function DialogoImpuesto({
           </ul>
         </div>
       ) : null}
+
+      {/* Un fallo que no es de negocio (red, tiempo agotado) no trae código
+          ni detalles, pero tampoco puede quedar sin decirse. */}
+      {!errorServidor && (
+        <MensajeError error={guardar.error} className="mt-4" />
+      )}
     </Dialogo>
   )
 }

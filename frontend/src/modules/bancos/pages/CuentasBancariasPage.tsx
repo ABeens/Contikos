@@ -26,7 +26,8 @@ import { DialogoCuentaBancaria } from '../components/DialogoCuentaBancaria'
  * configuración, que es lo que se consulta una vez al año.
  */
 export function CuentasBancariasPage() {
-  const { data: cuentasBancarias = [], isLoading } = useCuentasBancarias()
+  const consulta = useCuentasBancarias()
+  const { data: cuentasBancarias = [] } = consulta
   const { data: posicion } = usePosicionTesoreria()
   const { data: cuentas = [] } = useCuentas()
   const [editando, setEditando] = useState<CuentaBancaria | null>(null)
@@ -174,22 +175,20 @@ export function CuentasBancariasPage() {
       )}
 
       <Card>
-        {isLoading ? (
-          <p className="px-4 py-10 text-center text-sm text-slate-500">
-            Cargando cuentas bancarias…
-          </p>
-        ) : (
-          <DataTable
-            columns={columnas}
-            data={cuentasBancarias}
-            onRowClick={setEditando}
-            vacio={{
-              titulo: 'Sin cuentas bancarias',
-              descripcion:
-                'Dé de alta la primera: mientras no exista, los cobros y los pagos no pueden decir a qué cuenta entró o salió el dinero.',
-            }}
-          />
-        )}
+        <DataTable
+          columns={columnas}
+          data={cuentasBancarias}
+          onRowClick={setEditando}
+          esSeleccionada={(c) => c.id === editando?.id}
+          cargando={consulta.isLoading}
+          error={consulta.error}
+          onReintentar={() => void consulta.refetch()}
+          vacio={{
+            titulo: 'Sin cuentas bancarias',
+            descripcion:
+              'Dé de alta la primera: mientras no exista, los cobros y los pagos no pueden decir a qué cuenta entró o salió el dinero.',
+          }}
+        />
       </Card>
 
       {(creando || editando) && (

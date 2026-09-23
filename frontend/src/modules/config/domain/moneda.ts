@@ -86,7 +86,7 @@ function tipoCambioDe(valor: string): Decimal | null {
  * Valida un alta o una modificación.
  *
  * `creando` distingue los dos casos: al crear, el código no puede existir; al
- * editar, tiene que existir — el código es la llave del catálogo y no se cambia
+ * editar, tiene que existir: el código es la llave del catálogo y no se cambia
  * (renombrarlo dejaría huérfanos los asientos históricos).
  */
 export function validarMoneda(
@@ -265,7 +265,7 @@ export function validarFuncional(
  * Aplica el cambio de moneda funcional sobre el catálogo.
  *
  * Devuelve un catálogo nuevo: la marca se mueve y el tipo de cambio de la nueva
- * funcional pasa a 1. Los de las demás quedan como estaban — reexpresarlos es
+ * funcional pasa a 1. Los de las demás quedan como estaban; reexpresarlos es
  * una decisión contable, no un efecto colateral de la pantalla.
  */
 export function aplicarFuncional<T extends MonedaBase>(

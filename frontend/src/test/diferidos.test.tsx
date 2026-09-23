@@ -95,7 +95,7 @@ describe('Alta de un diferido', () => {
     await usuario.click(screen.getByRole('button', { name: /Registrar diferido/ }))
 
     // Se llega a su ficha, con el plan íntegro por amortizar.
-    await screen.findByText(/Póliza de vehículos 2027/)
+    await screen.findByRole('heading', { name: /Póliza de vehículos 2027/ })
     const diferidos = await servicioDiferidos.listar()
     const nuevo = diferidos.find((d) => d.descripcion === 'Póliza de vehículos 2027')!
     expect(nuevo).toMatchObject({
@@ -164,9 +164,13 @@ describe('Amortización de diferidos', () => {
     const aviso = await screen.findByRole('status')
     expect(aviso).toHaveTextContent(/Corrida contabilizada/)
     expect(aviso).toHaveTextContent(/3 fichas actualizadas/)
+    // El enlace abre el asiento de la corrida, no el libro en blanco.
     expect(
       within(aviso).getByRole('link', { name: /libro de asientos/ }),
-    ).toHaveAttribute('href', '/conta/asientos')
+    ).toHaveAttribute(
+      'href',
+      expect.stringMatching(/^\/conta\/asientos\?asiento=/),
+    )
 
     // El saldo bajó exactamente la cuota, y la ficha lleva el rastro.
     const diferidos = await servicioDiferidos.listar()
@@ -220,5 +224,39 @@ describe('Amortización de diferidos', () => {
         severidad: 'error',
       }),
     )
+  })
+})
+
+describe('Ficha del diferido', () => {
+  it('cancela anticipadamente con confirmación y reconoce el saldo', async () => {
+    const usuario = userEvent.setup()
+    montar('/diferidos?diferido=dif-0001')
+
+    await usuario.click(
+      await screen.findByRole('button', { name: /Cancelar anticipadamente/ }),
+    )
+
+    // Se confirma con el importe delante: es irreversible y toca el mayor.
+    const dialogo = await screen.findByRole('dialog')
+    expect(dialogo).toHaveTextContent(/600\.000,00/)
+    const fecha = within(dialogo).getByLabelText(/Fecha de la cancelación/)
+    await usuario.clear(fecha)
+    await usuario.type(fecha, '2026-08-31')
+    await usuario.type(
+      within(dialogo).getByLabelText(/Motivo/),
+      'Se vendió el vehículo asegurado',
+    )
+    await usuario.click(
+      within(dialogo).getByRole('button', { name: /Cancelar y reconocer/ }),
+    )
+
+    // La ficha sigue abierta y enseña la cancelación con su asiento.
+    expect(await screen.findByText(/Cancelado el/)).toBeInTheDocument()
+    const poliza = (await servicioDiferidos.listar()).find(
+      (d) => d.id === 'dif-0001',
+    )!
+    expect(poliza.estado).toBe('cancelado')
+    expect(poliza.saldoPorAmortizar).toBe('0.00')
+    expect(poliza.cancelacion?.asientoId).toBeTruthy()
   })
 })

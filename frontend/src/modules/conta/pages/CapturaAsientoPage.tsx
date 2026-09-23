@@ -1,7 +1,8 @@
-import { useId, useMemo, useState } from 'react'
+import { useId, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { CircleAlert, CircleCheck, Lock, Plus, Save, Trash2 } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
+import { useAvisoSalida } from '@/shared/ui/AvisoSalida'
 import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
 import { Field, Input, Select } from '@/shared/ui/Field'
 import { MoneyInput } from '@/shared/money/MoneyInput'
@@ -360,7 +361,7 @@ export function CapturaAsientoPage() {
     if (e.key !== 'Enter') return
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault()
-      void guardar()
+      guardar()
       return
     }
     if (esUltima) {
@@ -369,11 +370,75 @@ export function CapturaAsientoPage() {
     }
   }
 
-  const guardar = async () => {
+  /**
+   * Ctrl+Enter también desde el encabezado. Aquí Enter solo no hace nada: no
+   * hay "última línea" a la que añadir otra.
+   */
+  const manejarTeclaEncabezado = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault()
+      guardar()
+    }
+  }
+
+  /**
+   * Hay algo capturado que se perdería al salir. La fecha sola no cuenta: la
+   * pantalla ya la trae puesta, y cambiarla sin más no es haber empezado un
+   * asiento.
+   */
+  const sucio =
+    concepto.trim() !== '' ||
+    documentoTexto.trim() !== '' ||
+    lineas.some(
+      (l) =>
+        l.cuenta !== '' ||
+        l.concepto.trim() !== '' ||
+        l.cargo !== '' ||
+        l.abono !== '' ||
+        l.auxiliar.trim() !== '',
+    )
+  const { aviso, permitirSalida } = useAvisoSalida(sucio)
+
+  /**
+   * Candado contra el doble envío.
+   *
+   * `isPending` no basta: dos Ctrl+Enter seguidos (o la tecla que se repite al
+   * dejarla pulsada) llegan antes de que React vuelva a pintar, y los dos ven
+   * todavía `isPending` en falso. Dos envíos son dos asientos en el mayor.
+   */
+  const enviando = useRef(false)
+
+  const guardar = () => {
     setIntentoEnvio(true)
-    if (!puedeContabilizar) return
-    await contabilizar.mutateAsync(solicitud)
-    navegar('/conta/asientos')
+    if (!puedeContabilizar || enviando.current || contabilizar.isPending) {
+      return
+    }
+    enviando.current = true
+    contabilizar.mutate(solicitud, {
+      onSuccess: (asiento) => {
+        permitirSalida()
+        // Se llega con el asiento abierto: es la confirmación de lo que se
+        // hizo, y se abre aunque su fecha caiga en otro periodo que el que la
+        // lista tiene activo.
+        void navegar(
+          `/conta/asientos?asiento=${encodeURIComponent(asiento.id)}`,
+        )
+      },
+      // Solo el error vuelve a abrir el candado. Tras el éxito la pantalla se
+      // va, pero hasta que se desmonta el formulario sigue lleno y válido: un
+      // Ctrl+Enter en ese intervalo contabilizaría el mismo asiento otra vez.
+      onError: () => {
+        enviando.current = false
+      },
+    })
+  }
+
+  /**
+   * El error del servidor habla del asiento que se envió. En cuanto el usuario
+   * toca algo ya no describe lo que hay en pantalla, y se retira.
+   */
+  const alEditar = () => {
+    if (contabilizar.isError) contabilizar.reset()
   }
 
   const errorServidor =
@@ -381,9 +446,11 @@ export function CapturaAsientoPage() {
 
   const periodoBloqueado = periodoActivo && periodoActivo.estado !== 'abierto'
 
-  const mensajesError = errorServidor?.detalles.length
-    ? errorServidor.detalles
-    : [
+  // Primero lo que se corrige en pantalla. El error del servidor solo tiene
+  // sentido cuando lo local ya está bien: es lo único que llegó a enviarse.
+  const mostrarLocales = intentoEnvio && !puedeContabilizar
+  const mensajesError = mostrarLocales
+    ? [
         ...validacion.errores.map((e) =>
           e.linea === undefined
             ? e.mensaje
@@ -395,9 +462,13 @@ export function CapturaAsientoPage() {
             : `Línea ${e.linea + 1}: ${e.mensaje}`,
         ),
       ]
+    : (errorServidor?.detalles ?? [])
 
   return (
-    <div className="mx-auto max-w-6xl">
+    // Cualquier edición retira el error del servidor: el evento change de los
+    // campos sube hasta aquí, y así no hay que acordarse en cada campo.
+    <div className="mx-auto max-w-6xl" onChange={alEditar}>
+      {aviso}
       <PageHeader
         titulo="Nuevo asiento"
         descripcion="Captura manual. Las cuentas de control no están disponibles: solo las mueve su módulo dueño."
@@ -407,7 +478,7 @@ export function CapturaAsientoPage() {
             <Button
               variante="primario"
               icono={<Save className="size-4" />}
-              onClick={() => void guardar()}
+              onClick={guardar}
               disabled={contabilizar.isPending}
             >
               {contabilizar.isPending ? 'Contabilizando…' : 'Contabilizar'}
@@ -436,6 +507,7 @@ export function CapturaAsientoPage() {
                 type="date"
                 value={fecha}
                 onChange={(e) => setFecha(e.target.value)}
+                onKeyDown={manejarTeclaEncabezado}
               />
             )}
           </Field>
@@ -524,6 +596,7 @@ export function CapturaAsientoPage() {
                 value={concepto}
                 placeholder="Descripción del asiento"
                 onChange={(e) => setConcepto(e.target.value)}
+                onKeyDown={manejarTeclaEncabezado}
               />
             )}
           </Field>
@@ -732,7 +805,7 @@ export function CapturaAsientoPage() {
                     </td>
                     <td className="px-3 py-2">
                       {!cuenta ? (
-                        <span className="text-xs text-slate-300">—</span>
+                        <span className="text-xs text-slate-300">-</span>
                       ) : (
                         <div className="flex flex-col gap-1">
                           {/* Si la cuenta exige auxiliar, el tipo lo fija la
@@ -856,7 +929,9 @@ export function CapturaAsientoPage() {
                             ? 'Un asiento requiere al menos dos líneas'
                             : 'Eliminar línea'
                         }
-                        className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:pointer-events-none disabled:opacity-30"
+                        // Sin pointer-events-none: apagado, el botón sigue
+                        // diciendo al pasar el ratón por qué lo está.
+                        className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400"
                       >
                         <Trash2 className="size-4" />
                       </button>
@@ -916,11 +991,14 @@ export function CapturaAsientoPage() {
         </div>
       </Card>
 
-      {(intentoEnvio && !puedeContabilizar) || errorServidor ? (
-        <div className="mt-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset">
+      {mostrarLocales || errorServidor ? (
+        <div
+          role="alert"
+          className="mt-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset"
+        >
           <p className="flex items-center gap-1.5 text-sm font-medium text-red-800">
             <CircleAlert className="size-4" />
-            {errorServidor
+            {!mostrarLocales && errorServidor
               ? `${errorServidor.codigo}: ${errorServidor.message}`
               : 'El asiento no se puede contabilizar'}
           </p>

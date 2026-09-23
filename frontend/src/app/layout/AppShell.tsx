@@ -177,7 +177,11 @@ function Sidebar() {
             {m.hijos && enModulo(m.ruta) && (
               <div className="mt-0.5 mb-1 ml-6 flex flex-col border-l border-slate-800 pl-2">
                 {m.hijos.map((h) => (
-                  <SubItemNav key={h.ruta} {...h} />
+                  <SubItemNav
+                    key={h.ruta}
+                    {...h}
+                    exacto={requiereCoincidenciaExacta(h.ruta, m)}
+                  />
                 ))}
               </div>
             )}
@@ -225,10 +229,38 @@ function ItemNav({
   )
 }
 
-function SubItemNav({ ruta, etiqueta }: { ruta: string; etiqueta: string }) {
+/**
+ * Un subítem se marca solo con su ruta exacta cuando otra pantalla del mismo
+ * menú cuelga de ella.
+ *
+ * `/cxc` (Saldos por cobrar) es prefijo de `/cxc/facturas`, y
+ * `/bancos/movimientos` lo es de `/bancos/movimientos/nuevo`: sin esto el menú
+ * marcaba dos pantallas a la vez. Donde el prefijo no es otro subítem se deja
+ * sin `end` a propósito: `/cxc/facturas/123` es el listado de facturas con una
+ * abierta, y debe seguir marcando "Facturas de venta".
+ */
+function requiereCoincidenciaExacta(ruta: string, modulo: ItemMenu): boolean {
+  return (
+    ruta === modulo.ruta ||
+    (modulo.hijos ?? []).some(
+      (otro) => otro.ruta !== ruta && otro.ruta.startsWith(`${ruta}/`),
+    )
+  )
+}
+
+function SubItemNav({
+  ruta,
+  etiqueta,
+  exacto,
+}: {
+  ruta: string
+  etiqueta: string
+  exacto?: boolean
+}) {
   return (
     <NavLink
       to={ruta}
+      end={exacto}
       className={({ isActive }) =>
         cn(
           'rounded px-2 py-1 text-xs transition-colors',
@@ -268,7 +300,7 @@ function Topbar() {
           {periodos.map((p) => (
             <option key={p.id} value={p.id}>
               {formatPeriodo(p.ejercicio, p.numero)}
-              {p.estado !== 'abierto' ? ` — ${p.estado}` : ''}
+              {p.estado !== 'abierto' ? ` (${p.estado})` : ''}
             </option>
           ))}
         </select>

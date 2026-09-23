@@ -102,7 +102,7 @@ describe('Alta de cuenta', () => {
     const resultado = validarCuenta(
       solicitud({
         codigo: '1.2.02.004',
-        nombre: 'Dep. acumulada — maquinaria',
+        nombre: 'Dep. acumulada, maquinaria',
         naturaleza: 'acreedora',
       }),
       contexto(),

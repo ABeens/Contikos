@@ -103,9 +103,13 @@ describe('Depreciación de activos', () => {
     const aviso = await screen.findByRole('status')
     expect(aviso).toHaveTextContent(/Corrida contabilizada/)
     expect(aviso).toHaveTextContent(/3 fichas actualizadas/)
+    // El enlace abre el asiento de la corrida, no el libro en blanco.
     expect(
       within(aviso).getByRole('link', { name: /libro de asientos/ }),
-    ).toHaveAttribute('href', '/conta/asientos')
+    ).toHaveAttribute(
+      'href',
+      expect.stringMatching(/^\/conta\/asientos\?asiento=/),
+    )
 
     // La acumulada subió exactamente la cuota, y la ficha lleva el rastro.
     const activos = await servicioActivos.listar()

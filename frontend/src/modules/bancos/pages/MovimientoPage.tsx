@@ -1,17 +1,19 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { CircleAlert } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
 import { Field, Input, Select } from '@/shared/ui/Field'
+import { DialogoConfirmacion } from '@/shared/ui/DialogoConfirmacion'
+import { useAvisoSalida } from '@/shared/ui/AvisoSalida'
 import { cn } from '@/shared/ui/cn'
 import { MoneyInput } from '@/shared/money/MoneyInput'
 import { MoneyCell } from '@/shared/money/MoneyCell'
 import { AsientoPropuesto } from '@/shared/asiento/AsientoPropuesto'
-import { hoyISO } from '@/shared/format/fecha'
+import { formatFecha, hoyISO } from '@/shared/format/fecha'
+import { parseMonto } from '@/shared/money/format'
 import { monedaFuncional } from '@/shared/money/money'
 import { useCuentas, usePeriodos, useTipoCambioVigente } from '@/shared/api/catalogos'
-import { ApiError } from '@/shared/api/client'
 import type {
   SolicitudComision,
   SolicitudInteres,
@@ -68,9 +70,55 @@ const CLASES: readonly { valor: Clase; etiqueta: string; ayuda: string }[] = [
   },
 ]
 
+/**
+ * Solo se vuelve a rutas internas: un `?volver=` con otro dominio convertiría
+ * el botón de guardar en una redirección a cualquier sitio.
+ */
+function rutaInterna(valor: string | null): string | null {
+  return valor && valor.startsWith('/') && !valor.startsWith('//')
+    ? valor
+    : null
+}
+
+/** Fecha ISO válida o nada: la URL la puede haber tecleado cualquiera. */
+function fechaDeUrl(valor: string | null): string | null {
+  return valor && /^\d{4}-\d{2}-\d{2}$/.test(valor) ? valor : null
+}
+
+/** Importe canónico y sin signo, o vacío. El signo lo pone el módulo. */
+function importeDeUrl(valor: string | null): string {
+  if (!valor) return ''
+  const parsed = parseMonto(valor)
+  return parsed === null ? '' : parsed.abs().toString()
+}
+
 export function MovimientoPage() {
   const navegar = useNavigate()
   const funcional = monedaFuncional()
+
+  /**
+   * Precarga desde la URL.
+   *
+   * La conciliación manda aquí lo que el banco movió y la empresa no registró:
+   * cuenta, importe, fecha, referencia y la clase que le corresponde. Repetirlo
+   * a mano sería copiar del estado de cuenta lo que ya está en pantalla.
+   * `volver` es la conciliación de la que se vino, con su corte y su saldo.
+   */
+  const [parametros] = useSearchParams()
+  const [inicial] = useState(() => {
+    const clase = parametros.get('clase')
+    return {
+      clase: CLASES.some((c) => c.valor === clase)
+        ? (clase as Clase)
+        : ('comision' as Clase),
+      fecha: fechaDeUrl(parametros.get('fecha')) ?? hoyISO(),
+      concepto: parametros.get('concepto') ?? '',
+      referencia: parametros.get('referencia') ?? '',
+      cuentaId: parametros.get('cuenta') ?? '',
+      importe: importeDeUrl(parametros.get('importe')),
+    }
+  })
+  const volver = rutaInterna(parametros.get('volver'))
 
   const { data: cuentasBancarias = [] } = useCuentasBancarias(true)
   const { data: cuentas = [] } = useCuentas()
@@ -78,18 +126,22 @@ export function MovimientoPage() {
   const { data: mapeo } = useMapeoBancos()
   const registrar = useRegistrarMovimiento()
 
-  const [clase, setClase] = useState<Clase>('comision')
-  const [fecha, setFecha] = useState(hoyISO)
-  const [concepto, setConcepto] = useState('')
-  const [referencia, setReferencia] = useState('')
-  const [cuentaId, setCuentaId] = useState('')
-  const [importe, setImporte] = useState('')
+  const [clase, setClase] = useState<Clase>(inicial.clase)
+  const [fecha, setFecha] = useState(inicial.fecha)
+  const [concepto, setConcepto] = useState(inicial.concepto)
+  const [referencia, setReferencia] = useState(inicial.referencia)
+  const [cuentaId, setCuentaId] = useState(inicial.cuentaId)
+  const [importe, setImporte] = useState(inicial.importe)
   const [impuesto, setImpuesto] = useState('')
-  const [tipoCambio, setTipoCambio] = useState('1')
+  /** Lo que el usuario tecleó en el tipo de cambio; nulo mientras no lo toque. */
+  const [tcOrigenTecleado, setTcOrigenTecleado] = useState<string | null>(null)
   const [cuentaDestinoId, setCuentaDestinoId] = useState('')
   const [importeDestino, setImporteDestino] = useState('')
-  const [tipoCambioDestino, setTipoCambioDestino] = useState('1')
+  const [tcDestinoTecleado, setTcDestinoTecleado] = useState<string | null>(
+    null,
+  )
   const [intento, setIntento] = useState(false)
+  const [confirmando, setConfirmando] = useState(false)
 
   const cuenta = cuentasBancarias.find((c) => c.id === cuentaId)
   const destino = cuentasBancarias.find((c) => c.id === cuentaDestinoId)
@@ -101,9 +153,43 @@ export function MovimientoPage() {
    * se valúan los activos en moneda extranjera. Se propone; no se impone: lo
    * que se contabiliza es lo que quede en el campo, que es lo que el banco
    * aplicó de verdad ese día.
+   *
+   * Se deriva en cada render en vez de copiarse al elegir la cuenta: la tasa
+   * llega del servidor DESPUÉS de elegirla, y al cambiar la fecha llega otra.
+   * Mientras el usuario no teclee su propio tipo, el campo sigue a la tasa
+   * vigente; en cuanto lo teclea, manda lo suyo.
    */
   const vigenteOrigen = useTipoCambioVigente(cuenta?.moneda, fecha)
   const vigenteDestino = useTipoCambioVigente(destino?.moneda, fecha)
+
+  // En la funcional el único tipo de cambio posible es 1, y el dominio lo
+  // exige: se pone solo para que nadie tenga que teclearlo.
+  const tipoCambio =
+    !cuenta || cuenta.moneda === funcional
+      ? '1'
+      : (tcOrigenTecleado ?? vigenteOrigen.data?.compra ?? '')
+  const tipoCambioDestino =
+    !destino || destino.moneda === funcional
+      ? '1'
+      : (tcDestinoTecleado ?? vigenteDestino.data?.compra ?? '')
+
+  /**
+   * Hay algo capturado que se perdería al salir. Lo precargado desde la
+   * conciliación no cuenta: sigue estando en el estado de cuenta.
+   */
+  const sucio =
+    clase !== inicial.clase ||
+    fecha !== inicial.fecha ||
+    concepto !== inicial.concepto ||
+    referencia !== inicial.referencia ||
+    cuentaId !== inicial.cuentaId ||
+    importe !== inicial.importe ||
+    impuesto !== '' ||
+    cuentaDestinoId !== '' ||
+    importeDestino !== '' ||
+    tcOrigenTecleado !== null ||
+    tcDestinoTecleado !== null
+  const { aviso, permitirSalida } = useAvisoSalida(sucio)
 
   const nombreCuenta = (codigo: string) =>
     cuentas.find((c) => c.codigo === codigo)?.nombre ?? codigo
@@ -199,15 +285,26 @@ export function MovimientoPage() {
       : clase === 'interes'
         ? registrar.interes
         : registrar.traspaso
-  const errorServidor = mutacion.error instanceof ApiError ? mutacion.error : null
-
-  const enviar = async () => {
+  /** Primero se valida; si pasa, se confirma con el resumen delante. */
+  const pedirConfirmacion = () => {
     setIntento(true)
     if (!validacion.valido) return
-    if (clase === 'comision') await registrar.comision.mutateAsync(comision)
-    else if (clase === 'interes') await registrar.interes.mutateAsync(interes)
-    else await registrar.traspaso.mutateAsync(traspaso)
-    navegar(`/bancos/movimientos?cuenta=${cuentaId}`)
+    mutacion.reset()
+    setConfirmando(true)
+  }
+
+  const registrarMovimiento = () => {
+    const alTerminar = {
+      onSuccess: () => {
+        setConfirmando(false)
+        // El formulario sigue "sucio" en este instante: se deja salir.
+        permitirSalida()
+        navegar(volver ?? `/bancos/movimientos?cuenta=${cuentaId}`)
+      },
+    }
+    if (clase === 'comision') registrar.comision.mutate(comision, alTerminar)
+    else if (clase === 'interes') registrar.interes.mutate(interes, alTerminar)
+    else registrar.traspaso.mutate(traspaso, alTerminar)
   }
 
   const elegirClase = (nueva: Clase) => {
@@ -215,26 +312,16 @@ export function MovimientoPage() {
     setIntento(false)
   }
 
+  // Cambiar de cuenta vuelve a proponer la tasa vigente: lo tecleado era para
+  // la cuenta anterior, que puede ni ser de la misma moneda.
   const elegirCuenta = (id: string) => {
     setCuentaId(id)
-    const elegida = cuentasBancarias.find((c) => c.id === id)
-    // En la funcional el único tipo de cambio posible es 1, y el dominio lo
-    // exige: se pone solo para que nadie tenga que teclearlo.
-    setTipoCambio(
-      elegida && elegida.moneda !== funcional
-        ? (vigenteOrigen.data?.compra ?? '')
-        : '1',
-    )
+    setTcOrigenTecleado(null)
   }
 
   const elegirDestino = (id: string) => {
     setCuentaDestinoId(id)
-    const elegida = cuentasBancarias.find((c) => c.id === id)
-    setTipoCambioDestino(
-      elegida && elegida.moneda !== funcional
-        ? (vigenteDestino.data?.compra ?? '')
-        : '1',
-    )
+    setTcDestinoTecleado(null)
   }
 
   const diferencia =
@@ -415,7 +502,7 @@ export function MovimientoPage() {
                 <Input
                   {...p}
                   value={tipoCambio}
-                  onChange={(e) => setTipoCambio(e.target.value)}
+                  onChange={(e) => setTcOrigenTecleado(e.target.value)}
                 />
               )}
             </Field>
@@ -431,7 +518,7 @@ export function MovimientoPage() {
                 <Input
                   {...p}
                   value={tipoCambioDestino}
-                  onChange={(e) => setTipoCambioDestino(e.target.value)}
+                  onChange={(e) => setTcDestinoTecleado(e.target.value)}
                 />
               )}
             </Field>
@@ -465,35 +552,89 @@ export function MovimientoPage() {
         )}
       </Card>
 
-      {(intento && !validacion.valido) || errorServidor ? (
+      {intento && !validacion.valido ? (
         <div className="mb-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset">
           <p className="flex items-center gap-1.5 text-sm font-medium text-red-800">
             <CircleAlert className="size-4" />
-            {errorServidor
-              ? `${errorServidor.codigo}: ${errorServidor.message}`
-              : 'El movimiento no se puede registrar'}
+            El movimiento no se puede registrar
           </p>
           <ul className="mt-1.5 ml-6 list-disc space-y-0.5 text-xs text-red-700">
-            {(errorServidor?.detalles.length
-              ? errorServidor.detalles
-              : validacion.errores.map((e) => e.mensaje)
-            ).map((mensaje, i) => (
-              <li key={i}>{mensaje}</li>
+            {validacion.errores.map((e, i) => (
+              <li key={i}>{e.mensaje}</li>
             ))}
           </ul>
         </div>
       ) : null}
 
       <div className="flex justify-end gap-2">
-        <Button onClick={() => navegar('/bancos/movimientos')}>Cancelar</Button>
+        <Button onClick={() => navegar(volver ?? '/bancos/movimientos')}>
+          {volver ? 'Volver' : 'Cancelar'}
+        </Button>
         <Button
           variante="primario"
-          onClick={() => void enviar()}
+          onClick={pedirConfirmacion}
           disabled={mutacion.isPending}
         >
-          {mutacion.isPending ? 'Registrando…' : 'Registrar y contabilizar'}
+          Registrar y contabilizar
         </Button>
       </div>
+
+      {/* El error del servidor se enseña dentro del diálogo: fuera quedaría
+          tapado por el overlay. */}
+      <DialogoConfirmacion
+        abierto={confirmando}
+        titulo={`¿Registrar ${CLASES.find((c) => c.valor === clase)?.etiqueta.toLowerCase() ?? 'el movimiento'}?`}
+        descripcion="Se registra el movimiento y se contabiliza su asiento en el mayor."
+        textoConfirmar="Registrar y contabilizar"
+        textoConfirmando="Registrando…"
+        pendiente={mutacion.isPending}
+        error={mutacion.error}
+        onConfirmar={registrarMovimiento}
+        onCancelar={() => {
+          setConfirmando(false)
+          mutacion.reset()
+        }}
+      >
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
+          <dt className="text-slate-500">
+            {clase === 'traspaso' ? 'Sale de' : 'Cuenta'}
+          </dt>
+          <dd>{cuenta ? `${cuenta.codigo} · ${cuenta.nombre}` : ''}</dd>
+          {clase === 'traspaso' && (
+            <>
+              <dt className="text-slate-500">Entra en</dt>
+              <dd>{destino ? `${destino.codigo} · ${destino.nombre}` : ''}</dd>
+            </>
+          )}
+          <dt className="text-slate-500">Fecha</dt>
+          <dd>{formatFecha(fecha)}</dd>
+          <dt className="text-slate-500">Importe</dt>
+          <dd>
+            <MoneyCell
+              valor={importe || '0'}
+              moneda={cuenta?.moneda ?? funcional}
+              mostrarSimbolo
+            />
+            {cuenta && cuenta.moneda !== funcional && (
+              <span className="ml-1 text-xs text-slate-500">
+                al {tipoCambio}
+              </span>
+            )}
+          </dd>
+          <dt className="text-slate-500">Concepto</dt>
+          <dd>{concepto}</dd>
+          {asiento && (
+            <>
+              <dt className="text-slate-500">Asiento</dt>
+              <dd>
+                {asiento.lineas.length} líneas en {funcional}
+              </dd>
+            </>
+          )}
+        </dl>
+      </DialogoConfirmacion>
+
+      {aviso}
     </div>
   )
 }

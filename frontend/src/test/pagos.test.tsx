@@ -252,7 +252,7 @@ describe('Anular un pago', () => {
     await screen.findByRole('heading', { name: `Pago ${reciente.folio}` })
     await usuario.click(screen.getByRole('button', { name: 'Anular' }))
 
-    await escribir(usuario, /Fecha de la reversa/, CORTE)
+    await escribir(usuario, /Fecha de la anulación/, CORTE)
     await escribir(usuario, /Motivo/, 'Transferencia rechazada por el banco')
     await usuario.click(screen.getByRole('button', { name: 'Anular pago' }))
 
@@ -390,6 +390,7 @@ describe('Propuesta de pago', () => {
     await screen.findByLabelText(/Fecha de corte/)
     await escribir(usuario, /Fecha de corte/, CORTE)
     await escribir(usuario, /Efectivo disponible/, '203400')
+    await escribir(usuario, /Fecha de pago/, FECHA_PAGO)
     await seleccionar(usuario, /Cuenta de salida/, OPCION_BANCO)
     await usuario.click(
       screen.getByRole('button', { name: /Calcular propuesta/ }),
@@ -400,7 +401,78 @@ describe('Propuesta de pago', () => {
 
     await usuario.click(screen.getByRole('button', { name: /Emitir 1 pago/ }))
 
+    // Antes de escribir en el mayor se confirma cuántos pagos y por cuánto.
+    const confirmacion = await screen.findByRole('dialog', {
+      name: /Emitir 1 pago/,
+    })
+    expect(
+      within(confirmacion).getAllByText(/203\.400,00/).length,
+    ).toBeGreaterThan(0)
+    await usuario.click(
+      within(confirmacion).getByRole('button', { name: 'Confirmar y emitir' }),
+    )
+
     expect(await screen.findByText(/Emitidos 1 pago/)).toBeInTheDocument()
     expect(await saldoDeFactura('fpr-7788')).toBe('0.00')
+
+    // Con la fecha de pago, no con la del corte.
+    const [pago] = await servicioCxp.listarPagos({ facturaId: 'fpr-7788' })
+      .then((pagos) => pagos.filter((p) => p.estado !== 'anulado'))
+    expect(pago.fecha).toBe(FECHA_PAGO)
+  })
+
+  it('no deja emitir más que el efectivo disponible', async () => {
+    const usuario = userEvent.setup()
+    const DISPONIBLE = '100000'
+
+    // Lo que la propuesta va a ofrecer, pedido aparte para saber a quién.
+    const previa = await servicioCxp.obtenerPropuestaPago({
+      corte: CORTE,
+      disponible: DISPONIBLE,
+    })
+    const primera = previa.lineas.find((l) => l.propuesto !== '0.00')!
+    expect(primera.propuestoFuncional).toBe('100000.00')
+    const saldoAntes = new Decimal(await saldoDeFactura(primera.facturaId))
+
+    montar('/cxp/propuesta')
+    await screen.findByLabelText(/Fecha de corte/)
+    await escribir(usuario, /Fecha de corte/, CORTE)
+    await escribir(usuario, /Efectivo disponible/, DISPONIBLE)
+    await escribir(usuario, /Fecha de pago/, FECHA_PAGO)
+    await seleccionar(usuario, /Cuenta de salida/, OPCION_BANCO)
+    await usuario.click(
+      screen.getByRole('button', { name: /Calcular propuesta/ }),
+    )
+    await screen.findByRole('table', { name: 'Propuesta de pago' })
+
+    await usuario.click(
+      screen.getByRole('button', {
+        name: `Emitir el pago de ${primera.proveedorNombre}`,
+      }),
+    )
+    await usuario.click(
+      await screen.findByRole('button', { name: 'Confirmar y emitir' }),
+    )
+    expect(await screen.findByText(/Emitidos 1 pago/)).toBeInTheDocument()
+
+    // Lo emitido se descuenta del disponible, y la propuesta en pantalla no
+    // se recalcula sola contra el disponible viejo: no queda nada que emitir.
+    expect(screen.getByLabelText(/Efectivo disponible/)).toHaveValue('0,00')
+    expect(
+      screen.queryByRole('button', { name: /^Emitir el pago de/ }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Emitir 0 pagos/ })).toBeDisabled()
+    expect(screen.getByText(/Emitido PAG-/)).toBeInTheDocument()
+
+    // Y en el servidor salió exactamente el disponible, ni un colón más.
+    const saldoDespues = new Decimal(await saldoDeFactura(primera.facturaId))
+    expect(saldoAntes.minus(saldoDespues).toFixed(2)).toBe('100000.00')
+
+    // Subir el disponible a mano no reabre la foto: hay que recalcular.
+    await escribir(usuario, /Efectivo disponible/, '500000')
+    await usuario.tab()
+    expect(
+      await screen.findByText(/recalcule la propuesta antes de emitir/),
+    ).toBeInTheDocument()
   })
 })

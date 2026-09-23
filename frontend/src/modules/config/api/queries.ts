@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { servicioConfig, servicioImpuestos } from '@/shared/api/servicios'
 import type {
   MonedaConfig,
@@ -68,25 +73,38 @@ export function useEliminarTarifaImpuesto() {
  * en un efecto: para cuando un componente ve estos datos, `formatMoney` ya
  * conoce el catálogo. Con un efecto habría un render intermedio donde los
  * importes se formatean con el catálogo anterior.
+ *
+ * Las opciones se exportan aparte porque el cambio de empresa trae el catálogo
+ * de la nueva ANTES de soltar la caché (`fetchQuery`), con la misma clave y la
+ * misma función que usa el hook: dos definiciones acabarían discrepando.
  */
+export const consultaMonedas = queryOptions({
+  queryKey: clavesConfig.monedas,
+  queryFn: async ({ signal }) => {
+    const monedas = await servicioConfig.listarMonedas({ signal })
+    registrarMonedas(monedas)
+    return monedas
+  },
+  // El catálogo cambia poquísimo y lo necesita cada importe en pantalla.
+  staleTime: 30 * 60 * 1000,
+})
+
 export function useMonedas() {
-  return useQuery({
-    queryKey: clavesConfig.monedas,
-    queryFn: async ({ signal }) => {
-      const monedas = await servicioConfig.listarMonedas({ signal })
-      registrarMonedas(monedas)
-      return monedas
-    },
-    // El catálogo cambia poquísimo y lo necesita cada importe en pantalla.
-    staleTime: 30 * 60 * 1000,
-  })
+  return useQuery(consultaMonedas)
 }
 
+/**
+ * Tras tocar el catálogo de monedas se invalida la caché ENTERA.
+ *
+ * Una moneda cambia cómo se presenta todo lo expresado en ella (decimales,
+ * separadores), y la funcional cambia en qué se expresa el mayor, los saldos de
+ * CxC y CxP, las series de tipo de cambio (que van en unidades de la funcional)
+ * y la balanza. Enumerar raíces es la forma de olvidarse de una: antes solo se
+ * invalidaba `conta` y la serie de tipos de cambio seguía en la moneda vieja.
+ * El catálogo cambia una vez al año; el coste de refrescar todo es asumible.
+ */
 function invalidarMonedas(cliente: ReturnType<typeof useQueryClient>) {
-  // Cambiar una moneda cambia cómo se presenta todo lo que está expresado en
-  // ella, así que se refresca el catálogo y se descarta lo ya formateado.
-  void cliente.invalidateQueries({ queryKey: clavesConfig.monedas })
-  void cliente.invalidateQueries({ queryKey: ['conta'] })
+  return cliente.invalidateQueries()
 }
 
 export function useGuardarMoneda() {
@@ -102,7 +120,7 @@ export function useGuardarMoneda() {
       creando
         ? servicioConfig.crearMoneda(moneda)
         : servicioConfig.actualizarMoneda(moneda.codigo, moneda),
-    onSuccess: () => invalidarMonedas(cliente),
+    onSuccess: () => void invalidarMonedas(cliente),
   })
 }
 
@@ -113,7 +131,7 @@ export function useEstablecerMonedaFuncional() {
       servicioConfig.establecerMonedaFuncional(codigo),
     onSuccess: (monedas: MonedaConfig[]) => {
       registrarMonedas(monedas)
-      invalidarMonedas(cliente)
+      void invalidarMonedas(cliente)
     },
   })
 }
@@ -122,7 +140,7 @@ export function useEliminarMoneda() {
   const cliente = useQueryClient()
   return useMutation({
     mutationFn: (codigo: string) => servicioConfig.eliminarMoneda(codigo),
-    onSuccess: () => invalidarMonedas(cliente),
+    onSuccess: () => void invalidarMonedas(cliente),
   })
 }
 
@@ -144,6 +162,14 @@ export function useTipoCambioDelDia(habilitado: boolean) {
   })
 }
 
+/** Qué pasó con cada moneda al aplicar el tipo de cambio del día. */
+export interface ResultadoTipoCambio {
+  codigo: string
+  /** La moneda como quedó guardada; ausente si falló. */
+  guardada?: MonedaConfig
+  error?: unknown
+}
+
 /**
  * Lleva al catálogo el tipo de cambio de varias monedas.
  *
@@ -151,19 +177,38 @@ export function useTipoCambioDelDia(habilitado: boolean) {
  * entero (moneda funcional incluida), y dos peticiones simultáneas lo leerían
  * en el mismo estado. Son dos o tres monedas; el orden importa más que el
  * milisegundo.
+ *
+ * Un fallo en una moneda no detiene las demás ni se traga las que ya se
+ * guardaron: el resultado dice moneda por moneda qué quedó y qué no. Antes, un
+ * error a mitad de lista rechazaba la mutación entera y la pantalla no sabía
+ * que la primera sí se había escrito.
+ *
+ * Se invalida en `onSettled` y no en `onSuccess`: haya ido como haya ido, el
+ * catálogo del servidor pudo cambiar, y la caché no puede quedarse con el de
+ * antes.
  */
 export function useAplicarTipoCambio() {
   const cliente = useQueryClient()
   return useMutation({
-    mutationFn: async (monedas: readonly SolicitudMoneda[]) => {
-      const guardadas: MonedaConfig[] = []
+    mutationFn: async (
+      monedas: readonly SolicitudMoneda[],
+    ): Promise<ResultadoTipoCambio[]> => {
+      const resultados: ResultadoTipoCambio[] = []
       for (const moneda of monedas) {
-        guardadas.push(
-          await servicioConfig.actualizarMoneda(moneda.codigo, moneda),
-        )
+        try {
+          resultados.push({
+            codigo: moneda.codigo,
+            guardada: await servicioConfig.actualizarMoneda(
+              moneda.codigo,
+              moneda,
+            ),
+          })
+        } catch (error) {
+          resultados.push({ codigo: moneda.codigo, error })
+        }
       }
-      return guardadas
+      return resultados
     },
-    onSuccess: () => invalidarMonedas(cliente),
+    onSettled: () => invalidarMonedas(cliente),
   })
 }

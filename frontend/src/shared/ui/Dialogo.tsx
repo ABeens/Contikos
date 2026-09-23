@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import { cn } from './cn'
@@ -10,6 +10,18 @@ export interface DialogoProps {
   descripcion?: string
   /** Botonera del pie. El contenido queda con scroll propio. */
   acciones?: ReactNode
+  /**
+   * Mientras hay una operación en curso el diálogo no se deja cerrar (ni con
+   * Escape, ni con la X, ni con un clic fuera). Si se cerrara, el usuario
+   * creería haber cancelado algo que el servidor sí está haciendo, y un error
+   * posterior no lo vería nadie.
+   */
+  bloqueado?: boolean
+  /**
+   * Si se indica, contenido y botonera van dentro de un `<form>`: Enter en un
+   * campo envía, y el botón primario debe ser `type="submit"`.
+   */
+  alEnviar?: () => void
   className?: string
   children: ReactNode
 }
@@ -27,14 +39,39 @@ export function Dialogo({
   titulo,
   descripcion,
   acciones,
+  bloqueado = false,
+  alEnviar,
   className,
   children,
 }: DialogoProps) {
+  const cuerpo = (
+    <>
+      <div className="flex-1 overflow-y-auto px-4 py-4">{children}</div>
+
+      {acciones && (
+        <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+          {acciones}
+        </div>
+      )}
+    </>
+  )
+
+  const enviar = (e: FormEvent) => {
+    e.preventDefault()
+    if (!bloqueado) alEnviar?.()
+  }
+
   return (
-    <Dialog.Root open={abierto} onOpenChange={(v) => !v && onCerrar()}>
+    <Dialog.Root
+      open={abierto}
+      onOpenChange={(v) => !v && !bloqueado && onCerrar()}
+    >
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-slate-900/40" />
         <Dialog.Content
+          aria-busy={bloqueado || undefined}
+          onEscapeKeyDown={(e) => bloqueado && e.preventDefault()}
+          onInteractOutside={(e) => bloqueado && e.preventDefault()}
           className={cn(
             'fixed top-1/2 left-1/2 z-50 flex max-h-[85vh] w-[min(94vw,32rem)]',
             '-translate-x-1/2 -translate-y-1/2 flex-col',
@@ -55,18 +92,23 @@ export function Dialogo({
             </div>
             <Dialog.Close
               aria-label="Cerrar"
-              className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              disabled={bloqueado}
+              className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40"
             >
               <X className="size-4" />
             </Dialog.Close>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-4 py-4">{children}</div>
-
-          {acciones && (
-            <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
-              {acciones}
-            </div>
+          {alEnviar ? (
+            <form
+              onSubmit={enviar}
+              noValidate
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              {cuerpo}
+            </form>
+          ) : (
+            cuerpo
           )}
         </Dialog.Content>
       </Dialog.Portal>

@@ -1,9 +1,9 @@
 import { useMemo } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { useSearchParams } from 'react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import Decimal from 'decimal.js'
 import { Plus } from 'lucide-react'
-import { Button } from '@/shared/ui/Button'
+import { LinkBoton } from '@/shared/ui/LinkBoton'
 import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
 import { DataTable } from '@/shared/ui/DataTable'
 import { Input } from '@/shared/ui/Field'
@@ -35,18 +35,40 @@ export function CuentasPorCobrarPage() {
     setParametros(nuevos, { replace: true })
   }
 
-  const { data: antiguedad, isLoading } = useAntiguedadCxc(corte)
-  const { data: facturas = [] } = useFacturasVenta()
+  const {
+    data: antiguedad,
+    isLoading,
+    error: errorAntiguedad,
+    refetch: releerAntiguedad,
+  } = useAntiguedadCxc(corte)
+  const {
+    data: facturas = [],
+    isLoading: cargandoFacturas,
+    error: errorFacturas,
+    refetch: releerFacturas,
+  } = useFacturasVenta()
 
+  /**
+   * Las facturas con saldo que ya existían al corte.
+   *
+   * Una emitida después del corte no se debía ese día: listarla con un corte
+   * pasado mezclaría el listado con la antigüedad de arriba, que sí la excluye.
+   * El saldo, en cambio, es el de hoy: el documento no guarda su saldo a cada
+   * fecha, y la descripción de la tarjeta lo advierte.
+   */
   const pendientes = useMemo(
     () =>
       facturas
         .filter(
-          (f) => f.estado === 'contabilizada' && new Decimal(f.saldo).greaterThan(0),
+          (f) =>
+            f.estado === 'contabilizada' &&
+            f.fechaEmision <= corte &&
+            new Decimal(f.saldo).greaterThan(0),
         )
         .sort((a, b) => a.fechaVencimiento.localeCompare(b.fechaVencimiento)),
-    [facturas],
+    [facturas, corte],
   )
+  const corteEsHoy = corte >= hoyISO()
 
   const columnasAntiguedad = useMemo<ColumnDef<FilaAntiguedad, unknown>[]>(
     () => [
@@ -164,11 +186,13 @@ export function CuentasPorCobrarPage() {
         titulo="Cuentas por cobrar"
         descripcion="Lo que deben los clientes, a la fecha de corte. Su total debe coincidir con el saldo de la cuenta de control en el mayor."
         acciones={
-          <Link to="/cxc/facturas/nueva">
-            <Button variante="primario" icono={<Plus className="size-4" />}>
-              Nueva factura
-            </Button>
-          </Link>
+          <LinkBoton
+            to="/cxc/facturas/nueva"
+            variante="primario"
+            icono={<Plus className="size-4" />}
+          >
+            Nueva factura
+          </LinkBoton>
         }
       />
 
@@ -188,7 +212,7 @@ export function CuentasPorCobrarPage() {
         <div className="flex gap-3">
           <Resumen
             titulo="Total por cobrar"
-            valor={antiguedad?.totales.total ?? '0'}
+            valor={antiguedad?.totales.total}
           />
           <Resumen
             titulo="Vencido"
@@ -200,7 +224,7 @@ export function CuentasPorCobrarPage() {
                       new Decimal(0),
                     )
                     .toFixed(2)
-                : '0'
+                : undefined
             }
             alerta
           />
@@ -220,6 +244,8 @@ export function CuentasPorCobrarPage() {
           <DataTable
             columns={columnasAntiguedad}
             data={antiguedad?.filas ?? []}
+            error={errorAntiguedad}
+            onReintentar={() => void releerAntiguedad()}
             vacio={{
               titulo: 'Sin saldos pendientes',
               descripcion: 'Ningún cliente debe nada a esta fecha.',
@@ -246,11 +272,18 @@ export function CuentasPorCobrarPage() {
       <Card>
         <CardHeader
           titulo="Facturas pendientes"
-          descripcion="Documento a documento, ordenadas por vencimiento."
+          descripcion={
+            corteEsHoy
+              ? 'Documento a documento, ordenadas por vencimiento.'
+              : `Las emitidas hasta el ${formatFecha(corte)}, ordenadas por vencimiento. El saldo es el de hoy: los cobros posteriores al corte ya están descontados, y una factura cobrada después no aparece.`
+          }
         />
         <DataTable
           columns={columnasFacturas}
           data={pendientes}
+          cargando={cargandoFacturas}
+          error={errorFacturas}
+          onReintentar={() => void releerFacturas()}
           vacio={{
             titulo: 'Sin facturas pendientes',
             descripcion: 'Todo lo facturado está cobrado.',
@@ -267,7 +300,8 @@ function Resumen({
   alerta,
 }: {
   titulo: string
-  valor: string
+  /** Sin valor mientras carga o si la consulta falló: nunca un cero falso. */
+  valor: string | undefined
   alerta?: boolean
 }) {
   return (

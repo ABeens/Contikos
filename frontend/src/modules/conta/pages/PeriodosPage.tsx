@@ -7,7 +7,6 @@ import {
   TriangleAlert,
 } from 'lucide-react'
 import { useEmpresa } from '@/app/empresa'
-import { ApiError } from '@/shared/api/client'
 import type {
   ChecklistCierre,
   Periodo,
@@ -15,7 +14,8 @@ import type {
 } from '@/shared/api/contracts/conta'
 import { formatFecha, formatFechaLarga, formatPeriodo } from '@/shared/format/fecha'
 import { Button } from '@/shared/ui/Button'
-import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
+import { Card, CardHeader, EstadoError, PageHeader } from '@/shared/ui/Layout'
+import { DialogoConfirmacion } from '@/shared/ui/DialogoConfirmacion'
 import { EstadoBadge } from '@/shared/ui/EstadoBadge'
 import { Field, Input } from '@/shared/ui/Field'
 import { cn } from '@/shared/ui/cn'
@@ -40,13 +40,18 @@ import { etiquetaPeriodo } from '../domain/periodo'
  */
 export function PeriodosPage() {
   const { periodoActivo } = useEmpresa()
-  const { data: periodos = [] } = usePeriodos()
+  const consultaPeriodos = usePeriodos()
+  const { data: periodos = [] } = consultaPeriodos
 
   const [seleccionado, setSeleccionado] = useState<string | null>(null)
   const [avisosRevisados, setAvisosRevisados] = useState(false)
   const [motivo, setMotivo] = useState('')
   /** Lo último que se hizo, para decirlo en pantalla. */
   const [hecho, setHecho] = useState<string | null>(null)
+  /** Qué se está confirmando. Cerrar y reabrir escriben en el mayor. */
+  const [confirmando, setConfirmando] = useState<'cerrar' | 'reabrir' | null>(
+    null,
+  )
 
   const cerrar = useCerrarPeriodo()
   const reabrir = useReabrirPeriodo()
@@ -58,6 +63,9 @@ export function PeriodosPage() {
   }, [seleccionado, periodoActivo])
 
   const elegir = (periodo: Periodo) => {
+    // Con una operación en curso no se cambia de periodo: el aviso de lo
+    // hecho acabaría en el periodo equivocado.
+    if (cerrar.isPending || reabrir.isPending) return
     setSeleccionado(periodo.id)
     setAvisosRevisados(false)
     setMotivo('')
@@ -79,8 +87,14 @@ export function PeriodosPage() {
     periodo?.estado === 'abierto' &&
     (avisos.length === 0 || (avisosRevisados && !faltaMotivo))
 
+  const cancelarConfirmacion = () => {
+    setConfirmando(null)
+    cerrar.reset()
+    reabrir.reset()
+  }
+
   const ejecutarCierre = () => {
-    if (!periodo) return
+    if (!periodo || cerrar.isPending) return
     cerrar.mutate(
       {
         periodoId: periodo.id,
@@ -88,6 +102,7 @@ export function PeriodosPage() {
       },
       {
         onSuccess: (cerrado) => {
+          setConfirmando(null)
           setHecho(`${etiquetaPeriodo(cerrado)} quedó cerrado`)
           setAvisosRevisados(false)
           setMotivo('')
@@ -97,20 +112,32 @@ export function PeriodosPage() {
   }
 
   const ejecutarReapertura = () => {
-    if (!periodo) return
+    if (!periodo || reabrir.isPending) return
     reabrir.mutate(periodo.id, {
       onSuccess: (abierto) => {
+        setConfirmando(null)
         setHecho(`${etiquetaPeriodo(abierto)} vuelve a admitir asientos`)
       },
     })
   }
 
-  const errorOperacion =
-    cerrar.error instanceof ApiError
-      ? cerrar.error
-      : reabrir.error instanceof ApiError
-        ? reabrir.error
-        : null
+  /**
+   * Por qué "Cerrar periodo" está apagado, dicho junto al botón. Un botón gris
+   * sin explicación hace buscar el problema donde no está.
+   */
+  const motivoNoCierra = !periodo
+    ? null
+    : checklist.isError
+      ? 'No se pudo verificar el periodo: sin checklist no se cierra.'
+      : checklist.isLoading
+        ? null
+        : errores.length > 0
+          ? null // ya lo dice el aviso de errores
+          : avisos.length > 0 && !avisosRevisados
+            ? 'Confirme que revisó los avisos.'
+            : faltaMotivo
+              ? 'Escriba el motivo del cierre con avisos.'
+              : null
 
   return (
     <div>
@@ -125,6 +152,14 @@ export function PeriodosPage() {
             titulo="Ejercicio"
             descripcion="Abierto acepta asientos. Bloqueado no se reabre."
           />
+          {consultaPeriodos.isError && periodos.length === 0 && (
+            <EstadoError
+              titulo="No se pudieron cargar los periodos"
+              error={consultaPeriodos.error}
+              onReintentar={() => void consultaPeriodos.refetch()}
+              reintentando={consultaPeriodos.isFetching}
+            />
+          )}
           <ul aria-label="Periodos del ejercicio" className="p-2">
             {periodos.map((p) => (
               <li key={p.id}>
@@ -162,8 +197,18 @@ export function PeriodosPage() {
                 acciones={<EstadoBadge estado={periodo.estado} />}
               />
 
-              {checklist.isLoading ? (
-                <p className="px-4 py-10 text-center text-sm text-slate-500">
+              {checklist.isError ? (
+                <EstadoError
+                  titulo="No se pudo verificar el periodo"
+                  error={checklist.error}
+                  onReintentar={() => void checklist.refetch()}
+                  reintentando={checklist.isFetching}
+                />
+              ) : checklist.isLoading ? (
+                <p
+                  className="px-4 py-10 text-center text-sm text-slate-500"
+                  aria-busy
+                >
                   Verificando el periodo…
                 </p>
               ) : (
@@ -219,32 +264,32 @@ export function PeriodosPage() {
                 )}
 
                 <div className="ml-auto flex items-center gap-3">
-                  {errorOperacion && (
-                    <span className="text-sm text-red-700">
-                      {errorOperacion.message}
+                  {periodo.estado === 'abierto' && motivoNoCierra && (
+                    <span className="text-xs text-slate-500">
+                      {motivoNoCierra}
+                    </span>
+                  )}
+                  {periodo.estado === 'bloqueado' && (
+                    <span className="text-xs text-slate-500">
+                      Un periodo bloqueado no se reabre.
                     </span>
                   )}
                   {periodo.estado === 'abierto' ? (
                     <Button
                       variante="primario"
                       icono={<Lock className="size-4" />}
-                      onClick={ejecutarCierre}
+                      onClick={() => setConfirmando('cerrar')}
                       disabled={!puedeCerrar || cerrar.isPending}
                     >
-                      {cerrar.isPending ? 'Cerrando…' : 'Cerrar periodo'}
+                      Cerrar periodo
                     </Button>
                   ) : (
                     <Button
                       icono={<LockOpen className="size-4" />}
-                      onClick={ejecutarReapertura}
+                      onClick={() => setConfirmando('reabrir')}
                       disabled={periodo.estado !== 'cerrado' || reabrir.isPending}
-                      title={
-                        periodo.estado === 'bloqueado'
-                          ? 'Un periodo bloqueado no se reabre'
-                          : undefined
-                      }
                     >
-                      {reabrir.isPending ? 'Reabriendo…' : 'Reabrir'}
+                      Reabrir
                     </Button>
                   )}
                 </div>
@@ -262,6 +307,58 @@ export function PeriodosPage() {
           )}
         </div>
       </div>
+
+      {periodo && (
+        <>
+          <DialogoConfirmacion
+            abierto={confirmando === 'cerrar'}
+            titulo={`Cerrar ${etiquetaPeriodo(periodo)}`}
+            textoConfirmar={`Cerrar ${etiquetaPeriodo(periodo)}`}
+            textoConfirmando="Cerrando…"
+            pendiente={cerrar.isPending}
+            error={cerrar.error}
+            onConfirmar={ejecutarCierre}
+            onCancelar={cancelarConfirmacion}
+          >
+            <p>
+              Desde ahora {etiquetaPeriodo(periodo)} no admite asientos: ni
+              capturas manuales ni los que generen los módulos con fecha de
+              ese mes. Lo que falte habrá que registrarlo en un periodo
+              abierto, o reabrir este.
+            </p>
+            {avisos.length > 0 && (
+              <p>
+                Se cierra con {avisos.length} aviso
+                {avisos.length === 1 ? '' : 's'}. El motivo queda en la
+                bitácora del periodo: «{motivo.trim()}».
+              </p>
+            )}
+          </DialogoConfirmacion>
+
+          <DialogoConfirmacion
+            abierto={confirmando === 'reabrir'}
+            titulo={`Reabrir ${etiquetaPeriodo(periodo)}`}
+            textoConfirmar={`Reabrir ${etiquetaPeriodo(periodo)}`}
+            textoConfirmando="Reabriendo…"
+            peligro
+            pendiente={reabrir.isPending}
+            error={reabrir.error}
+            onConfirmar={ejecutarReapertura}
+            onCancelar={cancelarConfirmacion}
+          >
+            <p>
+              {etiquetaPeriodo(periodo)} vuelve a admitir asientos. Los
+              estados financieros que ya se emitieron con este mes cerrado
+              pueden dejar de coincidir con el mayor si se registra algo
+              nuevo.
+            </p>
+            <p>
+              La bitácora del cierre anterior se conserva. Para volver a
+              cerrarlo habrá que pasar otra vez el checklist.
+            </p>
+          </DialogoConfirmacion>
+        </>
+      )}
     </div>
   )
 }

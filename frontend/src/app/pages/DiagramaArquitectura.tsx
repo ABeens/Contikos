@@ -4,7 +4,7 @@ import { useId } from 'react'
  * Diagrama hub-and-spoke de la arquitectura.
  *
  * Cinco módulos subsidiarios alimentan asientos al núcleo contable; reportes es
- * el único que lee del mayor en lugar de escribir en él — de ahí la flecha
+ * el único que lee del mayor en lugar de escribir en él; de ahí la flecha
  * punteada y en sentido inverso.
  */
 
@@ -41,7 +41,7 @@ export function DiagramaArquitectura() {
       viewBox="0 0 560 380"
       className="h-auto w-full"
       role="img"
-      aria-label="Cinco módulos —RH, activos, bancos, cuentas por cobrar y cuentas por pagar— envían asientos al núcleo de contabilidad general, del que reportes lee para producir los estados financieros."
+      aria-label="Cinco módulos (RH, activos, bancos, cuentas por cobrar y cuentas por pagar) envían asientos al núcleo de contabilidad general, del que reportes lee para producir los estados financieros."
     >
       <defs>
         <marker

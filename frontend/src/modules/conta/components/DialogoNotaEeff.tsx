@@ -84,17 +84,39 @@ export function DialogoNotaEeff({
           activa: true,
         },
   )
+  /**
+   * El número se guarda como lo tecleado y se convierte al validar. Guardado
+   * como número, vaciar el campo para escribir otro lo devolvía a 0 en el acto.
+   */
+  const [numeroTexto, setNumeroTexto] = useState(() => String(form.numero))
   const [intentoEnvio, setIntentoEnvio] = useState(false)
+
+  /** El error del servidor era sobre los datos de antes de este cambio. */
+  const limpiarErrorServidor = () => {
+    if (guardar.isError) guardar.reset()
+  }
 
   const cambiar = <K extends keyof SolicitudNotaEeff>(
     campo: K,
     valor: SolicitudNotaEeff[K],
-  ) => setForm((prev) => ({ ...prev, [campo]: valor }))
+  ) => {
+    limpiarErrorServidor()
+    setForm((prev) => ({ ...prev, [campo]: valor }))
+  }
+
+  // Vacío no es cero: sin número, la validación lo rechaza.
+  const solicitud = useMemo<SolicitudNotaEeff>(
+    () => ({
+      ...form,
+      numero: numeroTexto.trim() === '' ? Number.NaN : Number(numeroTexto),
+    }),
+    [form, numeroTexto],
+  )
 
   const validacion = useMemo(
     () =>
-      validarNota(form, { clasificaciones, notas, cuentas }, nota?.id),
-    [form, clasificaciones, notas, cuentas, nota],
+      validarNota(solicitud, { clasificaciones, notas, cuentas }, nota?.id),
+    [solicitud, clasificaciones, notas, cuentas, nota],
   )
 
   const errorDe = (campo: string): string | undefined =>
@@ -102,19 +124,21 @@ export function DialogoNotaEeff({
       ? validacion.errores.find((e) => e.campo === campo)?.mensaje
       : undefined
 
-  const enviar = async () => {
+  const enviar = () => {
     setIntentoEnvio(true)
-    if (!validacion.valido) return
-    await guardar.mutateAsync({
-      nota: {
-        ...form,
-        literal: normalizarLiteral(form.literal),
-        titulo: form.titulo.trim(),
-        descripcion: form.descripcion.trim(),
+    if (!validacion.valido || guardar.isPending) return
+    guardar.mutate(
+      {
+        nota: {
+          ...solicitud,
+          literal: normalizarLiteral(solicitud.literal),
+          titulo: solicitud.titulo.trim(),
+          descripcion: solicitud.descripcion.trim(),
+        },
+        id: nota?.id,
       },
-      id: nota?.id,
-    })
-    onCerrar()
+      { onSuccess: onCerrar },
+    )
   }
 
   const errorServidor = guardar.error instanceof ApiError ? guardar.error : null
@@ -123,16 +147,20 @@ export function DialogoNotaEeff({
     <Dialogo
       abierto={abierto}
       onCerrar={onCerrar}
+      bloqueado={guardar.isPending}
+      alEnviar={enviar}
       titulo={
         creando ? 'Nueva nota a los EEFF' : `Nota ${referenciaNota(nota)}`
       }
       descripcion="Desglosa un renglón del estado financiero. Cuelga siempre de una clasificación NIIF."
       acciones={
         <>
-          <Button onClick={onCerrar}>Cancelar</Button>
+          <Button onClick={onCerrar} disabled={guardar.isPending}>
+            Cancelar
+          </Button>
           <Button
             variante="primario"
-            onClick={() => void enviar()}
+            type="submit"
             disabled={guardar.isPending}
           >
             {guardar.isPending ? 'Guardando…' : 'Guardar'}
@@ -152,9 +180,12 @@ export function DialogoNotaEeff({
               {...p}
               type="number"
               min={1}
-              value={String(form.numero)}
+              value={numeroTexto}
               className="tabular"
-              onChange={(e) => cambiar('numero', Number(e.target.value))}
+              onChange={(e) => {
+                limpiarErrorServidor()
+                setNumeroTexto(e.target.value)
+              }}
             />
           )}
         </Field>
@@ -258,7 +289,10 @@ export function DialogoNotaEeff({
       </div>
 
       {(intentoEnvio && !validacion.valido) || errorServidor ? (
-        <div className="mt-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset">
+        <div
+          role="alert"
+          className="mt-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset"
+        >
           <p className="flex items-center gap-1.5 text-sm font-medium text-red-800">
             <CircleAlert className="size-4" />
             {errorServidor

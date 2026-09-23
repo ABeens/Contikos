@@ -4,7 +4,7 @@ import Decimal from 'decimal.js'
  * Configuración global de precisión.
  *
  * ROUND_HALF_UP es la convención contable habitual: 0,005 → 0,01.
- * La precisión interna es muy superior a la de presentación a propósito — el
+ * La precisión interna es muy superior a la de presentación a propósito: el
  * redondeo ocurre SOLO al presentar o al enviar a la API, nunca en cálculos
  * intermedios.
  */
@@ -19,7 +19,7 @@ Decimal.set({
  * Código ISO 4217 de la moneda.
  *
  * No es una unión cerrada a propósito: el catálogo de monedas es un dato
- * configurable por la empresa (docs/10 §2 — entidad `Moneda`), no una decisión
+ * configurable por la empresa (docs/10 §2, entidad `Moneda`), no una decisión
  * de compilación. Agregar el euro no debe requerir recompilar el frontend.
  *
  * La forma del código la valida el contrato (`MonedaSchema`); el catálogo

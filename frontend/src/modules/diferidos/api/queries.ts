@@ -130,6 +130,10 @@ export function useContabilizarAmortizacion() {
       void cliente.invalidateQueries({ queryKey: clavesDiferidos.todo })
       void cliente.invalidateQueries({ queryKey: ['conta', 'asientos'] })
       void cliente.invalidateQueries({ queryKey: ['conta', 'balanza'] })
+      // Como la depreciación y la revaluación: la corrida escribe un asiento en
+      // el periodo, y el checklist de cierre que cuelga de la clave de
+      // periodos se calcula sobre los asientos del mes.
+      void cliente.invalidateQueries({ queryKey: ['conta', 'periodos'] })
     },
   })
 }

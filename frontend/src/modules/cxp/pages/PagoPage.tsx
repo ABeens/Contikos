@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import Decimal from 'decimal.js'
-import { Banknote, CircleAlert, ListOrdered } from 'lucide-react'
+import { Banknote, ListOrdered } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
 import { Field, Input, Select } from '@/shared/ui/Field'
@@ -10,7 +10,7 @@ import { MoneyCell } from '@/shared/money/MoneyCell'
 import { formatMoney } from '@/shared/money/format'
 import { formatFecha, hoyISO } from '@/shared/format/fecha'
 import { diasVencidos } from '@/shared/cartera/antiguedad'
-import { ApiError } from '@/shared/api/client'
+import { useAvisoSalida } from '@/shared/ui/AvisoSalida'
 import { claveEfectivo, opcionesDeEfectivo } from '@/shared/cuentas/efectivo'
 import {
   useCuentas,
@@ -18,7 +18,6 @@ import {
   usePeriodos,
 } from '@/shared/api/catalogos'
 import {
-  configuracionMoneda,
   monedaFuncional,
   monedasActivas,
   Money,
@@ -35,6 +34,8 @@ import {
   useProveedores,
   useRegistrarPago,
 } from '../api/queries'
+import { useTipoCambioDocumento } from '@/shared/api/tipoCambioDocumento'
+import { ResumenErrores } from '@/shared/ui/ResumenErrores'
 import {
   admitePago,
   armarAsientoPago,
@@ -72,20 +73,30 @@ export function PagoPage() {
   const [parametros] = useSearchParams()
   const funcional = monedaFuncional()
 
-  const { data: proveedores = [] } = useProveedores()
+  const { data: proveedores = [], isSuccess: proveedoresListos } =
+    useProveedores()
   const { data: cuentas = [] } = useCuentas()
   const { data: periodos = [] } = usePeriodos()
   const { data: mapeo } = useMapeoCxp()
   const registrar = useRegistrarPago()
 
-  // `?proveedor=` es la llegada desde la propuesta de pago o desde la ficha
-  // del proveedor: quien viene de ahí ya eligió a quién le paga.
-  const [proveedorId, setProveedorId] = useState(
-    () => parametros.get('proveedor') ?? '',
-  )
+  // `?proveedor=` es la llegada desde "Ajustar" en la propuesta de pago:
+  // quien viene de ahí ya eligió a quién le paga.
+  const proveedorDeUrl = parametros.get('proveedor') ?? ''
+  const [proveedorId, setProveedorId] = useState('')
+  /**
+   * El proveedor de la URL se aplica cuando llega el catálogo, y no antes:
+   * elegirlo es también fijar su moneda, y eso solo se sabe con la ficha.
+   * Se hace una vez, durante el render (estado derivado de una carga), para
+   * no pintar ni un instante la moneda equivocada.
+   */
+  const [urlAplicada, setUrlAplicada] = useState(proveedorDeUrl === '')
   const [fecha, setFecha] = useState(hoyISO)
   const [moneda, setMoneda] = useState<Moneda>(funcional)
-  const [tipoCambio, setTipoCambio] = useState('1')
+  // El del día del pago: la diferencia con el de la factura es resultado
+  // cambiario, y por eso importa que sea el de esa fecha.
+  const tc = useTipoCambioDocumento(moneda, fecha)
+  const tipoCambio = tc.tipoCambio
   const [opcionElegida, setOpcionElegida] = useState('')
   const [medioPago, setMedioPago] = useState<MedioPago>('transferencia')
   const [referencia, setReferencia] = useState('')
@@ -93,6 +104,17 @@ export function PagoPage() {
   /** Lo aplicado a cada factura, por id. Vacío = no se le aplica nada. */
   const [aplicado, setAplicado] = useState<Record<string, string>>({})
   const [intentoEnvio, setIntentoEnvio] = useState(false)
+  /** Sube en cada envío fallido: el resumen de errores toma el foco. */
+  const [fallos, setFallos] = useState(0)
+
+  if (!urlAplicada && proveedoresListos) {
+    setUrlAplicada(true)
+    const deUrl = proveedores.find((p) => p.id === proveedorDeUrl)
+    if (deUrl) {
+      setProveedorId(deUrl.id)
+      setMoneda(deUrl.moneda)
+    }
+  }
 
   const { data: facturas = [] } = useFacturasCompra(proveedorId || undefined)
   const proveedor = proveedores.find((p) => p.id === proveedorId)
@@ -187,12 +209,9 @@ export function PagoPage() {
     setAplicado({})
     const elegido = proveedores.find((p) => p.id === id)
     if (!elegido) return
+    // El tipo de cambio lo propone `useTipoCambioDocumento` para esa moneda y
+    // la fecha del pago.
     setMoneda(elegido.moneda)
-    setTipoCambio(
-      elegido.moneda === funcional
-        ? '1'
-        : configuracionMoneda(elegido.moneda).tipoCambio,
-    )
   }
 
   /** Reparte el importe capturado de la factura más vieja a la más nueva. */
@@ -215,19 +234,41 @@ export function PagoPage() {
     [pendientes, moneda],
   )
 
+  // Hay algo capturado que se perdería al salir. El proveedor que vino en la
+  // URL no cuenta: nadie lo tecleó.
+  const sucio = Boolean(
+    (proveedorId && proveedorId !== proveedorDeUrl) ||
+      importe ||
+      referencia.trim() ||
+      Object.values(aplicado).some((v) => v !== ''),
+  )
+  const { aviso, permitirSalida } = useAvisoSalida(sucio && !registrar.isSuccess)
+
   const guardar = async () => {
     setIntentoEnvio(true)
-    if (!calculo.valido) return
+    registrar.reset()
+    if (!calculo.valido) {
+      setFallos((n) => n + 1)
+      return
+    }
+    // El rechazo se enseña desde `registrar.error`; aquí solo se evita dejar
+    // la promesa suelta y navegar sobre un pago que no nació.
     const pago = await registrar.mutateAsync(solicitud).catch(() => null)
-    if (!pago) return
+    if (!pago) {
+      setFallos((n) => n + 1)
+      return
+    }
+    permitirSalida()
     navegar(`/cxp/pagos/${pago.id}`)
   }
 
   const nombreCuenta = (codigo: string) =>
     cuentas.find((c) => c.codigo === codigo)?.nombre ?? ''
 
+  // El rechazo es de la solicitud que se envió: en cuanto se toca algo deja
+  // de describir lo que hay en pantalla.
   const errorServidor =
-    registrar.error instanceof ApiError ? registrar.error : null
+    registrar.variables === solicitud ? registrar.error : null
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -238,9 +279,10 @@ export function PagoPage() {
           <>
             <Button onClick={() => navegar('/cxp/pagos')}>Cancelar</Button>
             <Button
+              type="submit"
+              form="form-pago"
               variante="primario"
               icono={<Banknote className="size-4" />}
-              onClick={() => void guardar()}
               disabled={registrar.isPending}
             >
               {registrar.isPending ? 'Emitiendo…' : 'Emitir pago'}
@@ -249,8 +291,21 @@ export function PagoPage() {
         }
       />
 
+      {aviso}
+
       <Card className="mb-4">
-        <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Enter en un campo del encabezado emite el pago. La tabla de
+            facturas queda fuera del formulario: ahí Enter no debe enviar a
+            medio reparto. */}
+        <form
+          id="form-pago"
+          noValidate
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (!registrar.isPending) void guardar()
+          }}
+          className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4"
+        >
           <Field label="Proveedor" requerido className="lg:col-span-2">
             {(p) => (
               <Select
@@ -335,14 +390,8 @@ export function PagoPage() {
                 {...p}
                 value={moneda}
                 onChange={(e) => {
-                  const nueva = e.target.value
-                  setMoneda(nueva)
+                  setMoneda(e.target.value)
                   setAplicado({})
-                  setTipoCambio(
-                    nueva === funcional
-                      ? '1'
-                      : configuracionMoneda(nueva).tipoCambio,
-                  )
                 }}
               >
                 {monedasActivas().map((m) => (
@@ -359,8 +408,8 @@ export function PagoPage() {
             requerido
             ayuda={
               moneda === funcional
-                ? 'Moneda funcional'
-                : 'El del día del pago: la diferencia con el de la factura es resultado cambiario'
+                ? tc.ayuda
+                : `${tc.ayuda ?? ''} La diferencia con el de la factura es resultado cambiario.`.trim()
             }
           >
             {(p) => (
@@ -368,7 +417,7 @@ export function PagoPage() {
                 {...p}
                 value={tipoCambio}
                 disabled={moneda === funcional}
-                onChange={(e) => setTipoCambio(e.target.value)}
+                onChange={(e) => tc.editar(e.target.value)}
                 className="tabular text-right"
               />
             )}
@@ -384,7 +433,7 @@ export function PagoPage() {
               />
             )}
           </Field>
-        </div>
+        </form>
       </Card>
 
       <Card className="mb-4">
@@ -573,24 +622,16 @@ export function PagoPage() {
         </table>
       </Card>
 
-      {(intentoEnvio && !calculo.valido) || errorServidor ? (
-        <div className="mt-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset">
-          <p className="flex items-center gap-1.5 text-sm font-medium text-red-800">
-            <CircleAlert className="size-4" />
-            {errorServidor
-              ? `${errorServidor.codigo}: ${errorServidor.message}`
-              : 'El pago no se puede emitir'}
-          </p>
-          <ul className="mt-1.5 ml-6 list-disc space-y-0.5 text-xs text-red-700">
-            {(errorServidor?.detalles.length
-              ? errorServidor.detalles
-              : calculo.errores.map((e) => e.mensaje)
-            ).map((mensaje, i) => (
-              <li key={i}>{mensaje}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+      <ResumenErrores
+        titulo="El pago no se puede emitir"
+        errores={
+          intentoEnvio && !calculo.valido
+            ? calculo.errores.map((e) => e.mensaje)
+            : []
+        }
+        errorServidor={errorServidor}
+        senal={fallos}
+      />
     </div>
   )
 }

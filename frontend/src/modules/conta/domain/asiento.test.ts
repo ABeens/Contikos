@@ -41,7 +41,7 @@ const codigos = (r: ReturnType<typeof validarAsiento>) =>
 const libroFiscal = (r: ReturnType<typeof validarAsiento>) =>
   resumenDe(r.totales, 'fiscal')!
 
-describe('validarAsiento — asiento correcto', () => {
+describe('validarAsiento: asiento correcto', () => {
   it('acepta un asiento cuadrado en periodo abierto', () => {
     const r = validarAsiento(asiento(), contexto)
     expect(r.valido).toBe(true)
@@ -52,7 +52,7 @@ describe('validarAsiento — asiento correcto', () => {
   })
 })
 
-describe('validarAsiento — cuadre', () => {
+describe('validarAsiento: cuadre', () => {
   it('rechaza un asiento descuadrado', () => {
     const r = validarAsiento(
       asiento({
@@ -96,7 +96,7 @@ describe('validarAsiento — cuadre', () => {
   })
 })
 
-describe('validarAsiento — estructura de línea', () => {
+describe('validarAsiento: estructura de línea', () => {
   it('exige al menos dos líneas', () => {
     const r = validarAsiento(
       asiento({ lineas: [{ cuenta: '6.1.02.004', cargo: '100', abono: '0' }] }),
@@ -145,7 +145,7 @@ describe('validarAsiento — estructura de línea', () => {
   })
 })
 
-describe('validarAsiento — cuentas', () => {
+describe('validarAsiento: cuentas', () => {
   it('rechaza una cuenta inexistente', () => {
     const r = validarAsiento(
       asiento({
@@ -218,7 +218,7 @@ describe('validarAsiento — cuentas', () => {
   })
 })
 
-describe('validarAsiento — periodo', () => {
+describe('validarAsiento: periodo', () => {
   it('rechaza contabilizar en un periodo cerrado', () => {
     const r = validarAsiento(asiento({ fecha: FECHA_CERRADA }), contexto)
     expect(codigos(r)).toContain('PERIODO_CERRADO')
@@ -237,7 +237,7 @@ describe('validarAsiento — periodo', () => {
   })
 })
 
-describe('validarAsiento — otros', () => {
+describe('validarAsiento: otros', () => {
   it('rechaza tipo de cambio no positivo', () => {
     const r = validarAsiento(
       asiento({ moneda: 'USD', tipoCambio: '0' }),
@@ -252,7 +252,7 @@ describe('validarAsiento — otros', () => {
   })
 })
 
-describe('validarAsiento — libros', () => {
+describe('validarAsiento: libros', () => {
   it('sin indicar libros, el asiento entra en las dos contabilidades', () => {
     const r = validarAsiento(asiento(), contexto)
     expect(r.totales.map((t) => t.libro)).toEqual(['fiscal', 'corporativo'])

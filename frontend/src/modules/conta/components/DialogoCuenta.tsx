@@ -30,7 +30,7 @@ import { codigoPadreDe, validarCuenta } from '../domain/cuenta'
  *
  * El código no es un identificador cualquiera: es la jerarquía. Por eso la
  * pantalla resuelve la madre mientras se escribe y enseña de quién colgará la
- * cuenta antes de guardarla — el error de teclear `1.2.02.004` cuando se quería
+ * cuenta antes de guardarla: el error de teclear `1.2.02.004` cuando se quería
  * `1.2.01.004` no se ve leyendo el número, se ve leyendo el nombre de la madre.
  *
  * La presentación se captura aquí y no en una pantalla aparte porque es
@@ -129,7 +129,9 @@ export function DialogoCuenta({
    * valía para un gasto no vale para un activo, y dejarla puesta solo serviría
    * para que el error saltara al guardar.
    */
-  const cambiar = (cambios: Partial<SolicitudCuenta>) =>
+  const cambiar = (cambios: Partial<SolicitudCuenta>) => {
+    // El error del servidor era sobre los datos de antes de este cambio.
+    if (guardar.isError) guardar.reset()
     setDatos((prev) => ({
       ...prev,
       ...(cambios.tipo !== undefined && cambios.tipo !== prev.tipo
@@ -137,6 +139,7 @@ export function DialogoCuenta({
         : {}),
       ...cambios,
     }))
+  }
 
   const madre = (() => {
     const codigoPadre = codigoPadreDe(datos.codigo)
@@ -224,26 +227,29 @@ export function DialogoCuenta({
     (c) => c.id === datos.clasificacionNiifId,
   )
 
-  const enviar = async () => {
+  const enviar = () => {
     setIntento(true)
-    if (!validacion.valido) return
-    await guardar.mutateAsync({ datos, id: cuenta?.id })
-    onCerrar()
+    if (!validacion.valido || guardar.isPending) return
+    guardar.mutate({ datos, id: cuenta?.id }, { onSuccess: onCerrar })
   }
 
   return (
     <Dialogo
       abierto={abierto}
       onCerrar={onCerrar}
+      bloqueado={guardar.isPending}
+      alEnviar={enviar}
       titulo={creando ? 'Nueva cuenta' : `${cuenta.codigo} ${cuenta.nombre}`}
       descripcion="El código es la jerarquía: de él salen la cuenta madre, el nivel y el tipo."
       className="w-[min(94vw,44rem)]"
       acciones={
         <>
-          <Button onClick={onCerrar}>Cancelar</Button>
+          <Button onClick={onCerrar} disabled={guardar.isPending}>
+            Cancelar
+          </Button>
           <Button
             variante="primario"
-            onClick={() => void enviar()}
+            type="submit"
             disabled={guardar.isPending}
           >
             {guardar.isPending ? 'Guardando…' : 'Guardar'}
@@ -258,6 +264,7 @@ export function DialogoCuenta({
               {...p}
               value={datos.codigo}
               disabled={!creando}
+              autoFocus={creando}
               placeholder="1.2.01.004"
               className="font-mono"
               onChange={(e) => escribirCodigo(e.target.value.trim())}
@@ -270,6 +277,7 @@ export function DialogoCuenta({
             <Input
               {...p}
               value={datos.nombre}
+              autoFocus={!creando}
               placeholder="Maquinaria y equipo de planta"
               onChange={(e) => cambiar({ nombre: e.target.value })}
             />
@@ -572,7 +580,10 @@ export function DialogoCuenta({
       </label>
 
       {(intento && !validacion.valido) || errorServidor ? (
-        <div className="mt-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset">
+        <div
+          role="alert"
+          className="mt-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset"
+        >
           <p className="flex items-center gap-1.5 text-sm font-medium text-red-800">
             <CircleAlert className="size-4" />
             {errorServidor ? errorServidor.message : 'Revise los datos'}

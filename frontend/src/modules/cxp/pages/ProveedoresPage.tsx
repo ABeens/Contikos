@@ -15,9 +15,16 @@ import { DialogoProveedor } from '../components/DialogoProveedor'
 
 /** Catálogo de proveedores (docs/05 §1). */
 export function ProveedoresPage() {
-  const { data: proveedores = [], isLoading } = useProveedores()
+  const {
+    data: proveedores = [],
+    isLoading,
+    error,
+    refetch,
+  } = useProveedores()
   const { data: cuentas = [] } = useCuentas()
   const [filtro, setFiltro] = useState('')
+  // Las filas que deja ver el filtro: el contador cuenta lo que se ve.
+  const [visibles, setVisibles] = useState<number | null>(null)
   const [editando, setEditando] = useState<Proveedor | null>(null)
   const [creando, setCreando] = useState(false)
 
@@ -120,29 +127,30 @@ export function ProveedoresPage() {
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
             placeholder="Buscar por nombre, código o identificación…"
+            aria-label="Buscar proveedores"
             className="h-8 max-w-sm border-0 px-0 focus:ring-0"
           />
           <span className="ml-auto text-xs text-slate-500">
-            {proveedores.length} proveedores
+            {filtro.trim() && visibles !== null
+              ? `${visibles} de ${proveedores.length} proveedores`
+              : `${proveedores.length} proveedores`}
           </span>
         </div>
 
-        {isLoading ? (
-          <p className="px-4 py-10 text-center text-sm text-slate-500">
-            Cargando proveedores…
-          </p>
-        ) : (
-          <DataTable
-            columns={columnas}
-            data={proveedores}
-            filtro={filtro}
-            onRowClick={setEditando}
-            vacio={{
-              titulo: 'Sin proveedores',
-              descripcion: 'Dé de alta el primero para registrar facturas de gasto.',
-            }}
-          />
-        )}
+        <DataTable
+          columns={columnas}
+          data={proveedores}
+          filtro={filtro}
+          cargando={isLoading}
+          error={error}
+          onReintentar={() => void refetch()}
+          alFiltrar={setVisibles}
+          onRowClick={setEditando}
+          vacio={{
+            titulo: 'Sin proveedores',
+            descripcion: 'Dé de alta el primero para registrar facturas de gasto.',
+          }}
+        />
       </Card>
 
       {(creando || editando) && (

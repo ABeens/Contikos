@@ -186,7 +186,10 @@ export function AmortizacionPage() {
               {resultado.diferidosActualizados} ficha
               {resultado.diferidosActualizados === 1 ? '' : 's'} actualizada
               {resultado.diferidosActualizados === 1 ? '' : 's'}.{' '}
-              <Link to="/conta/asientos" className="underline">
+              <Link
+                to={`/conta/asientos?asiento=${resultado.asientoId}`}
+                className="underline"
+              >
                 Ver en el libro de asientos
               </Link>
             </p>
@@ -466,7 +469,7 @@ function Historial({
             </td>
             <td className="px-4 py-1.5">
               <Link
-                to="/conta/asientos"
+                to={`/conta/asientos?asiento=${h.asientoId}`}
                 className="font-mono text-xs text-brand-700 hover:underline"
               >
                 {h.asientoId}

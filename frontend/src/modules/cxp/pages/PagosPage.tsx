@@ -3,18 +3,19 @@ import { Link, useNavigate, useParams } from 'react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Ban, Plus, Search } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
+import { LinkBoton } from '@/shared/ui/LinkBoton'
 import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
 import { DataTable } from '@/shared/ui/DataTable'
-import { Dialogo } from '@/shared/ui/Dialogo'
-import { Field, Input } from '@/shared/ui/Field'
+import { Input } from '@/shared/ui/Field'
 import { EstadoBadge } from '@/shared/ui/EstadoBadge'
 import { MoneyCell } from '@/shared/money/MoneyCell'
 import { PanelAsiento } from '@/shared/asiento/PanelAsiento'
-import { formatFecha, hoyISO } from '@/shared/format/fecha'
-import { ApiError } from '@/shared/api/client'
+import { formatFecha } from '@/shared/format/fecha'
 import { useCuentas } from '@/shared/api/catalogos'
 import type { Pago } from '@/shared/api/contracts/cxp'
-import { useAnularPago, useAsientoDePago, usePagos } from '../api/queries'
+import { useAsientoDePago, usePagos } from '../api/queries'
+import { DialogoAnularPago } from '../components/DialogoAnularPago'
+import { DocumentoNoEncontrado, SeccionDetalle } from '@/shared/ui/Detalle'
 
 /**
  * Pagos emitidos, su asiento y su anulación.
@@ -37,10 +38,18 @@ const ETIQUETA_MEDIO: Record<Pago['medioPago'], string> = {
 }
 
 export function PagosPage() {
-  const { data: pagos = [], isLoading } = usePagos()
+  const {
+    data: pagos = [],
+    isLoading,
+    isSuccess,
+    error,
+    refetch,
+  } = usePagos()
   const navegar = useNavigate()
   const { id } = useParams()
   const [filtro, setFiltro] = useState('')
+  // Las filas que deja ver el filtro: el contador cuenta lo que se ve.
+  const [visibles, setVisibles] = useState<number | null>(null)
 
   const seleccionado = pagos.find((p) => p.id === id) ?? null
 
@@ -124,14 +133,14 @@ export function PagosPage() {
         descripcion="Cada pago contabiliza su egreso y salda las facturas a las que se aplicó."
         acciones={
           <>
-            <Link to="/cxp/propuesta">
-              <Button>Propuesta de pago</Button>
-            </Link>
-            <Link to="/cxp/pagos/nuevo">
-              <Button variante="primario" icono={<Plus className="size-4" />}>
-                Nuevo pago
-              </Button>
-            </Link>
+            <LinkBoton to="/cxp/propuesta">Propuesta de pago</LinkBoton>
+            <LinkBoton
+              to="/cxp/pagos/nuevo"
+              variante="primario"
+              icono={<Plus className="size-4" />}
+            >
+              Nuevo pago
+            </LinkBoton>
           </>
         }
       />
@@ -143,38 +152,45 @@ export function PagosPage() {
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
             placeholder="Buscar por folio, proveedor o referencia…"
+            aria-label="Buscar pagos"
             className="h-8 max-w-sm border-0 px-0 focus:ring-0"
           />
           <span className="ml-auto text-xs text-slate-500">
-            {pagos.length} pagos
+            {filtro.trim() && visibles !== null
+              ? `${visibles} de ${pagos.length} pagos`
+              : `${pagos.length} pagos`}
           </span>
         </div>
 
-        {isLoading ? (
-          <p className="px-4 py-10 text-center text-sm text-slate-500">
-            Cargando pagos…
-          </p>
-        ) : (
-          <DataTable
-            columns={columnas}
-            data={pagos}
-            filtro={filtro}
-            onRowClick={(p) => navegar(`/cxp/pagos/${p.id}`)}
-            vacio={{
-              titulo: 'Sin pagos emitidos',
-              descripcion:
-                'Ningún proveedor ha recibido pago todavía. Emita el primero desde una factura pendiente.',
-            }}
-          />
-        )}
+        <DataTable
+          columns={columnas}
+          data={pagos}
+          filtro={filtro}
+          cargando={isLoading}
+          error={error}
+          onReintentar={() => void refetch()}
+          alFiltrar={setVisibles}
+          esSeleccionada={(p) => p.id === id}
+          onRowClick={(p) => navegar(`/cxp/pagos/${p.id}`)}
+          vacio={{
+            titulo: 'Sin pagos emitidos',
+            descripcion:
+              'Ningún proveedor ha recibido pago todavía. Emita el primero desde una factura pendiente.',
+          }}
+        />
       </Card>
 
-      {seleccionado && (
+      {/* `key`: cada pago abre su propio detalle. Sin ella, pasar de un pago a
+          otro conservaría el diálogo y el motivo a medio escribir del anterior. */}
+      {seleccionado ? (
         <DetallePago
+          key={seleccionado.id}
           pago={seleccionado}
           onCerrar={() => navegar('/cxp/pagos')}
         />
-      )}
+      ) : id && isSuccess ? (
+        <DocumentoNoEncontrado id={id} onCerrar={() => navegar('/cxp/pagos')} />
+      ) : null}
     </div>
   )
 }
@@ -188,26 +204,14 @@ function DetallePago({
 }) {
   const { data: asiento, isLoading } = useAsientoDePago(pago.id)
   const { data: cuentas = [] } = useCuentas()
-  const anular = useAnularPago()
   const [abierto, setAbierto] = useState(false)
-  const [fecha, setFecha] = useState(hoyISO)
-  const [motivo, setMotivo] = useState('')
 
   const nombreCuenta =
     cuentas.find((c) => c.codigo === pago.cuentaSalida)?.nombre ??
     pago.cuentaSalida
 
-  const error = anular.error instanceof ApiError ? anular.error : null
-
-  const confirmar = () => {
-    anular.mutate(
-      { id: pago.id, solicitud: { fecha, motivo } },
-      { onSuccess: () => setAbierto(false) },
-    )
-  }
-
   return (
-    <>
+    <SeccionDetalle etiqueta={`Detalle del pago ${pago.folio}`}>
       <Card className="mt-4">
         <CardHeader
           titulo={`Pago ${pago.folio}`}
@@ -346,57 +350,9 @@ function DetallePago({
         )}
       </Card>
 
-      <Dialogo
-        abierto={abierto}
-        onCerrar={() => setAbierto(false)}
-        titulo={`Anular el pago ${pago.folio}`}
-        descripcion="Se reversa su asiento y el saldo vuelve a las facturas que había abonado. El pago queda en el histórico, no se borra."
-        acciones={
-          <>
-            <Button onClick={() => setAbierto(false)}>Cancelar</Button>
-            <Button
-              variante="peligro"
-              icono={<Ban className="size-4" />}
-              onClick={confirmar}
-              disabled={anular.isPending || motivo.trim() === ''}
-            >
-              {anular.isPending ? 'Anulando…' : 'Anular pago'}
-            </Button>
-          </>
-        }
-      >
-        <div className="flex flex-col gap-3">
-          <Field
-            label="Fecha de la reversa"
-            requerido
-            ayuda="Si el periodo del pago ya cerró, la reversa va en el periodo abierto"
-          >
-            {(p) => (
-              <Input
-                {...p}
-                type="date"
-                value={fecha}
-                onChange={(e) => setFecha(e.target.value)}
-              />
-            )}
-          </Field>
-          <Field label="Motivo" requerido ayuda="Queda en la bitácora del asiento">
-            {(p) => (
-              <Input
-                {...p}
-                value={motivo}
-                placeholder="Cheque devuelto, pago duplicado…"
-                onChange={(e) => setMotivo(e.target.value)}
-              />
-            )}
-          </Field>
-          {error && (
-            <p className="rounded bg-red-50 px-3 py-2 text-xs text-red-700">
-              {error.codigo}: {error.message}
-            </p>
-          )}
-        </div>
-      </Dialogo>
-    </>
+      {abierto && (
+        <DialogoAnularPago pago={pago} onCerrar={() => setAbierto(false)} />
+      )}
+    </SeccionDetalle>
   )
 }

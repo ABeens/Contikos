@@ -1,16 +1,14 @@
 import { useMemo, useState } from 'react'
-import {
-  ChevronDown,
-  ChevronRight,
-  CircleAlert,
-  Pencil,
-  Plus,
-  Trash2,
-} from 'lucide-react'
+import { ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
-import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
-import { Dialogo } from '@/shared/ui/Dialogo'
-import { ApiError } from '@/shared/api/client'
+import {
+  Card,
+  CardHeader,
+  EstadoError,
+  EstadoVacio,
+  PageHeader,
+} from '@/shared/ui/Layout'
+import { DialogoConfirmacion } from '@/shared/ui/DialogoConfirmacion'
 import type {
   ClasificacionNiif,
   EstadoFinanciero,
@@ -43,9 +41,18 @@ import {
  * que revisar antes de emitir los estados financieros.
  */
 export function ClasificacionesPage() {
-  const { data: clasificaciones = [], isLoading } = useClasificacionesNiif()
-  const { data: notas = [] } = useNotasEeff()
+  const consultaClasificaciones = useClasificacionesNiif()
+  const { data: clasificaciones = [], isLoading } = consultaClasificaciones
+  const consultaNotas = useNotasEeff()
+  const { data: notas = [] } = consultaNotas
   const { data: cuentas = [] } = useCuentas()
+  // Sin notas el árbol diría "0 notas" en cada renglón: tan falso como un
+  // catálogo vacío. Si falla cualquiera de los dos, no se enseña el árbol.
+  const errorCarga =
+    (consultaClasificaciones.isError && clasificaciones.length === 0
+      ? consultaClasificaciones.error
+      : null) ??
+    (consultaNotas.isError && notas.length === 0 ? consultaNotas.error : null)
 
   const eliminarClasificacion = useEliminarClasificacion()
   const eliminarNota = useEliminarNota()
@@ -85,10 +92,6 @@ export function ClasificacionesPage() {
       c.esDetalle && (c.clasificacionNiifId === null || c.notaEeffId === null),
   ).length
 
-  const error = [eliminarClasificacion.error, eliminarNota.error].find(
-    (e): e is ApiError => e instanceof ApiError,
-  )
-
   const alternar = (id: string) =>
     setExpandidas((prev) => {
       const siguiente = new Set(prev)
@@ -96,16 +99,30 @@ export function ClasificacionesPage() {
       return siguiente
     })
 
-  const confirmarEliminarClasificacion = async () => {
-    if (!porEliminar) return
-    await eliminarClasificacion.mutateAsync(porEliminar.id)
+  // El error de eliminar se enseña dentro de su diálogo y se descarta al
+  // cerrarlo: al volver a abrirlo para otro renglón no debe seguir ahí.
+  const cerrarEliminarClasificacion = () => {
     setPorEliminar(null)
+    eliminarClasificacion.reset()
   }
 
-  const confirmarEliminarNota = async () => {
-    if (!notaPorEliminar) return
-    await eliminarNota.mutateAsync(notaPorEliminar.id)
+  const cerrarEliminarNota = () => {
     setNotaPorEliminar(null)
+    eliminarNota.reset()
+  }
+
+  const confirmarEliminarClasificacion = () => {
+    if (!porEliminar || eliminarClasificacion.isPending) return
+    eliminarClasificacion.mutate(porEliminar.id, {
+      onSuccess: cerrarEliminarClasificacion,
+    })
+  }
+
+  const confirmarEliminarNota = () => {
+    if (!notaPorEliminar || eliminarNota.isPending) return
+    eliminarNota.mutate(notaPorEliminar.id, {
+      onSuccess: cerrarEliminarNota,
+    })
   }
 
   return (
@@ -124,15 +141,6 @@ export function ClasificacionesPage() {
         }
       />
 
-      {error && (
-        <div className="mb-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset">
-          <p className="flex items-center gap-1.5 text-sm font-medium text-red-800">
-            <CircleAlert className="size-4 shrink-0" />
-            {error.codigo} · {error.message}
-          </p>
-        </div>
-      )}
-
       <Card>
         <CardHeader
           titulo="Catálogo de presentación"
@@ -145,10 +153,31 @@ export function ClasificacionesPage() {
           }
         />
 
-        {isLoading ? (
-          <p className="px-4 py-10 text-center text-sm text-slate-500">
+        {/* Un error de carga no es un catálogo vacío: "no hay renglones" y
+            "no se pudieron leer" piden cosas muy distintas. */}
+        {errorCarga ? (
+          <EstadoError
+            error={errorCarga}
+            onReintentar={() => {
+              void consultaClasificaciones.refetch()
+              void consultaNotas.refetch()
+            }}
+            reintentando={
+              consultaClasificaciones.isFetching || consultaNotas.isFetching
+            }
+          />
+        ) : isLoading || consultaNotas.isLoading ? (
+          <p
+            className="px-4 py-10 text-center text-sm text-slate-500"
+            aria-busy
+          >
             Cargando catálogo…
           </p>
+        ) : porEstado.length === 0 ? (
+          <EstadoVacio
+            titulo="Sin clasificaciones"
+            descripcion="Dé de alta los renglones de los estados financieros para poder clasificar las cuentas."
+          />
         ) : (
           <div className="divide-y divide-slate-100">
             {porEstado.map(({ estado, clasificaciones: grupo }) => (
@@ -208,55 +237,43 @@ export function ClasificacionesPage() {
         />
       )}
 
-      <Dialogo
+      <DialogoConfirmacion
         abierto={porEliminar !== null}
-        onCerrar={() => setPorEliminar(null)}
+        onCancelar={cerrarEliminarClasificacion}
+        onConfirmar={confirmarEliminarClasificacion}
         titulo={`Eliminar ${porEliminar?.codigo ?? ''}`}
-        acciones={
-          <>
-            <Button onClick={() => setPorEliminar(null)}>Cancelar</Button>
-            <Button
-              variante="peligro"
-              onClick={() => void confirmarEliminarClasificacion()}
-              disabled={eliminarClasificacion.isPending}
-            >
-              {eliminarClasificacion.isPending ? 'Eliminando…' : 'Eliminar'}
-            </Button>
-          </>
-        }
+        textoConfirmar="Eliminar"
+        textoConfirmando="Eliminando…"
+        peligro
+        pendiente={eliminarClasificacion.isPending}
+        error={eliminarClasificacion.error}
       >
-        <p className="text-sm text-slate-700">
+        <p>
           Se retira {porEliminar?.nombre} del catálogo de presentación. Solo es
           posible si no tiene cuentas asignadas ni notas colgando; si las
           tuviera, hay que reclasificarlas o desactivar el renglón.
         </p>
-      </Dialogo>
+      </DialogoConfirmacion>
 
-      <Dialogo
+      <DialogoConfirmacion
         abierto={notaPorEliminar !== null}
-        onCerrar={() => setNotaPorEliminar(null)}
+        onCancelar={cerrarEliminarNota}
+        onConfirmar={confirmarEliminarNota}
         titulo={`Eliminar la nota ${
           notaPorEliminar ? referenciaNota(notaPorEliminar) : ''
         }`}
-        acciones={
-          <>
-            <Button onClick={() => setNotaPorEliminar(null)}>Cancelar</Button>
-            <Button
-              variante="peligro"
-              onClick={() => void confirmarEliminarNota()}
-              disabled={eliminarNota.isPending}
-            >
-              {eliminarNota.isPending ? 'Eliminando…' : 'Eliminar'}
-            </Button>
-          </>
-        }
+        textoConfirmar="Eliminar"
+        textoConfirmando="Eliminando…"
+        peligro
+        pendiente={eliminarNota.isPending}
+        error={eliminarNota.error}
       >
-        <p className="text-sm text-slate-700">
+        <p>
           Se elimina «{notaPorEliminar?.titulo}». La numeración de las demás
           notas no se recorre: renumerar cambiaría las referencias de los
           estados financieros ya emitidos.
         </p>
-      </Dialogo>
+      </DialogoConfirmacion>
     </div>
   )
 }
@@ -449,9 +466,11 @@ function IconoAccion({
       aria-label={etiqueta}
       disabled={deshabilitado}
       onClick={onClick}
-      className={`rounded p-1 text-slate-400 disabled:pointer-events-none disabled:opacity-30 ${
+      // Sin pointer-events-none: el botón apagado tiene que seguir recibiendo
+      // el ratón para enseñar su `title`, que es justo el porqué.
+      className={`rounded p-1 text-slate-400 disabled:cursor-not-allowed disabled:opacity-30 ${
         peligro
-          ? 'hover:bg-red-50 hover:text-red-600'
+          ? 'hover:bg-red-50 hover:text-red-600 disabled:hover:bg-transparent disabled:hover:text-slate-400'
           : 'hover:bg-slate-100 hover:text-brand-700'
       }`}
     >

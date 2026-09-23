@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { CircleAlert, Plus, Receipt, Trash2 } from 'lucide-react'
+import { Plus, Receipt, Trash2 } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
 import { Field, Input, Select } from '@/shared/ui/Field'
@@ -9,11 +9,10 @@ import { MoneyInput } from '@/shared/money/MoneyInput'
 import { MoneyCell } from '@/shared/money/MoneyCell'
 import { formatMoney } from '@/shared/money/format'
 import { hoyISO } from '@/shared/format/fecha'
-import { ApiError } from '@/shared/api/client'
+import { useAvisoSalida } from '@/shared/ui/AvisoSalida'
 import { type IdTarifaIva } from '@/shared/fiscal/iva'
 import { opcionesTarifa } from '@/shared/fiscal/impuestos'
 import {
-  configuracionMoneda,
   monedaFuncional,
   monedasActivas,
   Money,
@@ -43,6 +42,8 @@ import {
 import { MAPEO_VACIO } from '../domain/mapeo'
 import { precargaDeItem } from '../domain/item'
 import { SelectorItem } from '../components/SelectorItem'
+import { ResumenErrores } from '@/shared/ui/ResumenErrores'
+import { useTipoCambioDocumento } from '@/shared/api/tipoCambioDocumento'
 
 /**
  * Emisión de factura de venta (docs/04 §2.1).
@@ -101,9 +102,13 @@ export function FacturaVentaPage() {
   const [fechaEmision, setFechaEmision] = useState(hoyISO)
   const [fechaVencimiento, setFechaVencimiento] = useState(hoyISO)
   const [moneda, setMoneda] = useState<Moneda>(funcional)
-  const [tipoCambio, setTipoCambio] = useState('1')
+  // El del día de la emisión, no el de hoy ni el del catálogo de monedas.
+  const tc = useTipoCambioDocumento(moneda, fechaEmision)
+  const tipoCambio = tc.tipoCambio
   const [lineas, setLineas] = useState<LineaCaptura[]>(() => [lineaVacia()])
   const [intentoEnvio, setIntentoEnvio] = useState(false)
+  /** Sube en cada envío fallido: el resumen de errores toma el foco. */
+  const [fallos, setFallos] = useState(0)
 
   // Las tarifas que rigen el día que se emite, no las de hoy: una factura con
   // fecha de junio se calcula con la tabla de junio (docs/13 §3).
@@ -186,7 +191,8 @@ export function FacturaVentaPage() {
    * lo capturado a media palabra sería peor que no precargar nada.
    */
   const elegirItem = (linea: LineaCaptura, codigo: string) => {
-    const item = items.find((i) => i.codigo === codigo && i.activo)
+    const buscado = codigo.trim()
+    const item = items.find((i) => i.codigo === buscado && i.activo)
     if (!item) {
       actualizar(linea.clave, { itemCodigo: codigo, itemId: '' })
       return
@@ -215,11 +221,6 @@ export function FacturaVentaPage() {
     // quien factura solo lo toca cuando la venta se sale de lo pactado.
     setFechaVencimiento(vencimientoDe(fechaEmision, elegido.diasCredito))
     setMoneda(elegido.moneda)
-    setTipoCambio(
-      elegido.moneda === funcional
-        ? '1'
-        : configuracionMoneda(elegido.moneda).tipoCambio,
-    )
   }
 
   const cambiarEmision = (fecha: string) => {
@@ -227,18 +228,36 @@ export function FacturaVentaPage() {
     setFechaVencimiento(vencimientoDe(fecha, cliente?.diasCredito ?? 0))
   }
 
+  // Hay algo capturado que se perdería al salir.
+  const sucio =
+    Boolean(clienteId) ||
+    lineas.some(
+      (l) => l.itemCodigo || l.descripcion.trim() || l.precioUnitario,
+    )
+  const { aviso, permitirSalida } = useAvisoSalida(sucio && !emitir.isSuccess)
+
   const guardar = async () => {
     setIntentoEnvio(true)
-    if (!validacion.valido) return
+    emitir.reset()
+    if (!validacion.valido) {
+      setFallos((n) => n + 1)
+      return
+    }
     // El rechazo del servidor (límite de crédito, periodo cerrado) ya se
     // enseña desde `emitir.error`: se atrapa aquí para no dejar la promesa
     // suelta y para no navegar sobre una factura que no nació.
     const factura = await emitir.mutateAsync(solicitud).catch(() => null)
-    if (!factura) return
-    navegar('/cxc/facturas')
+    if (!factura) {
+      setFallos((n) => n + 1)
+      return
+    }
+    permitirSalida()
+    navegar(`/cxc/facturas/${factura.id}`)
   }
 
-  const errorServidor = emitir.error instanceof ApiError ? emitir.error : null
+  // El rechazo es de la solicitud que se envió: en cuanto se corrige algo,
+  // deja de describir lo que hay en pantalla.
+  const errorServidor = emitir.variables === solicitud ? emitir.error : null
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -259,6 +278,8 @@ export function FacturaVentaPage() {
           </>
         }
       />
+
+      {aviso}
 
       <Card className="mb-4">
         <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -318,15 +339,7 @@ export function FacturaVentaPage() {
               <Select
                 {...p}
                 value={moneda}
-                onChange={(e) => {
-                  const nueva = e.target.value
-                  setMoneda(nueva)
-                  setTipoCambio(
-                    nueva === funcional
-                      ? '1'
-                      : configuracionMoneda(nueva).tipoCambio,
-                  )
-                }}
+                onChange={(e) => setMoneda(e.target.value)}
               >
                 {monedasActivas().map((m) => (
                   <option key={m.codigo} value={m.codigo}>
@@ -340,14 +353,14 @@ export function FacturaVentaPage() {
           <Field
             label="Tipo de cambio"
             requerido
-            ayuda={moneda === funcional ? 'Moneda funcional' : 'Referencia BCCR'}
+            ayuda={tc.ayuda}
           >
             {(p) => (
               <Input
                 {...p}
                 value={tipoCambio}
                 disabled={moneda === funcional}
-                onChange={(e) => setTipoCambio(e.target.value)}
+                onChange={(e) => tc.editar(e.target.value)}
                 className="tabular text-right"
               />
             )}
@@ -623,28 +636,20 @@ export function FacturaVentaPage() {
         </table>
       </Card>
 
-      {(intentoEnvio && !validacion.valido) || errorServidor ? (
-        <div className="mt-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset">
-          <p className="flex items-center gap-1.5 text-sm font-medium text-red-800">
-            <CircleAlert className="size-4" />
-            {errorServidor
-              ? `${errorServidor.codigo}: ${errorServidor.message}`
-              : 'La factura no se puede emitir'}
-          </p>
-          <ul className="mt-1.5 ml-6 list-disc space-y-0.5 text-xs text-red-700">
-            {(errorServidor?.detalles.length
-              ? errorServidor.detalles
-              : validacion.errores.map((e) =>
-                  e.linea === undefined
-                    ? e.mensaje
-                    : `Línea ${e.linea + 1}: ${e.mensaje}`,
-                )
-            ).map((mensaje, i) => (
-              <li key={i}>{mensaje}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+      <ResumenErrores
+        titulo="La factura no se puede emitir"
+        errores={
+          intentoEnvio && !validacion.valido
+            ? validacion.errores.map((e) =>
+                e.linea === undefined
+                  ? e.mensaje
+                  : `Línea ${e.linea + 1}: ${e.mensaje}`,
+              )
+            : []
+        }
+        errorServidor={errorServidor}
+        senal={fallos}
+      />
     </div>
   )
 }

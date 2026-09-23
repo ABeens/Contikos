@@ -6,7 +6,7 @@ import { Field, Input, Select } from '@/shared/ui/Field'
 import { SelectorCuenta } from '@/shared/ui/SelectorCuenta'
 import { SelectorTercero } from '@/shared/ui/SelectorTercero'
 import { MoneyInput } from '@/shared/money/MoneyInput'
-import { ApiError } from '@/shared/api/client'
+import { MensajeError } from '@/shared/ui/MensajeError'
 import { monedaFuncional, monedasActivas } from '@/shared/money/money'
 import {
   TIPOS_IDENTIFICACION,
@@ -141,11 +141,20 @@ export function DialogoCliente({
   )
   const [intento, setIntento] = useState(false)
 
-  const cambiar = (cambios: Partial<SolicitudCliente>) =>
-    setDatos((prev) => ({ ...prev, ...cambios }))
+  /** El rechazo del servidor era de los datos de antes: al corregir, estorba. */
+  const tocar = () => {
+    if (guardar.isError) guardar.reset()
+  }
 
-  const cambiarUbicacion = (cambios: Partial<UbicacionCaptura>) =>
+  const cambiar = (cambios: Partial<SolicitudCliente>) => {
+    setDatos((prev) => ({ ...prev, ...cambios }))
+    tocar()
+  }
+
+  const cambiarUbicacion = (cambios: Partial<UbicacionCaptura>) => {
     setUbicacion((prev) => ({ ...prev, ...cambios }))
+    tocar()
+  }
 
   const solicitud: SolicitudCliente = useMemo(() => {
     const hayUbicacion = Object.values(ubicacion).some((v) => v.trim() !== '')
@@ -186,13 +195,18 @@ export function DialogoCliente({
       ? validacion.errores.find((e) => e.campo === campo)?.mensaje
       : undefined
 
-  const errorServidor = guardar.error instanceof ApiError ? guardar.error : null
+  // Primero lo local: un rechazo del servidor no tapa lo que falta capturar.
+  const errorServidor =
+    intento && !validacion.valido ? null : guardar.error
 
-  const enviar = async () => {
+  const enviar = () => {
     setIntento(true)
     if (!validacion.valido) return
-    await guardar.mutateAsync({ datos: solicitud, id: cliente?.id })
-    onCerrar()
+    // El rechazo se enseña desde `guardar.error`; aquí solo se evita dejar la
+    // promesa suelta y cerrar sobre un cliente que no se guardó.
+    guardar
+      .mutateAsync({ datos: solicitud, id: cliente?.id })
+      .then(onCerrar, () => undefined)
   }
 
   const completo = listoParaFe(solicitud)
@@ -204,12 +218,16 @@ export function DialogoCliente({
       titulo={creando ? 'Nuevo cliente' : `Cliente ${cliente.codigo}`}
       descripcion="Las condiciones de pago y el límite de crédito rigen la facturación."
       className="w-[min(94vw,44rem)]"
+      bloqueado={guardar.isPending}
+      alEnviar={enviar}
       acciones={
         <>
-          <Button onClick={onCerrar}>Cancelar</Button>
+          <Button onClick={onCerrar} disabled={guardar.isPending}>
+            Cancelar
+          </Button>
           <Button
+            type="submit"
             variante="primario"
-            onClick={() => void enviar()}
             disabled={guardar.isPending}
           >
             {guardar.isPending ? 'Guardando…' : 'Guardar'}
@@ -416,7 +434,10 @@ export function DialogoCliente({
                   inputMode="numeric"
                   aria-label="Código de país del teléfono"
                   className="w-16 text-center"
-                  onChange={(e) => setCodigoPais(e.target.value)}
+                  onChange={(e) => {
+                    setCodigoPais(e.target.value)
+                    tocar()
+                  }}
                 />
                 <Input
                   {...p}
@@ -424,7 +445,10 @@ export function DialogoCliente({
                   inputMode="numeric"
                   placeholder="22001100"
                   className="flex-1"
-                  onChange={(e) => setNumeroTelefono(e.target.value)}
+                  onChange={(e) => {
+                    setNumeroTelefono(e.target.value)
+                    tocar()
+                  }}
                 />
               </div>
             )}
@@ -504,22 +528,23 @@ export function DialogoCliente({
         />
       </div>
 
-      {(intento && !validacion.valido) || errorServidor ? (
-        <div className="mt-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset">
+      {intento && !validacion.valido ? (
+        <div
+          role="alert"
+          className="mt-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset"
+        >
           <p className="flex items-center gap-1.5 text-sm font-medium text-red-800">
             <CircleAlert className="size-4" />
-            {errorServidor ? errorServidor.message : 'Revise los datos'}
+            Revise los datos
           </p>
           <ul className="mt-1.5 ml-6 list-disc space-y-0.5 text-xs text-red-700">
-            {(errorServidor
-              ? errorServidor.detalles
-              : validacion.errores.map((e) => e.mensaje)
-            ).map((m, i) => (
-              <li key={i}>{m}</li>
+            {validacion.errores.map((e, i) => (
+              <li key={i}>{e.mensaje}</li>
             ))}
           </ul>
         </div>
       ) : null}
+      <MensajeError error={errorServidor} className="mt-4" />
     </Dialogo>
   )
 }

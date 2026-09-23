@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import Decimal from 'decimal.js'
 import { Calculator, Plus, Search, TriangleAlert } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
+import { LinkBoton } from '@/shared/ui/LinkBoton'
 import { Card, CardHeader, PageHeader } from '@/shared/ui/Layout'
 import { DataTable } from '@/shared/ui/DataTable'
 import { Input } from '@/shared/ui/Field'
@@ -21,47 +22,69 @@ import { cuotaMensual } from '../domain/activo'
  * Marca de dónde viene cada activo: la compra registrada en CxP o el alta
  * directa. No es un detalle administrativo, es la diferencia entre un activo
  * cuyo asiento hizo otro módulo y uno que se contabilizó aquí.
+ *
+ * La ficha abierta vive en la URL (`?activo=`) y se guarda por id, no como
+ * copia: así un refetch enseña los datos nuevos del mismo activo, nunca vuelve
+ * a abrir uno que el usuario cerró, y el enlace se puede compartir.
  */
 export function ActivosPage() {
-  const { data: activos = [], isLoading } = useActivos()
+  const consulta = useActivos()
+  const { data: activos = [] } = consulta
   const { data: pendientes = [] } = useAltasPendientes()
   const [parametros, setParametros] = useSearchParams()
   const [filtro, setFiltro] = useState('')
-  const [seleccionado, setSeleccionado] = useState<Activo | null>(null)
+  const [visibles, setVisibles] = useState(0)
 
-  // `?activo=` es la ida desde la línea de la factura en CxP: quien llega desde
-  // la compra quiere la ficha que reconoció, no el inventario entero.
-  const pedido = parametros.get('activo')
-  useEffect(() => {
-    if (!pedido) return
-    const activo = activos.find((a) => a.id === pedido)
-    if (activo) setSeleccionado(activo)
-  }, [pedido, activos])
+  // `?activo=` es también la ida desde la línea de la factura en CxP y la
+  // vuelta tras dar de alta: quien llega quiere esa ficha, no el inventario.
+  const seleccionadoId = parametros.get('activo')
+  const seleccionado = activos.find((a) => a.id === seleccionadoId) ?? null
 
-  const cerrarFicha = () => {
-    setSeleccionado(null)
-    if (pedido) {
-      const nuevos = new URLSearchParams(parametros)
-      nuevos.delete('activo')
-      setParametros(nuevos, { replace: true })
-    }
+  const abrirFicha = (activo: Activo) => {
+    const nuevos = new URLSearchParams(parametros)
+    nuevos.set('activo', activo.id)
+    setParametros(nuevos, { replace: true })
   }
 
+  const cerrarFicha = () => {
+    const nuevos = new URLSearchParams(parametros)
+    nuevos.delete('activo')
+    setParametros(nuevos, { replace: true })
+  }
+
+  /**
+   * Totales por moneda, de lo que el filtro deja ver.
+   *
+   * Sumar un costo en dólares con uno en colones da un número que no es de
+   * ninguna moneda. Y si el buscador deja tres activos, los totales son de
+   * esos tres: una cifra que no cuadra con la tabla de debajo confunde más de
+   * lo que informa.
+   */
   const totales = useMemo(() => {
-    const costo = activos.reduce(
-      (acc, a) => acc.plus(new Decimal(a.costoAdquisicion)),
-      new Decimal(0),
-    )
-    const depreciacion = activos.reduce(
-      (acc, a) => acc.plus(new Decimal(a.depreciacionAcumulada)),
-      new Decimal(0),
-    )
-    return {
-      costo: costo.toFixed(2),
-      depreciacion: depreciacion.toFixed(2),
-      libros: costo.minus(depreciacion).toFixed(2),
+    const porMoneda = new Map<
+      string,
+      { costo: Decimal; depreciacion: Decimal }
+    >()
+    for (const a of activos) {
+      if (!coincide(a, filtro)) continue
+      const previo = porMoneda.get(a.moneda) ?? {
+        costo: new Decimal(0),
+        depreciacion: new Decimal(0),
+      }
+      porMoneda.set(a.moneda, {
+        costo: previo.costo.plus(new Decimal(a.costoAdquisicion)),
+        depreciacion: previo.depreciacion.plus(
+          new Decimal(a.depreciacionAcumulada),
+        ),
+      })
     }
-  }, [activos])
+    return [...porMoneda.entries()].map(([moneda, t]) => ({
+      moneda,
+      costo: t.costo.toFixed(2),
+      depreciacion: t.depreciacion.toFixed(2),
+      libros: t.costo.minus(t.depreciacion).toFixed(2),
+    }))
+  }, [activos, filtro])
 
   const columnas = useMemo<ColumnDef<Activo, unknown>[]>(
     () => [
@@ -76,8 +99,11 @@ export function ActivosPage() {
         ),
       },
       {
-        accessorKey: 'nombre',
+        // El buscador promete buscar por categoría: el valor de la columna
+        // lleva las dos cosas, aunque la celda las pinte en dos renglones.
+        id: 'nombre',
         header: 'Activo',
+        accessorFn: textoNombre,
         cell: ({ row }) => (
           <div>
             <p className="text-slate-800">{row.original.nombre}</p>
@@ -91,7 +117,7 @@ export function ActivosPage() {
         id: 'origen',
         header: 'Origen',
         meta: { ancho: '150px' },
-        accessorFn: (a) => (a.origen === 'cxp' ? 'compra cxp' : 'alta directa'),
+        accessorFn: textoOrigen,
         cell: ({ row }) =>
           row.original.origen === 'cxp' ? (
             <Link
@@ -165,16 +191,19 @@ export function ActivosPage() {
         descripcion="Inventario de activos, su costo y su valor en libros."
         acciones={
           <>
-            <Link to="/activos/depreciacion">
-              <Button icono={<Calculator className="size-4" />}>
-                Depreciación
-              </Button>
-            </Link>
-            <Link to="/activos/nuevo">
-              <Button variante="primario" icono={<Plus className="size-4" />}>
-                Registrar activo
-              </Button>
-            </Link>
+            <LinkBoton
+              to="/activos/depreciacion"
+              icono={<Calculator className="size-4" />}
+            >
+              Depreciación
+            </LinkBoton>
+            <LinkBoton
+              to="/activos/nuevo"
+              variante="primario"
+              icono={<Plus className="size-4" />}
+            >
+              Registrar activo
+            </LinkBoton>
           </>
         }
       />
@@ -191,11 +220,26 @@ export function ActivosPage() {
         </Link>
       )}
 
-      <div className="mb-4 flex flex-wrap gap-3">
-        <Resumen titulo="Costo de adquisición" valor={totales.costo} />
-        <Resumen titulo="Depreciación acumulada" valor={totales.depreciacion} />
-        <Resumen titulo="Valor en libros" valor={totales.libros} destacado />
-      </div>
+      {totales.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-3">
+          <Resumen
+            titulo="Costo de adquisición"
+            valores={totales.map((t) => ({ moneda: t.moneda, valor: t.costo }))}
+          />
+          <Resumen
+            titulo="Depreciación acumulada"
+            valores={totales.map((t) => ({
+              moneda: t.moneda,
+              valor: t.depreciacion,
+            }))}
+          />
+          <Resumen
+            titulo="Valor en libros"
+            valores={totales.map((t) => ({ moneda: t.moneda, valor: t.libros }))}
+            destacado
+          />
+        </div>
+      )}
 
       <Card>
         <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-3">
@@ -204,30 +248,32 @@ export function ActivosPage() {
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
             placeholder="Buscar por nombre, código o categoría…"
+            aria-label="Buscar activo"
             className="h-8 max-w-sm border-0 px-0 focus:ring-0"
           />
           <span className="ml-auto text-xs text-slate-500">
-            {activos.length} activos
+            {filtro.trim() && visibles !== activos.length
+              ? `${visibles} de ${activos.length} activos`
+              : `${activos.length} activos`}
           </span>
         </div>
 
-        {isLoading ? (
-          <p className="px-4 py-10 text-center text-sm text-slate-500">
-            Cargando activos…
-          </p>
-        ) : (
-          <DataTable
-            columns={columnas}
-            data={activos}
-            filtro={filtro}
-            onRowClick={setSeleccionado}
-            vacio={{
-              titulo: 'Sin activos registrados',
-              descripcion:
-                'Registre uno desde una factura de compra o como alta directa.',
-            }}
-          />
-        )}
+        <DataTable
+          columns={columnas}
+          data={activos}
+          filtro={filtro}
+          onRowClick={abrirFicha}
+          esSeleccionada={(a) => a.id === seleccionadoId}
+          alFiltrar={setVisibles}
+          cargando={consulta.isLoading}
+          error={consulta.error}
+          onReintentar={() => void consulta.refetch()}
+          vacio={{
+            titulo: 'Sin activos registrados',
+            descripcion:
+              'Registre uno desde una factura de compra o como alta directa.',
+          }}
+        />
       </Card>
 
       {seleccionado && (
@@ -303,6 +349,11 @@ export function ActivosPage() {
                   ? 'No: lo contabilizó la compra en CxP'
                   : (seleccionado.asientoId ?? 'Sin asiento')
               }
+              enlace={
+                seleccionado.origen !== 'cxp' && seleccionado.asientoId
+                  ? `/conta/asientos?asiento=${seleccionado.asientoId}`
+                  : undefined
+              }
             />
           </dl>
           <HistorialDepreciaciones activo={seleccionado} />
@@ -310,6 +361,38 @@ export function ActivosPage() {
       )}
     </div>
   )
+}
+
+/* --------------------------------------------------------- Búsqueda */
+
+function textoNombre(a: Activo): string {
+  return `${a.nombre} ${a.categoriaNombre}`
+}
+
+function textoOrigen(a: Activo): string {
+  return a.origen === 'cxp'
+    ? `compra cxp factura ${a.facturaFolio ?? ''}`
+    : 'alta directa'
+}
+
+/**
+ * El mismo criterio que el filtro global de la tabla: el texto aparece dentro
+ * del valor de alguna columna. Lo usan los totales para sumar exactamente las
+ * filas que se ven.
+ */
+function coincide(a: Activo, filtro: string): boolean {
+  const buscado = filtro.toLowerCase()
+  if (!buscado) return true
+  return [
+    a.codigo,
+    textoNombre(a),
+    textoOrigen(a),
+    a.fechaAdquisicion,
+    a.costoAdquisicion,
+    a.depreciacionAcumulada,
+    a.valorEnLibros,
+    a.estado,
+  ].some((valor) => valor.toLowerCase().includes(buscado))
 }
 
 /**
@@ -349,7 +432,7 @@ function HistorialDepreciaciones({ activo }: { activo: Activo }) {
                 </td>
                 <td className="py-1 pl-4">
                   <Link
-                    to="/conta/asientos"
+                    to={`/conta/asientos?asiento=${d.asientoId}`}
                     className="font-mono text-xs text-brand-700 hover:underline"
                   >
                     {d.asientoId}
@@ -366,21 +449,25 @@ function HistorialDepreciaciones({ activo }: { activo: Activo }) {
 
 function Resumen({
   titulo,
-  valor,
+  valores,
   destacado,
 }: {
   titulo: string
-  valor: string
+  /** Un renglón por moneda: importes de monedas distintas no se suman. */
+  valores: { moneda: string; valor: string }[]
   destacado?: boolean
 }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white px-4 py-2 shadow-sm">
       <p className="text-[11px] text-slate-500">{titulo}</p>
-      <p
-        className={`text-lg font-semibold ${destacado ? 'text-brand-700' : 'text-slate-900'}`}
-      >
-        <MoneyCell valor={valor} mostrarSimbolo />
-      </p>
+      {valores.map((v) => (
+        <p
+          key={v.moneda}
+          className={`text-lg font-semibold ${destacado ? 'text-brand-700' : 'text-slate-900'}`}
+        >
+          <MoneyCell valor={v.valor} moneda={v.moneda} mostrarSimbolo />
+        </p>
+      ))}
     </div>
   )
 }

@@ -35,8 +35,6 @@ export const clavesCxp = {
     ] as const,
   pago: (id: string) => ['cxp', 'pago', id] as const,
   asientoPago: (id: string) => ['cxp', 'pago', id, 'asiento'] as const,
-  propuesta: (corte: string, disponible: string) =>
-    ['cxp', 'propuesta', corte, disponible] as const,
 }
 
 export function useProveedores() {
@@ -151,21 +149,31 @@ export function useAsientoDePago(id: string | undefined) {
 /**
  * Propuesta de pago a una fecha de corte y un tope de efectivo (docs/05 §2.3).
  *
- * Sin caché útil: la propuesta depende de los saldos vigentes y lo primero que
- * la invalida es emitir uno de los pagos que ella misma propuso.
+ * Es una mutación y no una consulta, aunque no escriba nada: la propuesta es
+ * una FOTO que se toma al pulsar "Calcular" y sobre la que se emite. Como
+ * consulta, la invalidación que hace cada pago emitido la recalcularía a media
+ * emisión contra el mismo disponible, y la pantalla ofrecería pagar otra vez
+ * con un dinero que ya salió. Se vuelve a pedir solo cuando alguien lo pide.
  */
-export function usePropuestaPago(
-  corte: string,
-  disponible: string,
-  habilitado = true,
-) {
-  return useQuery({
-    queryKey: clavesCxp.propuesta(corte, disponible),
-    queryFn: ({ signal }) =>
-      servicioCxp.obtenerPropuestaPago({ corte, disponible }, { signal }),
-    enabled: habilitado,
-    staleTime: 0,
+export function useCalcularPropuestaPago() {
+  return useMutation({
+    mutationFn: ({ corte, disponible }: { corte: string; disponible: string }) =>
+      servicioCxp.obtenerPropuestaPago({ corte, disponible }),
   })
+}
+
+/**
+ * Lo que hay que refrescar cuando un pago entra o sale del mayor.
+ *
+ * `cxp` entero, los asientos y la balanza de `conta`, y `bancos`: el pago sale
+ * (y su anulación vuelve) como movimiento de la cuenta bancaria, y el saldo y
+ * la conciliación de tesorería lo enseñan.
+ */
+function invalidarPorPago(cliente: ReturnType<typeof useQueryClient>): void {
+  void cliente.invalidateQueries({ queryKey: ['cxp'] })
+  void cliente.invalidateQueries({ queryKey: ['conta', 'asientos'] })
+  void cliente.invalidateQueries({ queryKey: ['conta', 'balanza'] })
+  void cliente.invalidateQueries({ queryKey: ['bancos'] })
 }
 
 /**
@@ -180,11 +188,7 @@ export function useRegistrarPago() {
   return useMutation({
     mutationFn: (solicitud: SolicitudPago) =>
       servicioCxp.registrarPago(solicitud),
-    onSuccess: () => {
-      void cliente.invalidateQueries({ queryKey: ['cxp'] })
-      void cliente.invalidateQueries({ queryKey: ['conta', 'asientos'] })
-      void cliente.invalidateQueries({ queryKey: ['conta', 'balanza'] })
-    },
+    onSuccess: () => invalidarPorPago(cliente),
   })
 }
 
@@ -199,11 +203,7 @@ export function useAnularPago() {
       id: string
       solicitud: SolicitudAnulacionPago
     }) => servicioCxp.anularPago(id, solicitud),
-    onSuccess: () => {
-      void cliente.invalidateQueries({ queryKey: ['cxp'] })
-      void cliente.invalidateQueries({ queryKey: ['conta', 'asientos'] })
-      void cliente.invalidateQueries({ queryKey: ['conta', 'balanza'] })
-    },
+    onSuccess: () => invalidarPorPago(cliente),
   })
 }
 
@@ -261,24 +261,66 @@ export function useEliminarAdjunto() {
 /**
  * Abre un adjunto en otra pestaña.
  *
- * Descarga el binario y lo enseña por una URL de blob: el servidor devuelve
- * el archivo con su tipo y el navegador hace el resto. La URL se libera al
- * rato; la pestaña ya lo tiene cargado.
+ * La pestaña se abre en el mismo clic, en blanco, y la URL se le asigna cuando
+ * llega el binario: un `window.open` hecho después de un `await` ya no cuenta
+ * como gesto del usuario y el bloqueador de ventanas emergentes se lo come sin
+ * avisar. Si el navegador no dio pestaña, el archivo se descarga con un enlace.
+ * Si la descarga falla, la pestaña en blanco se cierra y el error queda en la
+ * mutación para que la pantalla lo diga.
  */
 export function useAbrirAdjunto() {
-  return useMutation({
+  const mutacion = useMutation({
     mutationFn: async ({
       facturaId,
       adjuntoId,
+      nombre,
+      pestana,
     }: {
       facturaId: string
       adjuntoId: string
+      nombre?: string
+      pestana: Window | null
     }) => {
-      const blob = await servicioCxp.descargarAdjunto(facturaId, adjuntoId)
-      const url = URL.createObjectURL(blob)
-      window.open(url, '_blank', 'noopener')
-      setTimeout(() => URL.revokeObjectURL(url), 60_000)
-      return url
+      try {
+        const blob = await servicioCxp.descargarAdjunto(facturaId, adjuntoId)
+        const url = URL.createObjectURL(blob)
+        if (pestana && !pestana.closed) {
+          pestana.location.href = url
+        } else {
+          const enlace = document.createElement('a')
+          enlace.href = url
+          enlace.download = nombre ?? ''
+          enlace.rel = 'noopener'
+          document.body.appendChild(enlace)
+          enlace.click()
+          enlace.remove()
+        }
+        // La URL se libera al rato: la pestaña ya lo tiene cargado.
+        setTimeout(() => URL.revokeObjectURL(url), 60_000)
+        return url
+      } catch (e) {
+        pestana?.close()
+        throw e
+      }
     },
   })
+
+  /** Se llama directamente desde el clic: ahí es donde se abre la pestaña. */
+  const abrir = (datos: {
+    facturaId: string
+    adjuntoId: string
+    nombre?: string
+  }) => {
+    let pestana: Window | null = null
+    try {
+      pestana = window.open('', '_blank')
+      // Sin `noopener` para poder asignarle la URL; se corta el vínculo aquí.
+      if (pestana) pestana.opener = null
+    } catch {
+      pestana = null
+    }
+    mutacion.mutate({ ...datos, pestana })
+  }
+
+  return { ...mutacion, abrir }
 }

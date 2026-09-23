@@ -3,6 +3,7 @@ import Decimal from 'decimal.js'
 import { CircleAlert } from 'lucide-react'
 import { Button } from '@/shared/ui/Button'
 import { Dialogo } from '@/shared/ui/Dialogo'
+import { MensajeError } from '@/shared/ui/MensajeError'
 import { Field, Input, Select } from '@/shared/ui/Field'
 import { formatConConfig } from '@/shared/money/format'
 import { ApiError } from '@/shared/api/client'
@@ -84,8 +85,12 @@ export function DialogoMoneda({
   )
   const [intentoEnvio, setIntentoEnvio] = useState(false)
 
-  const cambiar = <K extends keyof Formulario>(campo: K, valor: Formulario[K]) =>
+  const cambiar = <K extends keyof Formulario>(campo: K, valor: Formulario[K]) => {
     setForm((prev) => ({ ...prev, [campo]: valor }))
+    // El rechazo del servidor era sobre los datos de antes: al corregirlos
+    // deja de ser cierto y no debe seguir en pantalla como si lo fuera.
+    if (guardar.error) guardar.reset()
+  }
 
   const validacion = useMemo(
     () =>
@@ -110,14 +115,19 @@ export function DialogoMoneda({
     { simbolo: true },
   )
 
-  const enviar = async () => {
+  // Con `mutate` y no `mutateAsync`: el rechazo del servidor se pinta desde
+  // `guardar.error`, y un `await` sin `catch` lo dejaba además como promesa
+  // rechazada sin atender.
+  const enviar = () => {
     setIntentoEnvio(true)
-    if (!validacion.valido) return
-    await guardar.mutateAsync({
-      moneda: { ...form, codigo: form.codigo.trim().toUpperCase() },
-      creando,
-    })
-    onCerrar()
+    if (!validacion.valido || guardar.isPending) return
+    guardar.mutate(
+      {
+        moneda: { ...form, codigo: form.codigo.trim().toUpperCase() },
+        creando,
+      },
+      { onSuccess: onCerrar },
+    )
   }
 
   const errorServidor =
@@ -133,12 +143,16 @@ export function DialogoMoneda({
           ? 'El código ISO 4217 identifica la moneda y no se puede cambiar después.'
           : 'El código no es editable: es la llave con la que quedaron grabados los asientos.'
       }
+      bloqueado={guardar.isPending}
+      alEnviar={enviar}
       acciones={
         <>
-          <Button onClick={onCerrar}>Cancelar</Button>
+          <Button onClick={onCerrar} disabled={guardar.isPending}>
+            Cancelar
+          </Button>
           <Button
+            type="submit"
             variante="primario"
-            onClick={() => void enviar()}
             disabled={guardar.isPending}
           >
             {guardar.isPending ? 'Guardando…' : 'Guardar'}
@@ -334,7 +348,7 @@ export function DialogoMoneda({
           <p className="flex items-center gap-1.5 text-sm font-medium text-red-800">
             <CircleAlert className="size-4" />
             {errorServidor
-              ? `${errorServidor.codigo} — ${errorServidor.message}`
+              ? `${errorServidor.codigo}: ${errorServidor.message}`
               : 'La moneda no se puede guardar'}
           </p>
           <ul className="mt-1.5 ml-6 list-disc space-y-0.5 text-xs text-red-700">
@@ -347,6 +361,12 @@ export function DialogoMoneda({
           </ul>
         </div>
       ) : null}
+
+      {/* Un fallo que no es de negocio (red, tiempo agotado) no trae código
+          ni detalles, pero tampoco puede quedar sin decirse. */}
+      {!errorServidor && (
+        <MensajeError error={guardar.error} className="mt-4" />
+      )}
     </Dialogo>
   )
 }

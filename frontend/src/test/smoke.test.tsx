@@ -41,6 +41,23 @@ async function ponerFechaAbierta(usuario: ReturnType<typeof userEvent.setup>) {
   await usuario.type(campo, FECHA_ABIERTA)
 }
 
+/**
+ * La fila de la lista que contiene el texto. Tras contabilizar se llega con
+ * el asiento abierto, y su concepto está también en el panel de detalle.
+ */
+async function filaCon(texto: string) {
+  let fila: HTMLElement | null = null
+  await waitFor(() => {
+    fila =
+      screen
+        .getAllByText(texto)
+        .map((nodo) => nodo.closest('tr'))
+        .find((tr) => tr !== null) ?? null
+    expect(fila).not.toBeNull()
+  })
+  return fila!
+}
+
 function montar(rutaInicial: string) {
   const router = createMemoryRouter(rutas, { initialEntries: [rutaInicial] })
   return render(
@@ -213,10 +230,16 @@ describe('Captura de asiento', () => {
 
     await usuario.click(screen.getByRole('button', { name: /Contabilizar/ }))
 
-    // Tras contabilizar navega a la lista, donde el asiento nuevo ya aparece
-    expect(
-      await screen.findByText('Compra de papelería agosto'),
-    ).toBeInTheDocument()
+    // Tras contabilizar navega a la lista con el asiento abierto: el concepto
+    // está en su fila y en el detalle.
+    expect(await screen.findByText('Detalle del asiento')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(
+        screen
+          .getAllByText('Compra de papelería agosto')
+          .some((nodo) => nodo.closest('tr')),
+      ).toBe(true),
+    )
   })
 
   it('impide capturar contra una cuenta de control', async () => {
@@ -334,9 +357,9 @@ describe('Contabilidad corporativa', () => {
 
     await usuario.click(screen.getByRole('button', { name: /Contabilizar/ }))
 
-    const fila = (await screen.findByText('Alquiler de bodega agosto')).closest(
-      'tr',
-    )!
+    // Se llega con el asiento abierto: el concepto está en su fila y en el
+    // detalle, y lo que se mira aquí es la fila.
+    const fila = await filaCon('Alquiler de bodega agosto')
     expect(within(fila).getByText('Ambas')).toBeInTheDocument()
   })
 
@@ -375,17 +398,17 @@ describe('Contabilidad corporativa', () => {
 
     await usuario.click(screen.getByRole('button', { name: /Contabilizar/ }))
 
-    const fila = (
-      await screen.findByText('Provisión de vacaciones setiembre')
-    ).closest('tr')!
+    const fila = await filaCon('Provisión de vacaciones setiembre')
     expect(within(fila).getByText('Solo corporativa')).toBeInTheDocument()
 
     // Y al filtrar por la fiscal, ese asiento no está
     await usuario.selectOptions(screen.getByLabelText('Contabilidad'), 'fiscal')
     await waitFor(() =>
       expect(
-        screen.queryByText('Provisión de vacaciones setiembre'),
-      ).not.toBeInTheDocument(),
+        screen
+          .queryAllByText('Provisión de vacaciones setiembre')
+          .some((nodo) => nodo.closest('tr')),
+      ).toBe(false),
     )
   })
 

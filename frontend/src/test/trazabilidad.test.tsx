@@ -117,10 +117,18 @@ describe('Documento relacionado', () => {
 
     // En la lista, el asiento es manual (sin origen) y el panel enseña el
     // documento al que se refiere.
-    const concepto = await screen.findByText('Ajuste por redondeo de la FE-00000114')
-    const fila = concepto.closest('tr')!
-    expect(within(fila).getByText('Manual')).toBeInTheDocument()
-    await usuario.click(concepto)
+    // Se llega con el asiento abierto: el concepto está en su fila y en el
+    // detalle. Lo que se mira primero es la fila.
+    let fila: HTMLElement | null = null
+    await waitFor(() => {
+      fila =
+        screen
+          .getAllByText('Ajuste por redondeo de la FE-00000114')
+          .map((nodo) => nodo.closest('tr'))
+          .find((tr) => tr !== null) ?? null
+      expect(fila).not.toBeNull()
+    })
+    expect(within(fila!).getByText('Manual')).toBeInTheDocument()
     // Acotado al bloque del panel: el módulo aparece también en el origen de
     // los demás asientos de la lista, y la búsqueda suelta encuentra varios.
     const etiqueta = await screen.findByText('Documento relacionado')

@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { CircleAlert, Lock } from 'lucide-react'
+import { ApiError } from '@/shared/api/client'
 import { Button } from '@/shared/ui/Button'
 import { Dialogo } from '@/shared/ui/Dialogo'
 import { Field, Input, Select } from '@/shared/ui/Field'
 import { SelectorCuenta } from '@/shared/ui/SelectorCuenta'
-import { ApiError } from '@/shared/api/client'
 import type { Cuenta } from '@/shared/api/contracts/conta'
 import type {
   CategoriaActivo,
@@ -72,20 +72,48 @@ export function DialogoCategoria({
   )
   const [intento, setIntento] = useState(false)
 
+  /**
+   * Los dos campos numéricos se editan como texto.
+   *
+   * Si el campo guardara el número, vaciarlo lo convertiría en 0 al instante y
+   * no habría forma de borrar para teclear otro valor: el cero volvería a
+   * aparecer delante del cursor. Vacío se valida como lo que es, un dato que
+   * falta.
+   */
+  const [vidaTexto, setVidaTexto] = useState(() => String(datos.vidaUtilMeses))
+  const [residualTexto, setResidualTexto] = useState(
+    () => datos.porcentajeResidual,
+  )
+
   const cambiar = (cambios: Partial<SolicitudCategoriaActivo>) =>
     setDatos((prev) => ({ ...prev, ...cambios }))
+
+  const solicitud: SolicitudCategoriaActivo = {
+    ...datos,
+    // Vacío o no entero da NaN o decimales, y la validación lo rechaza con su
+    // mensaje en vez de guardar un cero que nadie tecleó.
+    vidaUtilMeses: vidaTexto.trim() === '' ? Number.NaN : Number(vidaTexto),
+    // El residual vacío es cero, como dice su marcador: no depreciar nada
+    // por debajo del costo es lo habitual.
+    porcentajeResidual: residualTexto.trim() || '0',
+  }
 
   // El mapeo de una categoría con inventario ya está escrito en el mayor.
   const mapeoFijo = Boolean(categoria && categoria.activos > 0)
 
-  const validacion = validarCategoria(datos, { cuentas, categorias, categoria })
+  const validacion = validarCategoria(solicitud, {
+    cuentas,
+    categorias,
+    categoria,
+  })
   const errorServidor = guardar.error instanceof ApiError ? guardar.error : null
 
-  const enviar = async () => {
+  // `mutate` y no `mutateAsync`: el error queda en `guardar.error` y se enseña
+  // dentro del diálogo, en vez de escaparse como una promesa rechazada.
+  const enviar = () => {
     setIntento(true)
     if (!validacion.valido) return
-    await guardar.mutateAsync({ datos, id: categoria?.id })
-    onCerrar()
+    guardar.mutate({ datos: solicitud, id: categoria?.id }, { onSuccess: onCerrar })
   }
 
   return (
@@ -95,12 +123,16 @@ export function DialogoCategoria({
       titulo={creando ? 'Nueva categoría de activo' : categoria.nombre}
       descripcion="Vida útil, método y las tres cuentas que mueve el ciclo de vida del activo."
       className="w-[min(94vw,44rem)]"
+      bloqueado={guardar.isPending}
+      alEnviar={enviar}
       acciones={
         <>
-          <Button onClick={onCerrar}>Cancelar</Button>
+          <Button onClick={onCerrar} disabled={guardar.isPending}>
+            Cancelar
+          </Button>
           <Button
+            type="submit"
             variante="primario"
-            onClick={() => void enviar()}
             disabled={guardar.isPending}
           >
             {guardar.isPending ? 'Guardando…' : 'Guardar'}
@@ -130,11 +162,10 @@ export function DialogoCategoria({
               {...p}
               type="number"
               min={1}
-              value={datos.vidaUtilMeses}
+              step={1}
+              value={vidaTexto}
               className="tabular text-right"
-              onChange={(e) =>
-                cambiar({ vidaUtilMeses: Math.trunc(Number(e.target.value)) })
-              }
+              onChange={(e) => setVidaTexto(e.target.value)}
             />
           )}
         </Field>
@@ -162,11 +193,10 @@ export function DialogoCategoria({
             <Input
               {...p}
               inputMode="decimal"
-              value={datos.porcentajeResidual}
+              value={residualTexto}
+              placeholder="0"
               className="tabular text-right"
-              onChange={(e) =>
-                cambiar({ porcentajeResidual: e.target.value || '0' })
-              }
+              onChange={(e) => setResidualTexto(e.target.value)}
             />
           )}
         </Field>

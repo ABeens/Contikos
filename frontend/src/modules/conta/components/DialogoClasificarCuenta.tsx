@@ -117,17 +117,30 @@ export function DialogoClasificarCuenta({
       ? validacion.errores.find((e) => e.campo === campo)?.mensaje
       : undefined
 
+  /** El error del servidor era sobre la asignación de antes de este cambio. */
+  const limpiarErrorServidor = () => {
+    if (clasificar.isError) clasificar.reset()
+  }
+
   /** Cambiar de renglón invalida la nota: pertenecía al renglón anterior. */
   const cambiarClasificacion = (id: string) => {
+    limpiarErrorServidor()
     setClasificacionId(id)
     setNotaId(SIN_ASIGNAR)
   }
 
-  const enviar = async () => {
+  const cambiarNota = (id: string) => {
+    limpiarErrorServidor()
+    setNotaId(id)
+  }
+
+  const enviar = () => {
     setIntentoEnvio(true)
-    if (!validacion.valido) return
-    await clasificar.mutateAsync({ cuentaId: cuenta.id, asignacion })
-    onCerrar()
+    if (!cuenta.esDetalle || !validacion.valido || clasificar.isPending) return
+    clasificar.mutate(
+      { cuentaId: cuenta.id, asignacion },
+      { onSuccess: onCerrar },
+    )
   }
 
   const errorServidor =
@@ -141,14 +154,18 @@ export function DialogoClasificarCuenta({
     <Dialogo
       abierto={abierto}
       onCerrar={onCerrar}
+      bloqueado={clasificar.isPending}
+      alEnviar={enviar}
       titulo={`Presentación de ${cuenta.codigo}`}
       descripcion={`${cuenta.nombre} · ${ETIQUETA_TIPO_CUENTA[cuenta.tipo]}`}
       acciones={
         <>
-          <Button onClick={onCerrar}>Cancelar</Button>
+          <Button onClick={onCerrar} disabled={clasificar.isPending}>
+            Cancelar
+          </Button>
           <Button
             variante="primario"
-            onClick={() => void enviar()}
+            type="submit"
             disabled={clasificar.isPending || !cuenta.esDetalle}
           >
             {clasificar.isPending ? 'Guardando…' : 'Guardar'}
@@ -180,6 +197,7 @@ export function DialogoClasificarCuenta({
               <Select
                 {...p}
                 value={clasificacionId}
+                autoFocus
                 onChange={(e) => cambiarClasificacion(e.target.value)}
               >
                 <option value={SIN_ASIGNAR}>Elija el renglón…</option>
@@ -209,7 +227,7 @@ export function DialogoClasificarCuenta({
                 {...p}
                 value={notaId}
                 disabled={notasDisponibles.length === 0}
-                onChange={(e) => setNotaId(e.target.value)}
+                onChange={(e) => cambiarNota(e.target.value)}
               >
                 <option value={SIN_ASIGNAR}>Elija la nota…</option>
                 {notasDisponibles.map((n) => (
@@ -224,7 +242,10 @@ export function DialogoClasificarCuenta({
       )}
 
       {(intentoEnvio && !validacion.valido) || errorServidor ? (
-        <div className="mt-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset">
+        <div
+          role="alert"
+          className="mt-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset"
+        >
           <p className="flex items-center gap-1.5 text-sm font-medium text-red-800">
             <CircleAlert className="size-4" />
             {errorServidor

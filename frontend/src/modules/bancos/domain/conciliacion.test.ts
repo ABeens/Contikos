@@ -22,7 +22,7 @@ const CUENTA: CuentaBancaria = {
   id: 'bco-001',
   codigo: 'BCO-001',
   banco: 'Banco Nacional de Costa Rica',
-  nombre: 'BN — corriente colones',
+  nombre: 'BN, corriente colones',
   numeroCuenta: '100-01-000-123456-7',
   iban: null,
   tipo: 'cheques',

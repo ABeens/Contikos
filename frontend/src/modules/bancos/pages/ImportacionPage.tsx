@@ -47,21 +47,35 @@ export function ImportacionPage() {
 
   const lineas = contenido.trim() === '' ? 0 : contenido.trim().split(/\r?\n/).length
 
-  const leerArchivo = async (fichero: File) => {
-    setArchivo(fichero.name)
-    setContenido(await fichero.text())
+  const [errorLectura, setErrorLectura] = useState<string | null>(null)
+
+  /**
+   * Cualquier cambio del contenido invalida lo anterior: el resultado de otra
+   * importación y el error del servidor sobre otro texto ya no describen lo
+   * que hay en pantalla.
+   */
+  const reemplazarContenido = (texto: string, nombre: string | null) => {
+    setContenido(texto)
+    setArchivo(nombre)
     setResultado(null)
+    setErrorLectura(null)
+    importar.reset()
   }
 
-  const enviar = async () => {
+  const leerArchivo = async (fichero: File) => {
+    try {
+      reemplazarContenido(decodificar(await fichero.arrayBuffer()), fichero.name)
+    } catch {
+      setErrorLectura(`No se pudo leer ${fichero.name}.`)
+    }
+  }
+
+  const enviar = () => {
     if (!cuentaId || contenido.trim() === '') return
-    const respuesta = await importar.mutateAsync({
-      cuentaBancariaId: cuentaId,
-      formato,
-      contenido,
-      archivo,
-    })
-    setResultado(respuesta)
+    importar.mutate(
+      { cuentaBancariaId: cuentaId, formato, contenido, archivo },
+      { onSuccess: setResultado },
+    )
   }
 
   return (
@@ -81,6 +95,7 @@ export function ImportacionPage() {
                 onChange={(e) => {
                   setCuentaId(e.target.value)
                   setResultado(null)
+                  importar.reset()
                 }}
               >
                 <option value="">Seleccione…</option>
@@ -123,6 +138,9 @@ export function ImportacionPage() {
               className="hidden"
               onChange={(e) => {
                 const fichero = e.target.files?.[0]
+                // Se vacía el campo para que elegir otra vez el MISMO archivo
+                // (corregido fuera, por ejemplo) vuelva a disparar el cambio.
+                e.target.value = ''
                 if (fichero) void leerArchivo(fichero)
               }}
             />
@@ -137,11 +155,7 @@ export function ImportacionPage() {
               <Button
                 tamano="sm"
                 variante="fantasma"
-                onClick={() => {
-                  setContenido(ejemplo)
-                  setArchivo(null)
-                  setResultado(null)
-                }}
+                onClick={() => reemplazarContenido(ejemplo, null)}
               >
                 Usar el ejemplo de demostración
               </Button>
@@ -157,11 +171,7 @@ export function ImportacionPage() {
 
           <textarea
             value={contenido}
-            onChange={(e) => {
-              setContenido(e.target.value)
-              setArchivo(null)
-              setResultado(null)
-            }}
+            onChange={(e) => reemplazarContenido(e.target.value, null)}
             rows={10}
             spellCheck={false}
             aria-label="Contenido del estado de cuenta"
@@ -170,6 +180,15 @@ export function ImportacionPage() {
           />
         </div>
       </Card>
+
+      {errorLectura && (
+        <p
+          role="alert"
+          className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 ring-1 ring-red-200 ring-inset"
+        >
+          {errorLectura}
+        </p>
+      )}
 
       {errorServidor && (
         <div className="mb-4 rounded-md bg-red-50 p-3 ring-1 ring-red-200 ring-inset">
@@ -267,7 +286,7 @@ export function ImportacionPage() {
         <Button onClick={() => navegar('/bancos')}>Volver</Button>
         <Button
           variante="primario"
-          onClick={() => void enviar()}
+          onClick={enviar}
           disabled={!cuentaId || contenido.trim() === '' || importar.isPending}
         >
           {importar.isPending ? 'Importando…' : 'Importar'}
@@ -275,6 +294,20 @@ export function ImportacionPage() {
       </div>
     </div>
   )
+}
+
+/**
+ * Texto del archivo en la codificación en la que venga.
+ *
+ * Muchos bancos siguen exportando en Latin-1 (Windows-1252): leído como
+ * UTF-8, cada tilde y cada eñe se convierte en el carácter de reemplazo y las
+ * descripciones dejan de coincidir con lo registrado. Si UTF-8 produce alguno,
+ * se lee otra vez como Windows-1252, que es superconjunto de Latin-1.
+ */
+function decodificar(bytes: ArrayBuffer): string {
+  const utf8 = new TextDecoder('utf-8').decode(bytes)
+  if (!utf8.includes('\uFFFD')) return utf8
+  return new TextDecoder('windows-1252').decode(bytes)
 }
 
 function Cifra({
