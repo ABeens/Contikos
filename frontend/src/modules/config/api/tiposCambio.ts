@@ -49,6 +49,7 @@ export function useSerieTipoCambio(
 export function useRegistrarTipoCambio() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Tipo de cambio registrado' },
     mutationFn: (solicitud: SolicitudTipoCambio) =>
       servicioConfig.registrarTipoCambio(solicitud),
     onSuccess: () => {

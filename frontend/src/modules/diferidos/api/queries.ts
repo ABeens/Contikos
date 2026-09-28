@@ -49,6 +49,7 @@ export function useDiferido(id: string | undefined) {
 export function useGuardarDiferido() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Diferido guardado' },
     mutationFn: ({
       datos,
       id,
@@ -75,6 +76,7 @@ export function useGuardarDiferido() {
 export function useCancelarDiferido() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Diferido cancelado' },
     mutationFn: ({
       id,
       datos,
@@ -124,6 +126,7 @@ export function usePrevisualizacionAmortizacion(
 export function useContabilizarAmortizacion() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Amortización contabilizada' },
     mutationFn: (solicitud: SolicitudCorridaDiferidos) =>
       servicioDiferidos.contabilizarAmortizacion(solicitud),
     onSuccess: () => {

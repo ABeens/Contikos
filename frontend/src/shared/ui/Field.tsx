@@ -45,7 +45,7 @@ export function Field({
         'aria-describedby': hayNota ? idNota : undefined,
       })}
       {error ? (
-        <p id={idNota} className="text-xs text-red-600">
+        <p id={idNota} className="animate-aparecer text-xs text-red-600">
           {error}
         </p>
       ) : ayuda ? (

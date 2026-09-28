@@ -244,7 +244,7 @@ export function AsientosPage() {
             onChange={(e) => setFiltro(e.target.value)}
             placeholder="Buscar por concepto, origen o código…"
             aria-label="Buscar asientos"
-            className="h-8 max-w-sm border-0 px-0 focus:ring-0"
+            className="h-8 max-w-sm border-0 shadow-none px-0 focus:ring-0"
           />
           <Select
             aria-label="Contabilidad"

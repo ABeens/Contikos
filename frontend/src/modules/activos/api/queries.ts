@@ -59,6 +59,7 @@ export function useCategorias() {
 export function useGuardarCategoria() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Categoría guardada' },
     mutationFn: ({
       datos,
       id,
@@ -93,6 +94,7 @@ export function useAltasPendientes() {
 export function useAltaManual() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Activo registrado' },
     mutationFn: (solicitud: SolicitudActivoManual) =>
       servicioActivos.altaManual(solicitud),
     onSuccess: () => {
@@ -114,6 +116,7 @@ export function useAltaManual() {
 export function useAltaDesdeFactura() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Activo registrado' },
     mutationFn: (solicitud: SolicitudActivoDesdeFactura) =>
       servicioActivos.altaDesdeFactura(solicitud),
     onSuccess: () => {
@@ -156,6 +159,7 @@ export function usePrevisualizacionDepreciacion(
 export function useContabilizarDepreciacion() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Depreciación contabilizada' },
     mutationFn: (solicitud: SolicitudCorrida) =>
       servicioActivos.contabilizarDepreciacion(solicitud),
     onSuccess: () => {

@@ -46,10 +46,10 @@ export function Dialogo({
 }: DialogoProps) {
   const cuerpo = (
     <>
-      <div className="flex-1 overflow-y-auto px-4 py-4">{children}</div>
+      <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
 
       {acciones && (
-        <div className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
+        <div className="flex flex-wrap justify-end gap-2 rounded-b-2xl border-t border-slate-100 bg-slate-50/60 px-5 py-3">
           {acciones}
         </div>
       )}
@@ -67,7 +67,7 @@ export function Dialogo({
       onOpenChange={(v) => !v && !bloqueado && onCerrar()}
     >
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-slate-900/40" />
+        <Dialog.Overlay className="fixed inset-0 z-40 animate-aparecer bg-slate-900/40 backdrop-blur-[2px]" />
         <Dialog.Content
           aria-busy={bloqueado || undefined}
           onEscapeKeyDown={(e) => bloqueado && e.preventDefault()}
@@ -75,13 +75,13 @@ export function Dialogo({
           className={cn(
             'fixed top-1/2 left-1/2 z-50 flex max-h-[85vh] w-[min(94vw,32rem)]',
             '-translate-x-1/2 -translate-y-1/2 flex-col',
-            'rounded-lg border border-slate-200 bg-white shadow-xl focus:outline-none',
+            'animate-emerger rounded-2xl bg-white shadow-flotante ring-1 ring-slate-900/5 focus:outline-none',
             className,
           )}
         >
-          <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-4 py-3">
+          <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
             <div>
-              <Dialog.Title className="text-sm font-semibold text-slate-800">
+              <Dialog.Title className="text-[15px] font-semibold text-slate-900">
                 {titulo}
               </Dialog.Title>
               {descripcion && (
@@ -93,7 +93,7 @@ export function Dialogo({
             <Dialog.Close
               aria-label="Cerrar"
               disabled={bloqueado}
-              className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40"
+              className="-m-1 rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40"
             >
               <X className="size-4" />
             </Dialog.Close>

@@ -32,6 +32,7 @@ export function useEmpresas() {
 export function useGuardarEmpresa() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Empresa guardada' },
     mutationFn: ({ datos, id }: { datos: SolicitudEmpresa; id?: string }) =>
       id ? servicioEmpresas.actualizar(id, datos) : servicioEmpresas.crear(datos),
     onSuccess: () => {

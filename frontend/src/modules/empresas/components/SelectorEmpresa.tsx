@@ -54,12 +54,12 @@ export function SelectorEmpresa() {
 
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <Building2 className="size-4 shrink-0 text-slate-400" />
+      <Building2 className="hidden size-4 shrink-0 text-slate-400 sm:block" />
       <Menu.Root modal={false}>
         <Menu.Trigger
           aria-label={`Empresa: ${empresa.codigo} · ${empresa.nombre}`}
           disabled={bloqueado}
-          className="flex h-8 max-w-72 min-w-0 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex h-9 max-w-72 min-w-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-medium text-slate-800 shadow-suave transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 data-[state=open]:border-brand-400 data-[state=open]:ring-3 data-[state=open]:ring-brand-500/15"
         >
           <span className="truncate">
             {empresa.codigo} · {empresa.nombre}
@@ -70,7 +70,7 @@ export function SelectorEmpresa() {
           <Menu.Content
             align="start"
             sideOffset={4}
-            className="z-50 min-w-64 rounded-md border border-slate-200 bg-white p-1 text-sm shadow-lg"
+            className="z-50 min-w-64 animate-subir rounded-xl bg-white p-1.5 text-sm shadow-flotante ring-1 ring-slate-900/5"
           >
             <Menu.Label className="px-2 py-1 text-[11px] font-medium text-slate-500">
               Abrir otra empresa
@@ -85,7 +85,7 @@ export function SelectorEmpresa() {
                 <Menu.RadioItem
                   key={e.id}
                   value={e.id}
-                  className="flex cursor-default items-center gap-2 rounded px-2 py-1.5 text-slate-700 outline-none data-[highlighted]:bg-brand-50 data-[highlighted]:text-brand-800"
+                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-slate-700 transition-colors outline-none data-[highlighted]:bg-brand-50 data-[highlighted]:text-brand-800"
                 >
                   <span className="grid size-4 place-items-center">
                     <Menu.ItemIndicator>

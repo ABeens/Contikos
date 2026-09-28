@@ -19,7 +19,7 @@ export function MensajeError({
     <div
       role="alert"
       className={
-        'rounded-md bg-red-50 p-3 text-sm text-red-700 ring-1 ring-red-200 ring-inset ' +
+        'animate-aparecer rounded-lg bg-red-50 p-3 text-sm text-red-700 ring-1 ring-red-200 ring-inset ' +
         (className ?? '')
       }
     >

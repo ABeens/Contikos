@@ -1,19 +1,31 @@
+import type { ReactNode } from 'react'
 import { Link } from 'react-router'
-import { CircleCheck, CircleAlert } from 'lucide-react'
+import {
+  ArrowRight,
+  ArrowUpRight,
+  CircleAlert,
+  CircleCheck,
+  FileText,
+  Scale,
+  Wallet,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { Card, CardHeader, EstadoError, PageHeader } from '@/shared/ui/Layout'
+import { cn } from '@/shared/ui/cn'
 import { MoneyCell } from '@/shared/money/MoneyCell'
-import { formatFecha } from '@/shared/format/fecha'
+import { formatFecha, formatPeriodo } from '@/shared/format/fecha'
 import { formatNumeroAsiento } from '@/shared/asiento/formato'
 import { useEmpresa } from '../empresa'
+import { ACCIONES_FRECUENTES } from '../layout/menu'
 import { useAsientos, useBalanza } from '@/modules/conta/api/queries'
 
 /**
  * Portada.
  *
  * Contesta tres preguntas del día (cuánto se movió, si cuadra y qué se
- * registró) y nada más. El diagrama de la arquitectura y la parrilla de los
- * doce periodos ocupaban la mitad de la pantalla para decir algo que no cambia
- * de un día para otro.
+ * registró) y ofrece a mano lo que más se hace. El diagrama de la
+ * arquitectura y la parrilla de los doce periodos ocupaban la mitad de la
+ * pantalla para decir algo que no cambia de un día para otro.
  */
 export function InicioPage() {
   const { periodoActivo, cargando } = useEmpresa()
@@ -49,10 +61,19 @@ export function InicioPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <PageHeader titulo="Resumen" />
+      <PageHeader
+        titulo="Resumen"
+        descripcion={
+          periodoActivo
+            ? `${saludo()}. Esto es lo que lleva el periodo ${formatPeriodo(periodoActivo.ejercicio, periodoActivo.numero)}.`
+            : `${saludo()}.`
+        }
+      />
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+      <div className="mb-6 grid gap-3 sm:grid-cols-3">
         <Indicador
+          icono={FileText}
+          tono="brand"
           etiqueta="Asientos del periodo"
           valor={
             asientosListos
@@ -64,6 +85,8 @@ export function InicioPage() {
           nota={consultaAsientos.isError ? 'No se pudo consultar' : undefined}
         />
         <Indicador
+          icono={Wallet}
+          tono="brand"
           etiqueta="Movimientos del periodo"
           valor={
             fiscal ? (
@@ -84,6 +107,8 @@ export function InicioPage() {
           }
         />
         <Indicador
+          icono={Scale}
+          tono={cargadas ? (cuadran ? 'exito' : 'peligro') : 'brand'}
           etiqueta="Cuadre de las dos contabilidades"
           valor={
             cargadas ? (
@@ -109,15 +134,25 @@ export function InicioPage() {
         />
       </div>
 
+      <h2 className="mb-2.5 text-sm font-semibold text-slate-800">
+        Acciones frecuentes
+      </h2>
+      <div className="mb-6 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+        {ACCIONES_FRECUENTES.map((a) => (
+          <Atajo key={a.ruta} {...a} />
+        ))}
+      </div>
+
       <Card>
         <CardHeader
           titulo="Últimos asientos"
           acciones={
             <Link
               to="/conta/asientos"
-              className="self-center text-xs font-medium text-brand-700 hover:underline"
+              className="group inline-flex items-center gap-1 self-center text-xs font-medium text-brand-700 hover:text-brand-800"
             >
               Ver todos
+              <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
             </Link>
           }
         />
@@ -133,12 +168,16 @@ export function InicioPage() {
             Esta empresa todavía no tiene periodos contables.
           </p>
         ) : !asientosListos ? (
-          <p
-            className="px-4 py-8 text-center text-sm text-slate-400"
-            aria-busy
-          >
-            Cargando…
-          </p>
+          <div aria-busy className="divide-y divide-slate-100">
+            <span className="sr-only">Cargando…</span>
+            {[0, 1, 2].map((i) => (
+              <div key={i} aria-hidden className="flex items-center gap-3 px-4 py-3">
+                <div className="h-4 w-12 animate-brillo rounded bg-slate-200/80" />
+                <div className="h-3 flex-1 animate-brillo rounded-full bg-slate-200/80" />
+                <div className="h-3 w-20 animate-brillo rounded-full bg-slate-200/80" />
+              </div>
+            ))}
+          </div>
         ) : recientes.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-slate-500">
             Sin asientos en el periodo.
@@ -151,12 +190,12 @@ export function InicioPage() {
                     usan los demás módulos para enlazarlo. */}
                 <Link
                   to={`/conta/asientos?asiento=${encodeURIComponent(asiento.id)}`}
-                  className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-slate-50"
+                  className="group flex items-center gap-3 px-4 py-2.5 text-sm transition-colors last:rounded-b-xl hover:bg-slate-50"
                 >
-                  <span className="font-mono text-xs text-slate-500">
+                  <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-500 transition-colors group-hover:bg-brand-100 group-hover:text-brand-700">
                     {formatNumeroAsiento(asiento.numero)}
                   </span>
-                  <span className="w-20 shrink-0 text-xs text-slate-500">
+                  <span className="hidden w-20 shrink-0 text-xs text-slate-500 sm:inline">
                     {formatFecha(asiento.fecha)}
                   </span>
                   <span className="min-w-0 flex-1 truncate text-slate-700">
@@ -174,52 +213,102 @@ export function InicioPage() {
           </ul>
         )}
       </Card>
-
-      <div className="mt-4 flex flex-wrap gap-2 text-sm">
-        <Atajo a="/conta/asientos/nuevo" texto="Capturar asiento" />
-        <Atajo a="/cxc/facturas/nueva" texto="Facturar a un cliente" />
-        <Atajo a="/cxp/facturas/nueva" texto="Registrar factura de gasto" />
-        <Atajo a="/conta/balanza" texto="Ver balanza" />
-      </div>
     </div>
   )
 }
 
 /** Todavía no se sabe. El lector de pantalla oye "cargando", no "puntos". */
 const CARGANDO = (
-  <span className="text-slate-300">
-    <span aria-hidden>…</span>
+  <span className="inline-block h-5 w-16 animate-brillo rounded-md bg-slate-200/80 align-middle">
     <span className="sr-only">Cargando</span>
   </span>
 )
 /** No se pudo saber. Distinto de cero, y distinto de "cargando". */
 const SIN_DATO = '-'
 
+/** Saludo según la hora local: la portada es lo primero que se ve al llegar. */
+function saludo(ahora = new Date()) {
+  const hora = ahora.getHours()
+  if (hora < 12) return 'Buenos días'
+  if (hora < 19) return 'Buenas tardes'
+  return 'Buenas noches'
+}
+
+const TONOS_INDICADOR = {
+  brand: 'bg-brand-50 text-brand-600',
+  exito: 'bg-emerald-50 text-emerald-600',
+  peligro: 'bg-red-50 text-red-600',
+} as const
+
 function Indicador({
+  icono: Icono,
+  tono,
   etiqueta,
   valor,
   nota,
 }: {
+  icono: LucideIcon
+  tono: keyof typeof TONOS_INDICADOR
   etiqueta: string
-  valor: React.ReactNode
-  nota?: React.ReactNode
+  valor: ReactNode
+  nota?: ReactNode
 }) {
   return (
-    <Card className="px-4 py-3">
-      <p className="text-[11px] text-slate-500">{etiqueta}</p>
-      <p className="mt-0.5 text-lg font-semibold text-slate-900">{valor}</p>
-      {nota && <p className="mt-0.5 text-[11px] text-slate-500">{nota}</p>}
+    <Card className="flex items-start gap-3 px-4 py-4">
+      <span
+        aria-hidden
+        className={cn(
+          'grid size-9 shrink-0 place-items-center rounded-lg transition-colors',
+          TONOS_INDICADOR[tono],
+        )}
+      >
+        <Icono className="size-[18px]" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs text-slate-500">{etiqueta}</p>
+        <p className="tabular mt-0.5 truncate text-lg font-semibold text-slate-900">
+          {valor}
+        </p>
+        {nota && <p className="mt-0.5 text-[11px] text-slate-500">{nota}</p>}
+      </div>
     </Card>
   )
 }
 
-function Atajo({ a, texto }: { a: string; texto: string }) {
+function Atajo({
+  ruta,
+  etiqueta,
+  descripcion,
+  icono: Icono,
+}: {
+  ruta: string
+  etiqueta: string
+  descripcion: string
+  icono: LucideIcon
+}) {
   return (
     <Link
-      to={a}
-      className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-slate-600 hover:border-brand-300 hover:text-brand-700"
+      to={ruta}
+      className="group flex items-center gap-3 rounded-xl border border-slate-200/80 bg-white px-3.5 py-3 shadow-suave transition-all hover:-translate-y-px hover:border-brand-200 hover:shadow-md active:translate-y-0"
     >
-      {texto}
+      <span
+        aria-hidden
+        className="grid size-9 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-500 transition-colors group-hover:bg-brand-600 group-hover:text-white"
+      >
+        <Icono className="size-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium text-slate-800">
+          {etiqueta}
+        </span>
+        <span className="block truncate text-xs text-slate-500">
+          {descripcion}
+        </span>
+      </span>
+      <ArrowUpRight
+        aria-hidden
+        className="size-4 shrink-0 text-slate-300 transition-all group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-brand-600"
+      />
     </Link>
   )
 }

@@ -88,6 +88,7 @@ export function useMapeoBancos() {
 export function useGuardarCuentaBancaria() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Cuenta bancaria guardada' },
     mutationFn: ({
       datos,
       id,
@@ -139,18 +140,21 @@ export function useRegistrarMovimiento() {
   }
 
   const comision = useMutation({
+    meta: { exito: 'Comisión registrada' },
     mutationFn: (solicitud: SolicitudComision) =>
       servicioBancos.registrarComision(solicitud),
     onSuccess: invalidar,
   })
 
   const interes = useMutation({
+    meta: { exito: 'Interés registrado' },
     mutationFn: (solicitud: SolicitudInteres) =>
       servicioBancos.registrarInteres(solicitud),
     onSuccess: invalidar,
   })
 
   const traspaso = useMutation({
+    meta: { exito: 'Traspaso registrado' },
     mutationFn: (solicitud: SolicitudTraspaso) =>
       servicioBancos.registrarTraspaso(solicitud),
     onSuccess: invalidar,
@@ -194,6 +198,7 @@ export function useEstadoCuenta(
 export function useImportarEstadoCuenta() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Estado de cuenta importado' },
     mutationFn: (solicitud: SolicitudImportacion) =>
       servicioBancos.importarEstadoCuenta(solicitud),
     onSuccess: () => {
@@ -262,18 +267,21 @@ export function useConciliar() {
   }
 
   const emparejar = useMutation({
+    meta: { exito: 'Movimientos emparejados' },
     mutationFn: (solicitud: SolicitudEmparejamiento) =>
       servicioBancos.emparejar(solicitud),
     onSuccess: invalidar,
   })
 
   const deshacer = useMutation({
+    meta: { exito: 'Emparejamiento deshecho' },
     mutationFn: (movimientoBancoId: string) =>
       servicioBancos.deshacerEmparejamiento(movimientoBancoId),
     onSuccess: invalidar,
   })
 
   const cerrar = useMutation({
+    meta: { exito: 'Conciliación cerrada' },
     mutationFn: (solicitud: SolicitudCierreConciliacion) =>
       servicioBancos.cerrarConciliacion(solicitud),
     onSuccess: invalidar,
@@ -315,6 +323,7 @@ export function usePrevisualizacionRevaluacion(
 export function useContabilizarRevaluacion() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Revaluación contabilizada' },
     mutationFn: (solicitud: SolicitudRevaluacion) =>
       servicioBancos.contabilizarRevaluacion(solicitud),
     onSuccess: () => {

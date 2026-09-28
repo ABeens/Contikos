@@ -165,7 +165,7 @@ export function ClientesPage() {
             onChange={(e) => setFiltro(e.target.value)}
             placeholder="Buscar por nombre, código o identificación…"
             aria-label="Buscar clientes"
-            className="h-8 max-w-sm border-0 px-0 focus:ring-0"
+            className="h-8 max-w-sm border-0 shadow-none px-0 focus:ring-0"
           />
           <span className="ml-auto text-xs text-slate-500">
             {filtro.trim() && visibles !== null

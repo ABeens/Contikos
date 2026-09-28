@@ -49,7 +49,7 @@ describe('Tipos de cambio', () => {
 
     const alta = (
       await screen.findByRole('heading', { name: 'Capturar un tipo de cambio' })
-    ).closest('div.rounded-lg') as HTMLElement
+    ).closest('div.rounded-xl') as HTMLElement
 
     const fecha = within(alta).getByLabelText(/^Fecha/)
     await usuario.clear(fecha)

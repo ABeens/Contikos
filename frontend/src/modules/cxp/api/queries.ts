@@ -97,6 +97,7 @@ export function useAntiguedadCxp(corte: string) {
 export function useGuardarProveedor() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Proveedor guardado' },
     mutationFn: ({ datos, id }: { datos: SolicitudProveedor; id?: string }) =>
       id
         ? servicioCxp.actualizarProveedor(id, datos)
@@ -116,6 +117,7 @@ export function useGuardarProveedor() {
 export function useRegistrarFacturaCompra() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Factura de gasto registrada' },
     mutationFn: (solicitud: SolicitudFacturaCompra) =>
       servicioCxp.registrarFactura(solicitud),
     onSuccess: () => {
@@ -186,6 +188,7 @@ function invalidarPorPago(cliente: ReturnType<typeof useQueryClient>): void {
 export function useRegistrarPago() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Pago registrado' },
     mutationFn: (solicitud: SolicitudPago) =>
       servicioCxp.registrarPago(solicitud),
     onSuccess: () => invalidarPorPago(cliente),
@@ -196,6 +199,7 @@ export function useRegistrarPago() {
 export function useAnularPago() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Pago anulado' },
     mutationFn: ({
       id,
       solicitud,
@@ -244,6 +248,7 @@ export function useAgregarAdjuntos() {
 export function useEliminarAdjunto() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Adjunto eliminado' },
     mutationFn: ({
       facturaId,
       adjuntoId,

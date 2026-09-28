@@ -168,6 +168,7 @@ function invalidarPeriodos(cliente: ReturnType<typeof useQueryClient>) {
 export function useCerrarPeriodo() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Periodo cerrado' },
     mutationFn: ({
       periodoId,
       solicitud,
@@ -182,6 +183,7 @@ export function useCerrarPeriodo() {
 export function useReabrirPeriodo() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Periodo reabierto' },
     mutationFn: (periodoId: string) => servicioConta.reabrirPeriodo(periodoId),
     onSuccess: () => invalidarPeriodos(cliente),
   })
@@ -190,6 +192,7 @@ export function useReabrirPeriodo() {
 export function useContabilizarAsiento() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Asiento contabilizado' },
     mutationFn: (solicitud: SolicitudAsiento) =>
       servicioConta.contabilizarAsiento(solicitud),
     onSuccess: () => {
@@ -210,6 +213,7 @@ export function useContabilizarAsiento() {
 export function useReversarAsiento() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Asiento reversado' },
     mutationFn: ({ id, solicitud }: { id: string; solicitud: SolicitudReversa }) =>
       servicioConta.reversarAsiento(id, solicitud),
     onSuccess: () => {
@@ -254,6 +258,7 @@ export function useNotasEeff() {
 export function useGuardarClasificacion() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Clasificación guardada' },
     mutationFn: ({
       clasificacion,
       id,
@@ -272,6 +277,7 @@ export function useGuardarClasificacion() {
 export function useEliminarClasificacion() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Clasificación eliminada' },
     mutationFn: (id: string) => servicioConta.eliminarClasificacion(id),
     onSuccess: () => invalidarPresentacion(cliente),
   })
@@ -280,6 +286,7 @@ export function useEliminarClasificacion() {
 export function useGuardarNota() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Nota guardada' },
     mutationFn: ({ nota, id }: { nota: SolicitudNotaEeff; id?: string }) =>
       id ? servicioConta.actualizarNota(id, nota) : servicioConta.crearNota(nota),
     onSuccess: () => invalidarPresentacion(cliente),
@@ -289,6 +296,7 @@ export function useGuardarNota() {
 export function useEliminarNota() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Nota eliminada' },
     mutationFn: (id: string) => servicioConta.eliminarNota(id),
     onSuccess: () => invalidarPresentacion(cliente),
   })
@@ -304,6 +312,7 @@ export function useEliminarNota() {
 export function useGuardarCuenta() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Cuenta guardada' },
     mutationFn: ({
       datos,
       id,
@@ -323,6 +332,7 @@ export function useGuardarCuenta() {
 export function useClasificarCuenta() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Clasificación de la cuenta actualizada' },
     mutationFn: ({
       cuentaId,
       asignacion,

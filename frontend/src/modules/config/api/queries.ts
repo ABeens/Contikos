@@ -45,6 +45,7 @@ function invalidarImpuestos(cliente: ReturnType<typeof useQueryClient>) {
 export function useGuardarTarifaImpuesto() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Tarifa de impuesto guardada' },
     mutationFn: ({
       datos,
       id,
@@ -61,6 +62,7 @@ export function useGuardarTarifaImpuesto() {
 export function useEliminarTarifaImpuesto() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Tarifa de impuesto eliminada' },
     mutationFn: (id: string) => servicioImpuestos.eliminar(id),
     onSuccess: () => invalidarImpuestos(cliente),
   })
@@ -110,6 +112,7 @@ function invalidarMonedas(cliente: ReturnType<typeof useQueryClient>) {
 export function useGuardarMoneda() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Moneda guardada' },
     mutationFn: ({
       moneda,
       creando,
@@ -127,6 +130,7 @@ export function useGuardarMoneda() {
 export function useEstablecerMonedaFuncional() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Moneda funcional actualizada' },
     mutationFn: (codigo: string) =>
       servicioConfig.establecerMonedaFuncional(codigo),
     onSuccess: (monedas: MonedaConfig[]) => {
@@ -139,6 +143,7 @@ export function useEstablecerMonedaFuncional() {
 export function useEliminarMoneda() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Moneda eliminada' },
     mutationFn: (codigo: string) => servicioConfig.eliminarMoneda(codigo),
     onSuccess: () => void invalidarMonedas(cliente),
   })

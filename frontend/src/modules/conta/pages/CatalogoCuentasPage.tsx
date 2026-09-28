@@ -273,7 +273,7 @@ export function CatalogoCuentasPage() {
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
             placeholder="Buscar por código o nombre…"
-            className="h-8 max-w-sm border-0 px-0 focus:ring-0"
+            className="h-8 max-w-sm border-0 shadow-none px-0 focus:ring-0"
           />
           <label className="ml-auto flex items-center gap-1.5 text-xs text-slate-600">
             <input

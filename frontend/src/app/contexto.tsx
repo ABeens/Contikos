@@ -14,8 +14,16 @@ function esClaveMonedas(clave: readonly unknown[]): boolean {
 
 function Cargando({ mensaje }: { mensaje: string }) {
   return (
-    <div className="grid h-screen place-items-center bg-slate-50 text-sm text-slate-500">
-      {mensaje}
+    <div
+      aria-busy
+      className="grid h-dvh place-items-center bg-slate-50 text-sm text-slate-500"
+    >
+      <div className="flex animate-aparecer flex-col items-center gap-4">
+        <div className="grid size-11 animate-brillo place-items-center rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 text-lg font-bold text-white shadow-flotante">
+          C
+        </div>
+        <p>{mensaje}</p>
+      </div>
     </div>
   )
 }

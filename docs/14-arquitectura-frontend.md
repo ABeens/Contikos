@@ -325,6 +325,8 @@ antes que las pantallas:
 | `CasillaLibro` / `SelectorLibro` | Fiscal y corporativa: casillas en la captura, selector único en los reportes |
 | `CedulaInput` | Entrada con validación de cédula CR según tipo |
 | `FormularioDocumento` | Cascarón común: encabezado, líneas, totales, acciones por estado |
+| `Notificaciones` | Avisos breves de confirmación. Cada mutación declara el suyo en `meta.exito` y la caché de mutaciones lo muestra al terminar bien |
+| `PaletaComandos` | Buscador de pantallas y acciones (Ctrl+K). Lee el mismo menú que la barra lateral (`app/layout/menu.ts`) |
 
 `PanelAsiento` es el que más valor tiene: hace visible el contrato de asientos en
 la interfaz. Que el usuario vea el asiento antes de contabilizar es, además de
@@ -384,6 +386,13 @@ Esto no es un detalle cosmético:
 - El total de cargos, el de abonos y la diferencia son **visibles en todo momento**
   durante la captura, no solo al guardar
 - Contraste suficiente para lectura prolongada, y foco siempre visible
+- **Ctrl+K lleva a cualquier pantalla** escribiendo lo que se quiere hacer
+  ("cobro", "balanza"), sin tener que saber en qué módulo vive
+- Toda operación que termina bien se confirma con un aviso breve abajo a la
+  derecha. Los errores no: se quedan junto al formulario que los provocó
+- El menú lateral se pliega a solo iconos (la preferencia se recuerda en el
+  navegador) y en pantallas pequeñas se vuelve un cajón
+- Las animaciones son cortas y se anulan con `prefers-reduced-motion`
 
 ## 9. Orden de construcción del frontend
 

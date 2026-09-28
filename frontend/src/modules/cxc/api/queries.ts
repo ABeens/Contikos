@@ -103,6 +103,7 @@ export function useAntiguedadCxc(corte: string) {
 export function useGuardarCliente() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Cliente guardado' },
     mutationFn: ({
       datos,
       id,
@@ -123,6 +124,7 @@ export function useGuardarCliente() {
 export function useGuardarItem() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Producto o servicio guardado' },
     mutationFn: ({
       datos,
       id,
@@ -147,6 +149,7 @@ export function useGuardarItem() {
 export function useEmitirFactura() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Factura emitida' },
     mutationFn: (solicitud: SolicitudFacturaVenta) =>
       servicioCxc.emitirFactura(solicitud),
     onSuccess: () => {
@@ -212,6 +215,7 @@ function invalidarPorCobro(cliente: ReturnType<typeof useQueryClient>): void {
 export function useRegistrarCobro() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Cobro registrado' },
     mutationFn: (solicitud: SolicitudCobro) =>
       servicioCxc.registrarCobro(solicitud),
     onSuccess: () => invalidarPorCobro(cliente),
@@ -222,6 +226,7 @@ export function useRegistrarCobro() {
 export function useAnularCobro() {
   const cliente = useQueryClient()
   return useMutation({
+    meta: { exito: 'Cobro anulado' },
     mutationFn: ({
       id,
       solicitud,

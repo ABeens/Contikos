@@ -117,11 +117,7 @@ export function DataTable<T>({
   }
 
   if (cargando && data.length === 0) {
-    return (
-      <p className="px-6 py-14 text-center text-sm text-slate-400" aria-busy>
-        Cargando…
-      </p>
-    )
+    return <FilasCargando columnas={Math.min(columns.length, 6)} />
   }
 
   if (filas.length === 0 && data.length > 0 && filtro.trim()) {
@@ -143,7 +139,7 @@ export function DataTable<T>({
       style={maxAltura ? { maxHeight: maxAltura } : undefined}
     >
       <table className="w-full border-collapse text-sm">
-        <thead className="sticky top-0 z-10 bg-slate-50">
+        <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur">
           {table.getHeaderGroups().map((grupo) => (
             <tr key={grupo.id}>
               {grupo.headers.map((header) => {
@@ -161,7 +157,7 @@ export function DataTable<T>({
                           : undefined
                     }
                     className={cn(
-                      'border-b border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600',
+                      'border-b border-slate-200 px-3 py-2.5 text-xs font-semibold whitespace-nowrap text-slate-500',
                       alineadoDerecha ? 'text-right' : 'text-left',
                     )}
                     style={{ width: header.column.columnDef.meta?.ancho }}
@@ -218,17 +214,18 @@ export function DataTable<T>({
                 }
                 aria-selected={onRowClick ? seleccionada : undefined}
                 className={cn(
-                  'border-b border-slate-100 last:border-0',
+                  'border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50/70',
                   onRowClick &&
-                    'cursor-pointer hover:bg-brand-50 focus-visible:bg-brand-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-500',
-                  seleccionada && 'bg-brand-50',
+                    'cursor-pointer hover:bg-brand-50/60 focus-visible:bg-brand-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-500',
+                  seleccionada &&
+                    'bg-brand-50 shadow-[inset_3px_0_0_var(--color-brand-500)] hover:bg-brand-50',
                 )}
               >
                 {row.getVisibleCells().map((cell) => (
                   <td
                     key={cell.id}
                     className={cn(
-                      'px-3 py-1.5 text-slate-700',
+                      'px-3 py-2 text-slate-700 max-sm:whitespace-nowrap',
                       cell.column.columnDef.meta?.numerico &&
                         'tabular text-right',
                     )}
@@ -246,6 +243,38 @@ export function DataTable<T>({
           </tfoot>
         )}
       </table>
+    </div>
+  )
+}
+
+/**
+ * Mientras llegan los datos se enseña la forma de la tabla, no un texto: el
+ * ojo ya sabe dónde van a aparecer las filas, y la espera se hace más corta.
+ */
+function FilasCargando({ columnas }: { columnas: number }) {
+  const anchos = ['w-3/4', 'w-1/2', 'w-2/3', 'w-5/6', 'w-2/5', 'w-3/5']
+  return (
+    <div aria-busy className="px-3 py-2">
+      <span className="sr-only">Cargando…</span>
+      {Array.from({ length: 5 }, (_, fila) => (
+        <div
+          key={fila}
+          aria-hidden
+          className="flex gap-4 border-b border-slate-100 py-3 last:border-0"
+          style={{ opacity: 1 - fila * 0.15 }}
+        >
+          {Array.from({ length: Math.max(columnas, 3) }, (_, col) => (
+            <div key={col} className="flex-1">
+              <div
+                className={cn(
+                  'h-3 animate-brillo rounded-full bg-slate-200/80',
+                  anchos[(fila + col) % anchos.length],
+                )}
+              />
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   )
 }
