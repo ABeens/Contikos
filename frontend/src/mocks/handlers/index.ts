@@ -8,7 +8,14 @@ import { handlersBancos } from './bancos'
 import { handlersBancosConciliacion } from './bancosConciliacion'
 import { handlersBancosRevaluacion } from './bancosRevaluacion'
 import { handlersDiferidos } from './diferidos'
+import { handlersRh } from './rh'
 import { guardiaEmpresa, handlersEmpresas } from './empresas'
+import {
+  guardiaPermisos,
+  guardiaSesion,
+  handlersAuthSinEmpresa,
+  handlersUsuarios,
+} from './auth'
 
 /**
  * Todos los handlers del mock.
@@ -17,8 +24,15 @@ import { guardiaEmpresa, handlersEmpresas } from './empresas'
  * mismo conjunto. Cuando difieren, la prueba pasa contra una API que no existe.
  */
 export const handlers = [
-  // La guardia va primero: ninguna ruta se sirve sin cabecera de empresa.
+  // Las guardias van primero, en este orden: quién pide (401), de qué empresa
+  // (400, 409) y si puede (403). `/auth` va después de la de sesión y antes de
+  // la de empresa, salvo `/auth/usuarios`, que sí es por empresa: el que
+  // administra usuarios lo hace desde una empresa donde tiene ese permiso.
+  guardiaSesion,
+  ...handlersAuthSinEmpresa,
   guardiaEmpresa,
+  guardiaPermisos,
+  ...handlersUsuarios,
   ...handlersEmpresas,
   ...handlersConfig,
   ...handlersImpuestos,
@@ -30,9 +44,14 @@ export const handlers = [
   ...handlersBancosConciliacion,
   ...handlersBancosRevaluacion,
   ...handlersDiferidos,
+  ...handlersRh,
 ]
 
 export {
+  guardiaSesion,
+  guardiaPermisos,
+  handlersAuthSinEmpresa,
+  handlersUsuarios,
   guardiaEmpresa,
   handlersEmpresas,
   handlersConfig,
@@ -45,4 +64,5 @@ export {
   handlersBancosConciliacion,
   handlersBancosRevaluacion,
   handlersDiferidos,
+  handlersRh,
 }

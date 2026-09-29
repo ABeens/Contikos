@@ -1,13 +1,13 @@
 import { createBrowserRouter, Navigate, type RouteObject } from 'react-router'
 import { AppShell } from './layout/AppShell'
 import { InicioPage } from './pages/InicioPage'
-import { ModuloPendientePage } from './pages/ModuloPendientePage'
 import { CatalogoCuentasPage } from '@/modules/conta/pages/CatalogoCuentasPage'
 import { ClasificacionesPage } from '@/modules/conta/pages/ClasificacionesPage'
 import { AsientosPage } from '@/modules/conta/pages/AsientosPage'
 import { CapturaAsientoPage } from '@/modules/conta/pages/CapturaAsientoPage'
 import { BalanzaPage } from '@/modules/conta/pages/BalanzaPage'
 import { PeriodosPage } from '@/modules/conta/pages/PeriodosPage'
+import { CierreEjercicioPage } from '@/modules/conta/pages/CierreEjercicioPage'
 import { CuentasPorCobrarPage } from '@/modules/cxc/pages/CuentasPorCobrarPage'
 import { ClientesPage } from '@/modules/cxc/pages/ClientesPage'
 import { ItemsPage } from '@/modules/cxc/pages/ItemsPage'
@@ -15,6 +15,8 @@ import { FacturasVentaPage } from '@/modules/cxc/pages/FacturasVentaPage'
 import { FacturaVentaPage } from '@/modules/cxc/pages/FacturaVentaPage'
 import { CobrosPage } from '@/modules/cxc/pages/CobrosPage'
 import { CobroPage } from '@/modules/cxc/pages/CobroPage'
+import { NotasCreditoPage } from '@/modules/cxc/pages/NotasCreditoPage'
+import { NotaCreditoPage } from '@/modules/cxc/pages/NotaCreditoPage'
 import { CuentasPorPagarPage } from '@/modules/cxp/pages/CuentasPorPagarPage'
 import { ProveedoresPage } from '@/modules/cxp/pages/ProveedoresPage'
 import { FacturasCompraPage } from '@/modules/cxp/pages/FacturasCompraPage'
@@ -32,6 +34,7 @@ import { MovimientoPage } from '@/modules/bancos/pages/MovimientoPage'
 import { ImportacionPage } from '@/modules/bancos/pages/ImportacionPage'
 import { ConciliacionPage } from '@/modules/bancos/pages/ConciliacionPage'
 import { RevaluacionPage } from '@/modules/bancos/pages/RevaluacionPage'
+import { ProyeccionPage } from '@/modules/bancos/pages/ProyeccionPage'
 import { DiferidosPage } from '@/modules/diferidos/pages/DiferidosPage'
 import { AltaDiferidoPage } from '@/modules/diferidos/pages/AltaDiferidoPage'
 import { AmortizacionPage } from '@/modules/diferidos/pages/AmortizacionPage'
@@ -40,12 +43,23 @@ import { MonedasPage } from '@/modules/config/pages/MonedasPage'
 import { TiposCambioPage } from '@/modules/config/pages/TiposCambioPage'
 import { ImpuestosPage } from '@/modules/config/pages/ImpuestosPage'
 import { EmpresasPage } from '@/modules/empresas/pages/EmpresasPage'
+import { UsuariosPage } from '@/modules/usuarios/pages/UsuariosPage'
+import { PlanillaPage } from '@/modules/rh/pages/PlanillaPage'
+import { EmpleadosPage } from '@/modules/rh/pages/EmpleadosPage'
+import { ParametrosPlanillaPage } from '@/modules/rh/pages/ParametrosPlanillaPage'
+import { RequierePermiso } from './RequierePermiso'
+import { ReportesPage } from '@/modules/reportes/pages/ReportesPage'
+import { EstadoSituacionPage } from '@/modules/reportes/pages/EstadoSituacionPage'
+import { EstadoResultadosPage } from '@/modules/reportes/pages/EstadoResultadosPage'
+import { FlujoEfectivoPage } from '@/modules/reportes/pages/FlujoEfectivoPage'
+import { CambiosPatrimonioPage } from '@/modules/reportes/pages/CambiosPatrimonioPage'
+import { LibroDiarioPage } from '@/modules/reportes/pages/LibroDiarioPage'
+import { LibroMayorPage } from '@/modules/reportes/pages/LibroMayorPage'
+import { ComparativoLibrosPage } from '@/modules/reportes/pages/ComparativoLibrosPage'
 
 /**
  * Rutas. Un módulo del frontend = un módulo del dominio (docs/14 §3).
  *
- * Los módulos aún no construidos montan un marcador que documenta su alcance,
- * para que la navegación completa sea revisable desde ahora.
  */
 export const rutas: RouteObject[] = [
   {
@@ -62,6 +76,7 @@ export const rutas: RouteObject[] = [
       { path: 'conta/asientos/nuevo', element: <CapturaAsientoPage /> },
       { path: 'conta/balanza', element: <BalanzaPage /> },
       { path: 'conta/periodos', element: <PeriodosPage /> },
+      { path: 'conta/cierre-ejercicio', element: <CierreEjercicioPage /> },
 
       // --------------------------------------------------- configuración
       // Transversal: no es uno de los siete módulos del diagrama, sino los
@@ -71,6 +86,14 @@ export const rutas: RouteObject[] = [
       { path: 'configuracion/tipos-cambio', element: <TiposCambioPage /> },
       { path: 'configuracion/impuestos', element: <ImpuestosPage /> },
       { path: 'configuracion/empresas', element: <EmpresasPage /> },
+      {
+        path: 'configuracion/usuarios',
+        element: (
+          <RequierePermiso permiso="usuarios">
+            <UsuariosPage />
+          </RequierePermiso>
+        ),
+      },
 
       // ------------------------------------------------------------ cxc
       { path: 'cxc', element: <CuentasPorCobrarPage /> },
@@ -82,6 +105,8 @@ export const rutas: RouteObject[] = [
       // abierta vive en la URL, para que se pueda enviar por enlace y el
       // botón de atrás devuelva al listado (docs/14 §6).
       { path: 'cxc/facturas/:id', element: <FacturasVentaPage /> },
+      { path: 'cxc/notas-credito', element: <NotasCreditoPage /> },
+      { path: 'cxc/notas-credito/nueva', element: <NotaCreditoPage /> },
       { path: 'cxc/cobros', element: <CobrosPage /> },
       { path: 'cxc/cobros/nuevo', element: <CobroPage /> },
       // Mismo criterio que las facturas: el detalle es el listado con un cobro
@@ -121,47 +146,46 @@ export const rutas: RouteObject[] = [
       { path: 'bancos/estado-cuenta', element: <ImportacionPage /> },
       { path: 'bancos/conciliacion', element: <ConciliacionPage /> },
       { path: 'bancos/revaluacion', element: <RevaluacionPage /> },
+      { path: 'bancos/proyeccion', element: <ProyeccionPage /> },
 
+      // Recursos humanos: todo detrás del permiso de planilla, que no viene
+      // con ningún "ver todo" (docs/08 §7).
+      { path: 'rh', element: <Navigate to="/rh/planilla" replace /> },
       {
-        path: 'rh',
+        path: 'rh/planilla',
         element: (
-          <ModuloPendientePage
-            titulo="Recursos humanos"
-            fase="Fase 7 del roadmap, decisión D-06 pendiente"
-            descripcion="Planilla y cargas sociales. El módulo más dependiente de la legislación local."
-            alcance={[
-              'Empleados y catálogo de conceptos',
-              'Cálculo con CCSS e impuesto sobre la renta del trabajo',
-              'Reporte de planilla a SICERE',
-              'Provisiones de aguinaldo, vacaciones y cesantía',
-              'Control de acceso reforzado sobre datos salariales',
-            ]}
-            asientos={[
-              'Planilla: cargo a Salarios y cargas patronales',
-              'Abono a CCSS por pagar, retenciones y neto por pagar',
-              'Provisiones mensuales de prestaciones legales',
-            ]}
-          />
+          <RequierePermiso permiso="planilla.ver">
+            <PlanillaPage />
+          </RequierePermiso>
         ),
       },
       {
-        path: 'reportes',
+        path: 'rh/empleados',
         element: (
-          <ModuloPendientePage
-            titulo="Reportes"
-            fase="Fase 5 del roadmap"
-            descripcion="El único módulo que lee del mayor en lugar de alimentarlo."
-            alcance={[
-              'Balance General y Estado de Resultados bajo NIIF',
-              'Estado de Flujo de Efectivo y Cambios en el Patrimonio',
-              'Auxiliar de cuenta con drill-down hasta el documento origen',
-              'Motor de plantillas configurables por la empresa',
-              'Exportaciones fiscales: D-104, D-101',
-            ]}
-            asientos={['Ninguno. Reportes nunca escribe en el mayor.']}
-          />
+          <RequierePermiso permiso="planilla.ver">
+            <EmpleadosPage />
+          </RequierePermiso>
         ),
       },
+      {
+        path: 'rh/parametros',
+        element: (
+          <RequierePermiso permiso="planilla.ver">
+            <ParametrosPlanillaPage />
+          </RequierePermiso>
+        ),
+      },
+
+      // Reportes: solo leen del mayor (docs/09). Todos toman el periodo de la
+      // cabecera y el libro de la URL.
+      { path: 'reportes', element: <ReportesPage /> },
+      { path: 'reportes/situacion', element: <EstadoSituacionPage /> },
+      { path: 'reportes/resultados', element: <EstadoResultadosPage /> },
+      { path: 'reportes/flujos', element: <FlujoEfectivoPage /> },
+      { path: 'reportes/patrimonio', element: <CambiosPatrimonioPage /> },
+      { path: 'reportes/diario', element: <LibroDiarioPage /> },
+      { path: 'reportes/mayor', element: <LibroMayorPage /> },
+      { path: 'reportes/fiscal-corporativo', element: <ComparativoLibrosPage /> },
 
       { path: '*', element: <Navigate to="/" replace /> },
     ],

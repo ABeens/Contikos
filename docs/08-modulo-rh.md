@@ -23,6 +23,11 @@ permanente y un error tiene consecuencias legales.
 Si se implementa, **toda la lógica de cálculo va tras una interfaz
 `MotorNominaLocal`**, con una implementación por país.
 
+**Decisión (setiembre de 2026):** se implementa el cálculo propio. Las tasas, los
+tramos y las tablas de prestaciones son parámetros con vigencia por fecha,
+administrados en la aplicación. Ver [12 D-06](12-decisiones-pendientes.md) y los
+valores de Costa Rica en [13 §6](13-localizacion-costa-rica.md#6-nómina-y-seguridad-social).
+
 ## 2. Entidades
 
 ```
@@ -166,3 +171,34 @@ requiere tocar reglas de mapeo, solo darlo de alta con su cuenta.
 
 Las cuentas de contrapartida (sueldos por pagar, bancos) sí se resuelven por
 regla de mapeo del módulo.
+
+## 9. Cómo quedó construido (setiembre de 2026)
+
+Con cálculo propio (D-06), en `Recursos humanos`, detrás del permiso
+`planilla.ver`, que no tiene ni el contador (§7).
+
+- **Parámetros de ley con vigencia** (`Parámetros de ley`). Cargas de la CCSS
+  con su base (salario, o base mínima del SEM o del IVM), tramos de renta,
+  créditos, provisiones, recargo de horas extra y horas del mes. Una vigencia
+  nueva copia la actual y se registra con la norma que la respalda; las
+  anteriores no se tocan. El cálculo de un mes usa la vigente al último día
+  del mes. Los de 2026 son los de [13 §6](13-localizacion-costa-rica.md#6-nómina-y-seguridad-social).
+- **Empleados** con salario base, hijos y crédito por cónyuge, e IBAN.
+- **Planilla del mes**: incidencias (horas extra, bonificaciones, días sin goce,
+  otras deducciones), cálculo, revisión contra el mes anterior (más de 10 % se
+  marca), contabilización y pago. Se recalcula hasta contabilizarla.
+- **Asiento de planilla y provisiones en uno**, con sueldos por pagar por
+  empleado y su auxiliar; el del pago los deja en cero y registra el retiro en
+  el auxiliar bancario para conciliarlo.
+- **Archivos**: el de pago al banco y el de la planilla para la CCSS, en CSV
+  genérico. El formato de cada banco y el de SICERE están por confirmar.
+- **El checklist de cierre mensual** ya mira la planilla: aviso si hay empleados
+  y la del mes no está contabilizada.
+
+El motor está en `modules/rh/domain/calculo.ts` y es la implementación de
+`MotorNominaLocal` para Costa Rica. Sus pruebas usan importes calculados a mano.
+
+Queda fuera: incapacidades (subsidio compartido con la CCSS), liquidaciones al
+terminar la relación (cesantía y preaviso según §6.3 de doc 13), el pago del
+aguinaldo en diciembre contra su provisión, la rebaja para menores de 35 años en
+jornada parcial y el recibo individual en PDF.

@@ -15,6 +15,7 @@ import type {
   ItemCatalogo,
   LineaFacturaVenta,
   MapeoCxc,
+  NotaCredito,
 } from '@/shared/api/contracts/cxc'
 import type { EstadoDocumento } from '@/shared/api/contracts/comunes'
 import type { MedioPago } from '@/shared/api/contracts/terceros'
@@ -757,4 +758,46 @@ export function siguienteNumeroCobro(): string {
 /** El id sale del consecutivo: es el que nunca cambia. */
 export function idDeNumeroCobro(numero: string): string {
   return `cob-${String(Number(numero.replace(/\D/g, ''))).padStart(3, '0')}`
+}
+
+/* -------------------------------------------------------- Notas de crédito */
+
+/** Prefijo del número interno de la nota: NC-000001. */
+export const PREFIJO_NOTA_CREDITO = 'NC'
+
+/**
+ * Notas de crédito emitidas. La demo arranca sin ninguna: todas las que haya
+ * las emitió quien está usando la aplicación.
+ */
+const tablaNotasCredito = tabla<NotaCredito>('cxc.notas-credito', () => [])
+
+export const notasCreditoMock: NotaCredito[] = tablaNotasCredito.filas
+
+export function persistirNotasCredito(): void {
+  tablaNotasCredito.persistir()
+}
+
+export function siguienteNumeroNotaCredito(): string {
+  const mayor = notasCreditoMock.reduce((acc, n) => {
+    const numero = Number(n.numeroInterno.replace(/\D/g, ''))
+    return Number.isNaN(numero) ? acc : Math.max(acc, numero)
+  }, 0)
+  return formatearNumeroInterno(PREFIJO_NOTA_CREDITO, mayor + 1)
+}
+
+/**
+ * Consecutivo del comprobante de la nota: tipo de documento 03, con su propio
+ * contador por terminal (docs/13 §4.2), independiente del de las facturas.
+ */
+export function siguienteConsecutivoNotaCredito(): string {
+  const mayor = notasCreditoMock.reduce((acc, n) => {
+    const partes = descomponerConsecutivo(n.consecutivo)
+    return partes ? Math.max(acc, partes.numero) : acc
+  }, 0)
+  return formatearConsecutivoHacienda(
+    SUCURSAL_EMISORA,
+    TERMINAL_EMISORA,
+    TIPO_DOCUMENTO_HACIENDA.NC,
+    mayor + 1,
+  )
 }

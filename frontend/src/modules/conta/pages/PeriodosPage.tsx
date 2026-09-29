@@ -1,17 +1,7 @@
 import { useEffect, useState } from 'react'
-import {
-  CircleAlert,
-  CircleCheck,
-  Lock,
-  LockOpen,
-  TriangleAlert,
-} from 'lucide-react'
+import { CalendarCheck, Lock, LockOpen } from 'lucide-react'
 import { useEmpresa } from '@/app/empresa'
-import type {
-  ChecklistCierre,
-  Periodo,
-  VerificacionCierre,
-} from '@/shared/api/contracts/conta'
+import type { Periodo } from '@/shared/api/contracts/conta'
 import { formatFecha, formatFechaLarga, formatPeriodo } from '@/shared/format/fecha'
 import { Button } from '@/shared/ui/Button'
 import { Card, CardHeader, EstadoError, PageHeader } from '@/shared/ui/Layout'
@@ -26,6 +16,8 @@ import {
   useVerificacionCierre,
 } from '../api/queries'
 import { etiquetaPeriodo } from '../domain/periodo'
+import { Verificaciones } from '../components/Verificaciones'
+import { LinkBoton } from '@/shared/ui/LinkBoton'
 
 /**
  * Periodos contables y cierre mensual (docs/03 §5).
@@ -144,6 +136,14 @@ export function PeriodosPage() {
       <PageHeader
         titulo="Periodos contables"
         descripcion="Los meses del ejercicio y su estado. Cerrar un periodo exige pasar el checklist de cierre; reabrirlo, que no esté bloqueado."
+        acciones={
+          <LinkBoton
+            to="/conta/cierre-ejercicio"
+            icono={<CalendarCheck className="size-4" />}
+          >
+            Cierre del ejercicio
+          </LinkBoton>
+        }
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[20rem_1fr]">
@@ -360,65 +360,5 @@ export function PeriodosPage() {
         </>
       )}
     </div>
-  )
-}
-
-/* ------------------------------------------------------- Verificaciones */
-
-const TONO: Record<
-  VerificacionCierre['severidad'],
-  { icono: typeof CircleAlert; clase: string }
-> = {
-  error: { icono: CircleAlert, clase: 'text-red-700' },
-  aviso: { icono: TriangleAlert, clase: 'text-amber-700' },
-  ok: { icono: CircleCheck, clase: 'text-emerald-700' },
-}
-
-/**
- * El checklist entero, punto por punto.
- *
- * También los que están bien: el semáforo verde es la mitad de la información
- * que pide docs/03 §5. Una lista que solo enseña los problemas deja al que
- * cierra sin saber si la depreciación se comprobó o si nadie la miró.
- */
-function Verificaciones({
-  verificaciones,
-}: {
-  verificaciones: ChecklistCierre['verificaciones']
-}) {
-  if (verificaciones.length === 0) return null
-
-  return (
-    <ul
-      aria-label="Checklist de cierre"
-      className="divide-y divide-slate-100 text-sm"
-    >
-      {verificaciones.map((v, i) => {
-        const tono = TONO[v.severidad]
-        const Icono = tono.icono
-        return (
-          <li
-            key={`${v.codigo}-${i}`}
-            className="flex items-start gap-2 px-4 py-2"
-          >
-            <Icono className={cn('mt-0.5 size-4 shrink-0', tono.clase)} />
-            <span>
-              <span
-                className={cn(
-                  'mr-1 text-[10px] font-semibold tracking-wider uppercase',
-                  tono.clase,
-                )}
-              >
-                {v.severidad}
-              </span>
-              <span className="text-slate-700">{v.mensaje}</span>
-              {v.detalle && (
-                <span className="block text-xs text-slate-500">{v.detalle}</span>
-              )}
-            </span>
-          </li>
-        )
-      })}
-    </ul>
   )
 }

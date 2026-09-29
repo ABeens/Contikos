@@ -306,6 +306,28 @@ Al cerrar el año:
 El asiento de cierre es un asiento normal, con `origen.modulo = "conta"` y
 `origen.tipo = "cierre_ejercicio"`.
 
+**Cómo quedó construido (setiembre de 2026).** Pantalla `Contabilidad → Cierre
+del ejercicio`, con su checklist como el mensual. Tres diferencias con lo de
+arriba, y por qué:
+
+- **Los pasos 1 y 2 van en un solo asiento.** Se saldan ingresos, costos y
+  gastos directamente contra la cuenta de patrimonio que se elija (casi siempre
+  utilidades acumuladas). Pasar por una cuenta intermedia de "resultado del
+  ejercicio" daba dos asientos para decir una sola cosa.
+- **Va separado por libro.** Si el fiscal y el corporativo tienen resultados
+  distintos, cada libro lleva sus propias líneas y su propia contrapartida, y
+  cada uno cuadra por su cuenta (D-11).
+- **No hay asiento de apertura.** El mayor es continuo: la balanza acumula desde
+  el primer asiento, así que el 1 de enero los saldos de balance ya están donde
+  quedaron el 31 de diciembre. Un asiento de apertura los contaría dos veces. El
+  paso 3 se reduce a abrir los doce meses del ejercicio siguiente.
+
+Requisitos para cerrar: el ejercicio terminó, los once primeros meses están
+cerrados o bloqueados, diciembre está abierto (el asiento va fechado el 31) y la
+cuenta destino es de patrimonio, de detalle y activa. Los estados que miden el
+resultado piden la balanza sin el asiento de cierre (`excluirCierre`), para que
+el Estado de Resultados de diciembre no diga que el año no ganó nada.
+
 ## 7. Tipos de cambio
 
 Tabla por `(moneda, fecha, tipo)` donde tipo distingue el uso —

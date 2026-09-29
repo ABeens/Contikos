@@ -50,6 +50,22 @@ export function cuentasDeCaja(cuentas: readonly Cuenta[]): Cuenta[] {
 }
 
 /**
+ * Cuenta de efectivo o equivalente: caja o banco.
+ *
+ * La usa el Estado de Flujos de Efectivo para saber qué variación explica, y
+ * sigue la misma convención de catálogo que el resto de este archivo.
+ */
+export function esCuentaDeEfectivo(
+  cuenta: Pick<Cuenta, 'codigo' | 'tipo' | 'esDetalle'>,
+): boolean {
+  return (
+    cuenta.esDetalle &&
+    cuenta.tipo === 'activo' &&
+    cuenta.codigo.startsWith(PREFIJO_EFECTIVO)
+  )
+}
+
+/**
  * Todo lo que puede recibir un cobro o pagar un egreso.
  *
  * Las cuentas bancarias entran por su catálogo y no por el plan: la ficha es la

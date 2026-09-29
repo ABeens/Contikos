@@ -1,10 +1,12 @@
 import type {
   ClasificacionNiifBase,
   EstadoFinanciero,
+  GrupoPresentacion,
   NotaEeffBase,
   TipoCuenta,
 } from '@/shared/api/contracts/conta'
 import { tabla } from '@/shared/almacen/almacen'
+import { grupoPropuesto } from '@/shared/presentacion/grupos'
 
 /**
  * Catálogos de presentación de la empresa demo.
@@ -26,6 +28,7 @@ type FilaClasificacion = [
   estado: EstadoFinanciero,
   tipos: TipoCuenta[],
   seccion: string | null,
+  grupo: GrupoPresentacion,
 ]
 
 /**
@@ -34,38 +37,38 @@ type FilaClasificacion = [
  */
 const CLASIFICACIONES_FILAS: FilaClasificacion[] = [
   // Estado de Situación Financiera: activo
-  ['A.01', 'Efectivo y equivalentes al efectivo', 'situacion', ['activo'], 'Sección 7'],
-  ['A.02', 'Deudores comerciales y otras cuentas por cobrar', 'situacion', ['activo'], 'Sección 11'],
-  ['A.03', 'Inventarios', 'situacion', ['activo'], 'Sección 13'],
-  ['A.04', 'Activos por impuestos corrientes', 'situacion', ['activo'], 'Sección 29'],
-  ['A.05', 'Otros activos corrientes', 'situacion', ['activo'], 'Sección 4'],
-  ['A.06', 'Propiedades, planta y equipo', 'situacion', ['activo'], 'Sección 17'],
+  ['A.01', 'Efectivo y equivalentes al efectivo', 'situacion', ['activo'], 'Sección 7', 'activo_corriente'],
+  ['A.02', 'Deudores comerciales y otras cuentas por cobrar', 'situacion', ['activo'], 'Sección 11', 'activo_corriente'],
+  ['A.03', 'Inventarios', 'situacion', ['activo'], 'Sección 13', 'activo_corriente'],
+  ['A.04', 'Activos por impuestos corrientes', 'situacion', ['activo'], 'Sección 29', 'activo_corriente'],
+  ['A.05', 'Otros activos corrientes', 'situacion', ['activo'], 'Sección 4', 'activo_corriente'],
+  ['A.06', 'Propiedades, planta y equipo', 'situacion', ['activo'], 'Sección 17', 'activo_no_corriente'],
 
   // Estado de Situación Financiera: pasivo
-  ['P.01', 'Acreedores comerciales y otras cuentas por pagar', 'situacion', ['pasivo'], 'Sección 11'],
-  ['P.02', 'Pasivos por impuestos corrientes', 'situacion', ['pasivo'], 'Sección 29'],
-  ['P.03', 'Beneficios a los empleados', 'situacion', ['pasivo'], 'Sección 28'],
+  ['P.01', 'Acreedores comerciales y otras cuentas por pagar', 'situacion', ['pasivo'], 'Sección 11', 'pasivo_corriente'],
+  ['P.02', 'Pasivos por impuestos corrientes', 'situacion', ['pasivo'], 'Sección 29', 'pasivo_corriente'],
+  ['P.03', 'Beneficios a los empleados', 'situacion', ['pasivo'], 'Sección 28', 'pasivo_corriente'],
 
   // Estado de Situación Financiera: patrimonio
-  ['PT.01', 'Capital social', 'situacion', ['capital'], 'Sección 22'],
-  ['PT.02', 'Resultados acumulados', 'situacion', ['capital'], 'Sección 6'],
+  ['PT.01', 'Capital social', 'situacion', ['capital'], 'Sección 22', 'patrimonio'],
+  ['PT.02', 'Resultados acumulados', 'situacion', ['capital'], 'Sección 6', 'patrimonio'],
 
   // Estado de Resultados
-  ['R.01', 'Ingresos de actividades ordinarias', 'resultados', ['ingreso'], 'Sección 23'],
-  ['R.02', 'Otros ingresos', 'resultados', ['ingreso'], 'Sección 2'],
-  ['R.03', 'Costo de ventas', 'resultados', ['costo'], 'Sección 13'],
-  ['R.04', 'Gastos por beneficios a los empleados', 'resultados', ['gasto'], 'Sección 28'],
-  ['R.05', 'Otros gastos de administración', 'resultados', ['gasto'], 'Sección 5'],
-  ['R.06', 'Depreciación y amortización', 'resultados', ['gasto'], 'Sección 17'],
-  ['R.07', 'Costos financieros', 'resultados', ['gasto'], 'Sección 25'],
+  ['R.01', 'Ingresos de actividades ordinarias', 'resultados', ['ingreso'], 'Sección 23', 'ingresos'],
+  ['R.02', 'Otros ingresos', 'resultados', ['ingreso'], 'Sección 2', 'otros_resultados'],
+  ['R.03', 'Costo de ventas', 'resultados', ['costo'], 'Sección 13', 'costo_ventas'],
+  ['R.04', 'Gastos por beneficios a los empleados', 'resultados', ['gasto'], 'Sección 28', 'gastos_operacion'],
+  ['R.05', 'Otros gastos de administración', 'resultados', ['gasto'], 'Sección 5', 'gastos_operacion'],
+  ['R.06', 'Depreciación y amortización', 'resultados', ['gasto'], 'Sección 17', 'gastos_operacion'],
+  ['R.07', 'Costos financieros', 'resultados', ['gasto'], 'Sección 25', 'resultado_financiero'],
   // El único renglón que reúne dos tipos: la diferencia de cambio se presenta
   // neta, y sus cuentas de ganancia y de pérdida son de signo contrario.
-  ['R.08', 'Diferencias de cambio, netas', 'resultados', ['ingreso', 'gasto'], 'Sección 30'],
+  ['R.08', 'Diferencias de cambio, netas', 'resultados', ['ingreso', 'gasto'], 'Sección 30', 'resultado_financiero'],
 ]
 
 export const CLASIFICACIONES_SEED: readonly ClasificacionNiifBase[] =
   CLASIFICACIONES_FILAS.map(
-    ([codigo, nombre, estadoFinanciero, tiposCuenta, seccionNiif], i) => ({
+    ([codigo, nombre, estadoFinanciero, tiposCuenta, seccionNiif, grupo], i) => ({
       id: `niif-${codigo.toLowerCase().replace('.', '-')}`,
       codigo,
       nombre,
@@ -73,6 +76,7 @@ export const CLASIFICACIONES_SEED: readonly ClasificacionNiifBase[] =
       tiposCuenta,
       seccionNiif,
       orden: (i + 1) * 10,
+      grupo,
       activa: true,
     }),
   )
@@ -152,6 +156,14 @@ export const NOTA_POR_REFERENCIA = new Map(
 const tablaClasificaciones = tabla<ClasificacionNiifBase>(
   'conta.clasificaciones',
   () => CLASIFICACIONES_SEED.map((c) => ({ ...c, tiposCuenta: [...c.tiposCuenta] })),
+  {
+    // Al cambiar de empresa se leen filas guardadas que pueden no tener grupo.
+    alCambiar: (filas) => {
+      if (completarGrupos(filas as ClasificacionNiifBase[])) {
+        tablaClasificaciones.persistir()
+      }
+    },
+  },
 )
 
 const tablaNotas = tabla<NotaEeffBase>('conta.notas', () =>
@@ -160,6 +172,32 @@ const tablaNotas = tabla<NotaEeffBase>('conta.notas', () =>
 
 export const clasificacionesMock: ClasificacionNiifBase[] =
   tablaClasificaciones.filas
+
+/**
+ * Pone el grupo a las clasificaciones guardadas antes de que existiera.
+ *
+ * Una clasificación de la semilla lo toma de la semilla, por su código. Una
+ * creada por el usuario no tiene de dónde sacarlo con certeza, así que se le
+ * propone el primero de su estado que admita sus tipos: sin grupo no sumaría
+ * en ningún subtotal, y el Balance dejaría de cuadrar sin avisar. Queda editable
+ * en el catálogo como cualquier otro dato.
+ *
+ * Se aplica al cargar y cada vez que la tabla cambia de empresa, que es cuando
+ * se leen filas guardadas con la forma vieja.
+ */
+function completarGrupos(filas: ClasificacionNiifBase[]): boolean {
+  let cambio = false
+  for (const fila of filas) {
+    if (fila.grupo !== undefined) continue
+    fila.grupo =
+      CLASIFICACION_POR_CODIGO.get(fila.codigo)?.grupo ??
+      grupoPropuesto(fila.estadoFinanciero, fila.tiposCuenta)
+    cambio = true
+  }
+  return cambio
+}
+
+if (completarGrupos(clasificacionesMock)) tablaClasificaciones.persistir()
 
 export const notasMock: NotaEeffBase[] = tablaNotas.filas
 

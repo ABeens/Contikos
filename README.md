@@ -53,10 +53,11 @@ venta) no requiere tocar el núcleo contable.
 | [15 — Diferidos](docs/15-modulo-diferidos.md) | Gastos e ingresos pagados por adelantado, amortización mensual |
 | [16 — Requerimientos set. 2026](docs/16-requerimientos-2026-09.md) | Los 20 puntos de la revisión funcional, con su estado |
 | [17 — Plan de módulos faltantes](docs/17-plan-modulos-faltantes.md) | Bancos, reportes, RH e inventarios: orden, etapas y qué decidir antes |
+| [18. Posible y bloqueado](docs/18-posible-y-bloqueado.md) | Qué se puede construir ya y qué espera una respuesta, con la pregunta concreta de cada bloqueo |
 
 ## Estado
 
-🚧 **Frontend: núcleo contable, CxC, CxP, bancos, activos fijos, diferidos y multiempresa.**
+🚧 **Frontend: los siete módulos del diagrama, más diferidos, multiempresa y control de acceso por rol.** Lo que queda está en [doc 18](docs/18-posible-y-bloqueado.md).
 
 | Decisión | Resultado |
 |---|---|
@@ -221,12 +222,40 @@ datos de fábrica: `Configuración → Datos de demostración → Restablecer`.
 - Los módulos emiten sus asientos por el contrato de
   [doc 02](docs/02-contrato-asientos.md), y cada pantalla de captura enseña el
   asiento antes de confirmar
-- Los dos módulos restantes navegables, documentando su alcance
+- **Estados financieros** ([doc 09 §10](docs/09-modulo-reportes.md)): Estado de
+  Situación Financiera, de Resultados (del mes o acumulado), de Flujos de
+  Efectivo por el método indirecto y de Cambios en el Patrimonio, cada uno de un
+  libro, con comparativo, drill-down hasta el asiento, exportación a CSV e
+  impresión. Cada uno verifica solo lo que tiene que cumplir: el balance cuadra,
+  el flujo explica exactamente la variación de caja y bancos, el patrimonio
+  termina donde dice el balance
+- **Libro diario, libro mayor y auxiliar de cuenta**, y el **comparativo fiscal
+  contra corporativo**
+- **Cierre de ejercicio** ([doc 03 §6](docs/03-modulo-contabilidad.md)): salda
+  los resultados contra patrimonio con un asiento por libro, bloquea los doce
+  meses y abre el año siguiente
+- **Notas de crédito** ([doc 04 §2.3](docs/04-modulo-cxc.md)) sobre una factura,
+  por cantidad y al precio neto original, con su consecutivo y su clave
+  numérica. Las facturas también nacen ya con clave numérica
+- **Inicio de sesión y roles por empresa**: administrador, contador, auxiliar,
+  planilla y consulta, con una sola tabla de permisos que usan el servidor para
+  rechazar y la interfaz para no ofrecer. Catálogo de usuarios en
+  `Configuración → Usuarios`. Contra el mock, la pantalla de inicio enseña los
+  usuarios de demostración (contraseña `contikos`)
+- **Recursos humanos** ([doc 08 §9](docs/08-modulo-rh.md)), con la planilla
+  calculada dentro de la aplicación (D-06): empleados, incidencias, cargas de la
+  CCSS con base mínima, impuesto al salario por tramos con créditos, provisiones,
+  revisión contra el mes anterior, asiento, pago y archivos para el banco y la
+  CCSS. Las tasas y tramos son **parámetros de ley con fecha de vigencia**
+  administrados en la aplicación: cuando cambia la ley se registra una vigencia
+  nueva, sin tocar el código
+- **Flujo de efectivo proyectado** a trece semanas, por moneda, con cobros,
+  pagos y la planilla estimada ([doc 06 §3](docs/06-modulo-bancos.md))
 
 ```bash
 cd frontend
 pnpm install
 pnpm dev        # http://localhost:5173
-pnpm test       # 695 pruebas
+pnpm test       # 830 pruebas
 pnpm typecheck
 ```

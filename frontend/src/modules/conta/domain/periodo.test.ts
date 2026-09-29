@@ -112,6 +112,7 @@ function contexto(extra: Partial<ContextoCierre> = {}): ContextoCierre {
       revaluacionContabilizada: true,
       cuentasEnMonedaExtranjera: 1,
     },
+    nomina: { contabilizada: true, empleadosEnPlanilla: 5 },
     ...extra,
   }
 }
@@ -185,14 +186,13 @@ describe('Checklist de cierre de periodo', () => {
     expect(resultado.verificaciones.every((v) => v.severidad === 'ok')).toBe(
       true,
     )
-    // La nómina, que todavía no tiene módulo, ocupa igual su sitio: un
-    // checklist al que le falta un punto enseña un cierre más limpio de lo
-    // que es.
-    for (const codigo of ['NOMINA_PENDIENTE'] as const) {
-      expect(punto(AGOSTO, contexto(), codigo)[0].detalle).toBe(
-        'El módulo aún no existe',
-      )
-    }
+  })
+
+  it('avisa si la planilla del mes no está contabilizada y hay empleados', () => {
+    const sin = contexto({ nomina: { contabilizada: false, empleadosEnPlanilla: 5 } })
+    expect(punto(AGOSTO, sin, 'NOMINA_PENDIENTE')[0].severidad).toBe('aviso')
+    const vacia = contexto({ nomina: { contabilizada: false, empleadosEnPlanilla: 0 } })
+    expect(punto(AGOSTO, vacia, 'NOMINA_PENDIENTE')[0].severidad).toBe('ok')
   })
 
   it('no cierra un periodo que ya está cerrado ni uno bloqueado', () => {

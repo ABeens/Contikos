@@ -4,6 +4,7 @@ import type { Libro } from '@/shared/api/contracts/comunes'
 import type {
   SolicitudAsiento,
   SolicitudCierre,
+  SolicitudCierreEjercicio,
   SolicitudClasificacionCuenta,
   SolicitudClasificacionNiif,
   SolicitudCuenta,
@@ -27,6 +28,9 @@ export const clavesConta = {
   periodos: ['conta', 'periodos'] as const,
   verificacionCierre: (periodoId: string) =>
     ['conta', 'periodos', 'verificacion', periodoId] as const,
+  // Cuelga de periodos: cerrar o reabrir un mes cambia el checklist anual.
+  verificacionEjercicio: (ejercicio: number, cuentaDestino: string) =>
+    ['conta', 'periodos', 'ejercicio', ejercicio, cuentaDestino] as const,
   asientos: (periodoId?: string, libro?: Libro) =>
     ['conta', 'asientos', periodoId, libro ?? 'ambos'] as const,
   asiento: (id: string) => ['conta', 'asiento', id] as const,
@@ -189,6 +193,41 @@ export function useReabrirPeriodo() {
   })
 }
 
+/* ------------------------------------ Cierre de ejercicio (docs/03 §6) */
+
+/** El checklist del cierre anual. Sin caché, por la misma razón que el mensual. */
+export function useVerificacionEjercicio(
+  ejercicio: number | undefined,
+  cuentaDestino: string,
+) {
+  return useQuery({
+    queryKey: clavesConta.verificacionEjercicio(ejercicio ?? 0, cuentaDestino),
+    queryFn: ({ signal }) =>
+      servicioConta.obtenerVerificacionEjercicio(ejercicio!, cuentaDestino || null, {
+        signal,
+      }),
+    enabled: ejercicio !== undefined,
+    staleTime: 0,
+  })
+}
+
+export function useCerrarEjercicio() {
+  const cliente = useQueryClient()
+  return useMutation({
+    meta: { exito: 'Ejercicio cerrado' },
+    mutationFn: ({
+      ejercicio,
+      solicitud,
+    }: {
+      ejercicio: number
+      solicitud: SolicitudCierreEjercicio
+    }) => servicioConta.cerrarEjercicio(ejercicio, solicitud),
+    // Cambian los meses (bloqueados y los del año nuevo), el mayor (el
+    // asiento de cierre) y, con él, todos los reportes.
+    onSuccess: () => invalidarPeriodos(cliente),
+  })
+}
+
 export function useContabilizarAsiento() {
   const cliente = useQueryClient()
   return useMutation({
@@ -239,21 +278,9 @@ function invalidarPresentacion(cliente: ReturnType<typeof useQueryClient>) {
   void cliente.invalidateQueries({ queryKey: clavesConta.cuentas })
 }
 
-export function useClasificacionesNiif() {
-  return useQuery({
-    queryKey: clavesConta.clasificaciones,
-    queryFn: ({ signal }) => servicioConta.listarClasificaciones({ signal }),
-    staleTime: 5 * 60 * 1000,
-  })
-}
-
-export function useNotasEeff() {
-  return useQuery({
-    queryKey: clavesConta.notas,
-    queryFn: ({ signal }) => servicioConta.listarNotas({ signal }),
-    staleTime: 5 * 60 * 1000,
-  })
-}
+// Los dos catálogos de presentación también los lee `reportes`: viven en
+// `shared/api/catalogos` con las mismas claves y se re-exportan aquí.
+export { useClasificacionesNiif, useNotasEeff } from '@/shared/api/catalogos'
 
 export function useGuardarClasificacion() {
   const cliente = useQueryClient()

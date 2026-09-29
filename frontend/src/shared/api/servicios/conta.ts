@@ -4,6 +4,7 @@ import {
   AsientoSchema,
   BalanzaComparativaSchema,
   BalanzaSchema,
+  ChecklistCierreEjercicioSchema,
   ChecklistCierreSchema,
   ClasificacionNiifSchema,
   CuentaSchema,
@@ -13,12 +14,14 @@ import {
   type Balanza,
   type BalanzaComparativa,
   type ChecklistCierre,
+  type ChecklistCierreEjercicio,
   type ClasificacionNiif,
   type Cuenta,
   type NotaEeff,
   type Periodo,
   type SolicitudAsiento,
   type SolicitudCierre,
+  type SolicitudCierreEjercicio,
   type SolicitudClasificacionCuenta,
   type SolicitudClasificacionNiif,
   type SolicitudCuenta,
@@ -137,6 +140,39 @@ export const servicioConta = {
     })
   },
 
+  /* ------------------------------------ Cierre de ejercicio (docs/03 §6) */
+
+  /**
+   * GET /conta/ejercicios/:ejercicio/verificacion
+   *
+   * El checklist del cierre anual para una cuenta destino. Sin cuenta también
+   * contesta, con ese punto en error: así la pantalla enseña el checklist
+   * completo antes de que se elija.
+   */
+  obtenerVerificacionEjercicio(
+    ejercicio: number,
+    cuentaDestino: string | null,
+    opciones: OpcionesLectura = {},
+  ): Promise<ChecklistCierreEjercicio> {
+    return pedir(
+      `/conta/ejercicios/${ejercicio}/verificacion`,
+      ChecklistCierreEjercicioSchema,
+      { params: { cuentaDestino: cuentaDestino ?? undefined }, ...opciones },
+    )
+  },
+
+  /** POST /conta/ejercicios/:ejercicio/cerrar */
+  cerrarEjercicio(
+    ejercicio: number,
+    solicitud: SolicitudCierreEjercicio,
+  ): Promise<ChecklistCierreEjercicio> {
+    return pedir(
+      `/conta/ejercicios/${ejercicio}/cerrar`,
+      ChecklistCierreEjercicioSchema,
+      { metodo: 'POST', cuerpo: solicitud },
+    )
+  },
+
   /* ---------------------------------------------------------- Asientos */
 
   /**
@@ -148,6 +184,13 @@ export const servicioConta = {
   listarAsientos(
     filtro: {
       periodoId?: string
+      /**
+       * Rango de fechas, inclusivo en los dos extremos. Es lo que pide el
+       * auxiliar de una cuenta cuando abarca varios meses: con `periodoId`
+       * habría que hacer una consulta por mes.
+       */
+      desde?: string
+      hasta?: string
       libro?: Libro
       /**
        * Consulta inversa desde un documento: devuelve el asiento que lo generó
@@ -161,6 +204,8 @@ export const servicioConta = {
     return pedir('/conta/asientos', ListaAsientos, {
       params: {
         periodoId: filtro.periodoId,
+        desde: filtro.desde,
+        hasta: filtro.hasta,
         libro: filtro.libro,
         documentoModulo: filtro.documento?.modulo,
         documentoTipo: filtro.documento?.tipo,
@@ -213,11 +258,23 @@ export const servicioConta = {
   obtenerBalanza(
     periodoId: string,
     libro: Libro,
-    opciones: OpcionesLectura = {},
+    opciones: OpcionesLectura & {
+      /**
+       * Deja fuera del periodo el asiento de cierre del ejercicio. Lo piden
+       * los estados que miden el resultado, que sin esto enseñarían el
+       * resultado del año en cero una vez cerrado (docs/03 §5).
+       */
+      excluirCierre?: boolean
+    } = {},
   ): Promise<Balanza> {
+    const { excluirCierre, ...lectura } = opciones
     return pedir('/conta/balanza', BalanzaSchema, {
-      params: { periodoId, libro },
-      ...opciones,
+      params: {
+        periodoId,
+        libro,
+        excluirCierre: excluirCierre ? 'true' : undefined,
+      },
+      ...lectura,
     })
   },
 

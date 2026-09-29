@@ -163,7 +163,7 @@ describe('Cierre de periodo', () => {
     const agosto = periodos.find((p) => p.id === AGOSTO)!
     expect(agosto.estado).toBe('cerrado')
     expect(agosto.motivoCierre).toBe(MOTIVO)
-    expect(agosto.cerradoPor).toBe('demo@contikos.cr')
+    expect(agosto.cerradoPor).toBe('admin@contikos.cr')
     expect(agosto.cerradoEn).not.toBeNull()
   })
 

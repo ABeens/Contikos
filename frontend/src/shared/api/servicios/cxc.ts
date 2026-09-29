@@ -7,17 +7,20 @@ import {
   FacturaVentaSchema,
   ItemCatalogoSchema,
   MapeoCxcSchema,
+  NotaCreditoSchema,
   type Antiguedad,
   type Cliente,
   type Cobro,
   type FacturaVenta,
   type ItemCatalogo,
   type MapeoCxc,
+  type NotaCredito,
   type SolicitudAnulacionCobro,
   type SolicitudCliente,
   type SolicitudCobro,
   type SolicitudFacturaVenta,
   type SolicitudItemCatalogo,
+  type SolicitudNotaCredito,
 } from '../contracts/cxc'
 import { pedir, type OpcionesLectura } from './base'
 
@@ -33,6 +36,7 @@ const ListaClientes = z.array(ClienteSchema)
 const ListaFacturas = z.array(FacturaVentaSchema)
 const ListaItems = z.array(ItemCatalogoSchema)
 const ListaCobros = z.array(CobroSchema)
+const ListaNotasCredito = z.array(NotaCreditoSchema)
 
 export const servicioCxc = {
   /** GET /cxc/mapeo — cuentas que mueve el módulo (docs/02 §5). */
@@ -202,6 +206,27 @@ export const servicioCxc = {
    */
   anularCobro(id: string, solicitud: SolicitudAnulacionCobro): Promise<Cobro> {
     return pedir(`/cxc/cobros/${id}/anulacion`, CobroSchema, {
+      metodo: 'POST',
+      cuerpo: solicitud,
+    })
+  },
+
+  /* ------------------------------------------------ Notas de crédito */
+
+  /** GET /cxc/notas-credito. Con `facturaId`, las de esa factura. */
+  listarNotasCredito(
+    filtro: { facturaId?: string } = {},
+    opciones: OpcionesLectura = {},
+  ): Promise<NotaCredito[]> {
+    return pedir('/cxc/notas-credito', ListaNotasCredito, {
+      params: { facturaId: filtro.facturaId },
+      ...opciones,
+    })
+  },
+
+  /** POST /cxc/notas-credito: emite la nota y su asiento en una operación. */
+  emitirNotaCredito(solicitud: SolicitudNotaCredito): Promise<NotaCredito> {
+    return pedir('/cxc/notas-credito', NotaCreditoSchema, {
       metodo: 'POST',
       cuerpo: solicitud,
     })

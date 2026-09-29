@@ -1,4 +1,5 @@
 import { http, HttpResponse } from 'msw'
+import { autorEnCurso } from './auth'
 import { rutaApi } from '@/shared/api/entorno'
 import { latencia } from '../latencia'
 import { hoyISO } from '@/shared/format/fecha'
@@ -439,7 +440,7 @@ const handlersConciliacion = [
       cerradaEn: new Date().toISOString(),
       // Usuario de demostración fijo: la autenticación es lo único de la fase 0
       // del roadmap que sigue sin empezar (docs/11).
-      cerradaPor: 'demo@contikos.cr',
+      cerradaPor: autorEnCurso(),
     }
 
     conciliaciones.push(conciliacion)

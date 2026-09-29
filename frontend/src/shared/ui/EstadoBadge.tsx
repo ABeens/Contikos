@@ -65,6 +65,8 @@ const ESTADOS: Record<string, { etiqueta: string; tono: Tono }> = {
   // Diferidos (docs/15). `agotado` es a lo que llega solo cuando la última
   // cuota deja el saldo en cero: no es un fallo, es el final previsto.
   vigente: { etiqueta: 'Vigente', tono: 'exito' },
+  // Planilla (docs/08 §3): se puede recalcular hasta que se contabiliza.
+  calculada: { etiqueta: 'Calculada', tono: 'info' },
   agotado: { etiqueta: 'Agotado', tono: 'neutro' },
 }
 

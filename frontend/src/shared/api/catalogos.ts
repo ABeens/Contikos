@@ -29,6 +29,9 @@ import { monedaFuncional } from '@/shared/money/money'
 export const clavesCatalogo = {
   cuentas: ['conta', 'cuentas'] as const,
   periodos: ['conta', 'periodos'] as const,
+  // Los catálogos de presentación: los administra `conta` y los lee `reportes`.
+  clasificaciones: ['conta', 'clasificaciones-niif'] as const,
+  notas: ['conta', 'notas-eeff'] as const,
   // Las tres siguientes son las claves de cxc, cxp y activos, escritas igual a
   // propósito: quien capture un asiento después de ver la lista de clientes no
   // vuelve a descargarla.
@@ -154,6 +157,29 @@ export function usePeriodos() {
   return useQuery({
     queryKey: clavesCatalogo.periodos,
     queryFn: ({ signal }) => servicioConta.listarPeriodos({ signal }),
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+/**
+ * Clasificación NIIF de los renglones de los estados financieros.
+ *
+ * Aquí y no en `conta` porque la leen dos módulos: `conta` la administra y
+ * `reportes` arma con ella los estados (docs/09 §3).
+ */
+export function useClasificacionesNiif() {
+  return useQuery({
+    queryKey: clavesCatalogo.clasificaciones,
+    queryFn: ({ signal }) => servicioConta.listarClasificaciones({ signal }),
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+/** Notas a los estados financieros. Mismo motivo que las clasificaciones. */
+export function useNotasEeff() {
+  return useQuery({
+    queryKey: clavesCatalogo.notas,
+    queryFn: ({ signal }) => servicioConta.listarNotas({ signal }),
     staleTime: 5 * 60 * 1000,
   })
 }

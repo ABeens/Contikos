@@ -27,6 +27,7 @@
  */
 
 export { servicioActivos } from './activos'
+export { servicioAuth } from './auth'
 export { servicioBancos } from './bancos'
 export { servicioConfig } from './config'
 export { servicioConta } from './conta'
@@ -35,4 +36,5 @@ export { servicioCxp } from './cxp'
 export { servicioDiferidos } from './diferidos'
 export { servicioEmpresas } from './empresas'
 export { servicioImpuestos } from './impuestos'
+export { servicioRh } from './rh'
 export type { OpcionesLectura } from './base'

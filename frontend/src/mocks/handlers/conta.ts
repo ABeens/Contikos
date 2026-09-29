@@ -1,11 +1,13 @@
 import Decimal from 'decimal.js'
 import { http, HttpResponse } from 'msw'
+import { autorEnCurso } from './auth'
 import { rutaApi } from '@/shared/api/entorno'
 import { latencia } from '../latencia'
 import type {
   Asiento,
   Balanza,
   ChecklistCierre,
+  ChecklistCierreEjercicio,
   Cuenta,
   ClasificacionNiif,
   ClasificacionNiifBase,
@@ -19,6 +21,7 @@ import type {
 } from '@/shared/api/contracts/conta'
 import {
   SolicitudAsientoSchema,
+  SolicitudCierreEjercicioSchema,
   SolicitudCierreSchema,
   SolicitudClasificacionCuentaSchema,
   SolicitudClasificacionNiifSchema,
@@ -36,6 +39,11 @@ import {
   validarReversa,
 } from '@/modules/conta/domain/asiento'
 import { codigoAsiento } from '@/shared/asiento/formato'
+import {
+  esAsientoDeCierre,
+  origenCierreEjercicio,
+  TIPO_ORIGEN_CIERRE_EJERCICIO,
+} from '@/shared/asiento/cierre'
 import type {
   ContextoCatalogo,
   ResultadoClasificacion,
@@ -59,6 +67,13 @@ import {
   validarCuenta,
 } from '@/modules/conta/domain/cuenta'
 import type { ContextoCierre } from '@/modules/conta/domain/periodo'
+import type { ContextoCierreEjercicio } from '@/modules/conta/domain/ejercicio'
+import {
+  construirAsientoCierre,
+  construirPeriodosEjercicio,
+  periodosDelEjercicio,
+  verificarCierreEjercicio,
+} from '@/modules/conta/domain/ejercicio'
 import {
   decidirCierre,
   validarReapertura,
@@ -90,6 +105,8 @@ import { monedaFuncionalMock } from '../seed/monedas'
 import { clientesMock } from '../seed/cxc'
 import { proveedoresMock } from '../seed/cxp'
 import { activosMock } from '../seed/activos'
+import { empleadosMock, planillasMock } from '../seed/rh'
+import { estaEnPlanilla } from '@/modules/rh/domain/calculo'
 import {
   cuentasBancariasMock,
   movimientosBancariosMock,
@@ -120,7 +137,8 @@ function nombreAuxiliar(
       return activosMock.find((a) => a.id === id)?.nombre ?? null
     case 'banco':
       return cuentasBancariasMock.find((b) => b.id === id)?.nombre ?? null
-    // empleado todavía no tiene catálogo (docs/11).
+    case 'empleado':
+      return empleadosMock.find((e) => e.id === id)?.nombre ?? null
     default:
       return null
   }
@@ -201,13 +219,29 @@ function acumular(
   return mapa
 }
 
-function construirBalanza(periodoId: string, libro: Libro): Balanza | null {
+/**
+ * Construye la balanza de un periodo y un libro.
+ *
+ * `excluirCierre` deja fuera del periodo el asiento de cierre del ejercicio
+ * (docs/03 §5). Lo piden los estados que miden el resultado: ese asiento lleva
+ * todos los ingresos y gastos a cero contra resultados acumulados, y dentro de
+ * diciembre haría que el Estado de Resultados del año dijera que no se ganó
+ * nada. Fuera del periodo en que cae se cuenta siempre, como cualquier otro
+ * asiento: el saldo inicial del ejercicio siguiente tiene que traerlo.
+ */
+export function construirBalanza(
+  periodoId: string,
+  libro: Libro,
+  { excluirCierre = false }: { excluirCierre?: boolean } = {},
+): Balanza | null {
   const periodo = PERIODOS.find((p) => p.id === periodoId)
   if (!periodo) return null
 
   const movimientos = acumular((a) => {
     if (a.fecha < periodo.fechaInicio) return 'inicial'
-    if (a.fecha <= periodo.fechaFin) return 'periodo'
+    if (a.fecha <= periodo.fechaFin) {
+      return excluirCierre && esAsientoDeCierre(a) ? 'fuera' : 'periodo'
+    }
     return 'fuera'
   }, libro)
 
@@ -364,6 +398,13 @@ function contextoCierre(periodo: Periodo): ContextoCierre {
         (c) => c.activa && c.moneda !== funcional,
       ).length,
     },
+    // La planilla, por la misma razón: `conta` no conoce a `rh`.
+    nomina: {
+      contabilizada: planillasMock.some(
+        (p) => p.periodoId === periodo.id && p.estado !== 'calculada',
+      ),
+      empleadosEnPlanilla: empleadosMock.filter((e) => estaEnPlanilla(e, periodo)).length,
+    },
   }
 }
 
@@ -376,6 +417,63 @@ function checklistDe(periodo: Periodo): ChecklistCierre {
     fechaReferencia: contexto.fechaReferencia,
     verificaciones: [...resultado.verificaciones],
     puedeCerrar: resultado.puedeCerrar,
+  }
+}
+
+/* --------------------------------------- Cierre de ejercicio (docs/03 §6) */
+
+/**
+ * El contexto del cierre anual sobre el estado vigente del mock.
+ *
+ * Los saldos se acumulan hasta el último día del ejercicio en cada libro por
+ * separado, con el mismo motor que la balanza: lo que el cierre salda es
+ * exactamente lo que la balanza de diciembre enseña.
+ */
+function contextoCierreEjercicio(
+  ejercicio: number,
+  cuentaDestino: string | null,
+): ContextoCierreEjercicio | null {
+  const meses = periodosDelEjercicio(ejercicio, PERIODOS)
+  if (meses.length === 0) return null
+  const fechaFin = meses[meses.length - 1].fechaFin
+
+  const saldosHasta = (libro: Libro) => {
+    const acumulado = acumular((a) => (a.fecha <= fechaFin ? 'inicial' : 'fuera'), libro)
+    return new Map([...acumulado].map(([codigo, a]) => [codigo, a.inicialFirmado]))
+  }
+
+  return {
+    periodos: PERIODOS,
+    cuentas: CUENTAS,
+    saldos: { fiscal: saldosHasta('fiscal'), corporativo: saldosHasta('corporativo') },
+    cuentaDestino,
+    fechaReferencia: hoyISO(),
+    // Cerrado es tener el asiento, o los doce meses bloqueados si el año no
+    // tuvo resultados que saldar y el cierre no generó asiento.
+    yaCerrado:
+      asientos.some(
+        (a) =>
+          a.origenModulo === 'conta' &&
+          a.origenTipo === TIPO_ORIGEN_CIERRE_EJERCICIO &&
+          a.origenId === origenCierreEjercicio(ejercicio),
+      ) || meses.every((p) => p.estado === 'bloqueado'),
+  }
+}
+
+function checklistEjercicio(
+  ejercicio: number,
+  contexto: ContextoCierreEjercicio,
+): ChecklistCierreEjercicio {
+  const resultado = verificarCierreEjercicio(ejercicio, contexto)
+  return {
+    ejercicio,
+    fechaReferencia: contexto.fechaReferencia,
+    fechaCierre: resultado.fechaCierre,
+    cuentaDestino: contexto.cuentaDestino,
+    resultados: [...resultado.resultados],
+    verificaciones: [...resultado.verificaciones],
+    puedeCerrar: resultado.puedeCerrar,
+    cerrado: contexto.yaCerrado,
   }
 }
 
@@ -497,7 +595,7 @@ export function emitirAsiento(solicitud: SolicitudAsiento): ResultadoEmision {
       totalAbonos: t.totalAbonos.toApi(),
     })),
     lineas,
-    creadoPor: 'demo@contikos.cr',
+    creadoPor: autorEnCurso(),
     creadoEn: new Date().toISOString(),
   }
 
@@ -1051,7 +1149,7 @@ export const handlersConta = [
     // asientos para todos los demás.
     periodo.estado = 'cerrado'
     periodo.cerradoEn = new Date().toISOString()
-    periodo.cerradoPor = 'demo@contikos.cr'
+    periodo.cerradoPor = autorEnCurso()
     // El motivo se guarda solo cuando hubo avisos que autorizar: un cierre
     // limpio no tiene nada que justificar, y escribir ahí el texto que el
     // usuario dejó de una vez anterior sería inventar una excepción.
@@ -1091,6 +1189,84 @@ export const handlersConta = [
     return HttpResponse.json(periodo)
   }),
 
+  /** Checklist del cierre anual. Calcula y no escribe. */
+  http.get(rutaApi('/conta/ejercicios/:ejercicio/verificacion'), async ({ params, request }) => {
+    await latencia(200)
+    const ejercicio = Number(params.ejercicio)
+    const destino = new URL(request.url).searchParams.get('cuentaDestino') || null
+    const contexto = contextoCierreEjercicio(ejercicio, destino)
+    if (!contexto) {
+      return noEncontrado('EJERCICIO_NO_ENCONTRADO', `El ejercicio ${ejercicio} no existe`)
+    }
+    return HttpResponse.json(checklistEjercicio(ejercicio, contexto))
+  }),
+
+  /**
+   * Cierra el ejercicio: asiento de cierre, meses bloqueados y el año
+   * siguiente abierto (docs/03 §6).
+   *
+   * Recalcula el checklist en vez de fiarse del que vio el cliente, igual que
+   * el cierre mensual. El asiento se emite por `emitirAsiento`, con todas sus
+   * validaciones: si el mayor lo rechazara, no se bloquea ningún mes.
+   */
+  http.post(rutaApi('/conta/ejercicios/:ejercicio/cerrar'), async ({ params, request }) => {
+    await latencia(500)
+    const ejercicio = Number(params.ejercicio)
+
+    const parsed = SolicitudCierreEjercicioSchema.safeParse(await request.json())
+    if (!parsed.success) {
+      return errorApi(
+        'SOLICITUD_INVALIDA',
+        'La solicitud no cumple el contrato',
+        parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`),
+      )
+    }
+
+    const contexto = contextoCierreEjercicio(ejercicio, parsed.data.cuentaDestino)
+    if (!contexto) {
+      return noEncontrado('EJERCICIO_NO_ENCONTRADO', `El ejercicio ${ejercicio} no existe`)
+    }
+    const verificacion = verificarCierreEjercicio(ejercicio, contexto)
+    if (!verificacion.puedeCerrar) {
+      const errores = verificacion.verificaciones.filter((v) => v.severidad === 'error')
+      return errorApi(
+        'CIERRE_EJERCICIO_RECHAZADO',
+        errores[0]?.mensaje ?? 'El ejercicio no se puede cerrar',
+        errores.map((e) => (e.detalle ? `${e.mensaje}: ${e.detalle}` : e.mensaje)),
+      )
+    }
+
+    const solicitud = construirAsientoCierre(
+      ejercicio,
+      contexto,
+      verificacion.fechaCierre,
+      monedaFuncionalMock(),
+    )
+    if (solicitud) {
+      const emision = emitirAsiento(solicitud)
+      if (!emision.ok) {
+        return errorApi(emision.error.codigo, emision.error.mensaje, emision.error.detalles)
+      }
+    }
+
+    // Los meses se mutan en su sitio, como en el cierre mensual: media
+    // aplicación tiene el array importado por referencia.
+    const ahora = new Date().toISOString()
+    for (const periodo of periodosDelEjercicio(ejercicio, PERIODOS)) {
+      periodo.estado = 'bloqueado'
+      periodo.cerradoEn ??= ahora
+      periodo.cerradoPor ??= autorEnCurso()
+    }
+    if (periodosDelEjercicio(ejercicio + 1, PERIODOS).length === 0) {
+      PERIODOS.push(...construirPeriodosEjercicio(ejercicio + 1))
+    }
+    persistirPeriodos()
+
+    return HttpResponse.json(
+      checklistEjercicio(ejercicio, { ...contexto, yaCerrado: true }),
+    )
+  }),
+
   http.get(rutaApi('/conta/asientos'), async ({ request }) => {
     await latencia(150)
     const url = new URL(request.url)
@@ -1103,6 +1279,13 @@ export const handlersConta = [
           (a) => a.fecha >= periodo.fechaInicio && a.fecha <= periodo.fechaFin,
         )
       : asientos
+
+    // Rango de fechas, inclusivo: el auxiliar de una cuenta abarca varios
+    // meses y no tendría sentido pedirlo mes a mes.
+    const desde = url.searchParams.get('desde')
+    const hasta = url.searchParams.get('hasta')
+    if (desde) filtrados = filtrados.filter((a) => a.fecha >= desde)
+    if (hasta) filtrados = filtrados.filter((a) => a.fecha <= hasta)
 
     // Sin `libro` se listan todos: la pantalla de asientos es la vista donde
     // las dos contabilidades se ven juntas.
@@ -1156,7 +1339,9 @@ export const handlersConta = [
     // La balanza es siempre de un libro. Sin indicarlo se devuelve el fiscal:
     // es el que se declara, y equivocarse de libro en un reporte es caro.
     const libro: Libro = esLibro(solicitado) ? solicitado : 'fiscal'
-    const balanza = construirBalanza(periodoId, libro)
+    const balanza = construirBalanza(periodoId, libro, {
+      excluirCierre: url.searchParams.get('excluirCierre') === 'true',
+    })
     if (!balanza) {
       return HttpResponse.json(
         { codigo: 'NO_ENCONTRADO', mensaje: 'Periodo no encontrado' },

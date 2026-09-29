@@ -5,6 +5,7 @@ import {
   QueryClientProvider,
 } from '@tanstack/react-query'
 import { ProveedorEmpresa, ProveedorMonedas } from './contexto'
+import { ProveedorSesion } from './sesion'
 import { esReintentable } from '@/shared/api/client'
 import { notificar } from '@/shared/ui/avisos'
 import { Notificaciones } from '@/shared/ui/Notificaciones'
@@ -41,9 +42,11 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={cliente}>
-      <ProveedorMonedas>
-        <ProveedorEmpresa>{children}</ProveedorEmpresa>
-      </ProveedorMonedas>
+      <ProveedorSesion>
+        <ProveedorMonedas>
+          <ProveedorEmpresa>{children}</ProveedorEmpresa>
+        </ProveedorMonedas>
+      </ProveedorSesion>
       <Notificaciones />
     </QueryClientProvider>
   )

@@ -8,3 +8,20 @@ import { configure } from '@testing-library/react'
  * de que el flujo termine y la prueba falla por reloj, no por lógica.
  */
 configure({ asyncUtilTimeout: 5_000 })
+
+/*
+ * Toda prueba corre con una sesión de administrador abierta, salvo que la
+ * cierre ella misma. Las pruebas de acceso (`acceso.test.tsx`) son las que
+ * cambian de usuario; las demás prueban su módulo, no la autorización.
+ */
+import { beforeAll, beforeEach } from 'vitest'
+import { iniciarSesionDePrueba } from './sesion'
+
+// También antes de los `beforeAll` de cada archivo: algunos preparan datos
+// pidiéndolos al mock, y eso ya necesita sesión.
+beforeAll(() => {
+  iniciarSesionDePrueba('usr-admin')
+})
+beforeEach(() => {
+  iniciarSesionDePrueba('usr-admin')
+})

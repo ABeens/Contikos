@@ -118,7 +118,7 @@ export interface EventoMovimientoExterno {
   importe: string
   concepto: string
   referencia?: string | null
-  origen: { modulo: 'cxc' | 'cxp'; tipo: string; id: string }
+  origen: { modulo: 'cxc' | 'cxp' | 'rh'; tipo: string; id: string }
   /** El asiento que YA escribió el módulo de origen. */
   asientoId: string
 }

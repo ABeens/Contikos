@@ -185,7 +185,7 @@ Tres condiciones que no se negocian:
 
 | Pendiente | Dónde se toca |
 |---|---|
-| Autenticación: token, cabecera, 401, renovación | `client.ts`, un solo archivo. Ni servicios ni hooks ni pantallas |
+| Renovación del token | `servicios/base.ts`. El token, la cabecera `Authorization` y el cierre ante un 401 ya están (docs/17 §6) |
 | Paginación de listados largos | El servicio desenvuelve el sobre y sigue devolviendo la lista. `paginado()` ya está en `contracts/comunes.ts` |
 | El endpoint de tipo de cambio sale a Hacienda desde el servidor | Ya es así en el contrato: la aplicación solo consulta su propia API (docs/13 §8) |
 

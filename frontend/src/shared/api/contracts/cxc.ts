@@ -198,8 +198,9 @@ export const FacturaVentaSchema = z.object({
    */
   consecutivo: z.string(),
   /**
-   * Clave numérica de 50 dígitos. Nula hasta que exista la facturación
-   * electrónica: necesita firmar el XML y un código de seguridad aleatorio.
+   * Clave numérica de 50 dígitos (docs/13 §4.2). Se genera al emitir, con un
+   * código de seguridad aleatorio. Nula en las facturas de la demostración
+   * anteriores a que se generara: el XML firmado y su envío siguen pendientes.
    */
   claveNumerica: z.string().nullable(),
   clienteId: z.string(),
@@ -471,3 +472,96 @@ export const SolicitudAnulacionCobroSchema = z.object({
 export type SolicitudAnulacionCobro = z.infer<
   typeof SolicitudAnulacionCobroSchema
 >
+
+/* -------------------------------------------------------- Notas de crédito */
+
+/**
+ * Por qué se emite la nota (docs/04 §2.3).
+ *
+ * Los tres bajan el saldo de la factura y reversan ingreso e impuesto por la
+ * parte acreditada; se distinguen porque Hacienda pide el motivo en el
+ * comprobante, y porque una devolución, a diferencia de un descuento, es la
+ * que algún día moverá inventario.
+ */
+export const MotivoNotaCreditoSchema = z.enum([
+  'devolucion',
+  'descuento',
+  'correccion',
+])
+
+export type MotivoNotaCredito = z.infer<typeof MotivoNotaCreditoSchema>
+
+/**
+ * Línea de la nota: qué parte de una línea de la factura se acredita.
+ *
+ * Se acredita por cantidad y al precio neto de la línea original, no a un
+ * precio que se capture de nuevo: la nota revierte lo que la factura dijo, y
+ * un precio distinto no sería una nota de crédito sino otra venta.
+ */
+export const LineaNotaCreditoSchema = z.object({
+  id: z.string(),
+  lineaFacturaId: z.string(),
+  descripcion: z.string(),
+  cantidad: Cantidad,
+  tarifa: TarifaIvaSchema,
+  cuentaIngreso: z.string(),
+  base: Importe,
+  impuesto: Importe,
+  total: Importe,
+})
+
+export type LineaNotaCredito = z.infer<typeof LineaNotaCreditoSchema>
+
+/**
+ * Nota de crédito sobre una factura de venta.
+ *
+ * Siempre de una factura, en su moneda y a su tipo de cambio: revierte parte
+ * de lo que esa factura reconoció, así que se mide igual. Nace contabilizada,
+ * como la factura: su asiento y su efecto en el saldo son la misma operación
+ * (docs/02 §8).
+ */
+export const NotaCreditoSchema = z.object({
+  id: z.string(),
+  /** Número interno: NC-000001. */
+  numeroInterno: z.string(),
+  /** Consecutivo del comprobante, tipo de documento 03 (docs/13 §4.2). */
+  consecutivo: z.string(),
+  /** Clave numérica de 50 dígitos. Nula en notas guardadas antes de generarla. */
+  claveNumerica: z.string().nullable().default(null),
+  facturaId: z.string(),
+  facturaNumero: z.string(),
+  clienteId: z.string(),
+  clienteNombre: z.string(),
+  fecha: FechaISO,
+  moneda: MonedaSchema,
+  tipoCambio: Importe,
+  motivo: MotivoNotaCreditoSchema,
+  detalle: z.string(),
+  lineas: z.array(LineaNotaCreditoSchema).min(1),
+  subtotal: Importe,
+  impuesto: Importe,
+  total: Importe,
+  asientoId: z.string(),
+  creadoEn: z.string(),
+})
+
+export type NotaCredito = z.infer<typeof NotaCreditoSchema>
+
+export const LineaSolicitudNotaCreditoSchema = z.object({
+  lineaFacturaId: z.string().min(1),
+  cantidad: Cantidad,
+})
+
+export type LineaSolicitudNotaCredito = z.infer<typeof LineaSolicitudNotaCreditoSchema>
+
+export const SolicitudNotaCreditoSchema = z.object({
+  facturaId: z.string().min(1, 'Indique la factura'),
+  fecha: FechaISO,
+  motivo: MotivoNotaCreditoSchema,
+  detalle: z.string().min(1, 'Explique el motivo de la nota'),
+  lineas: z
+    .array(LineaSolicitudNotaCreditoSchema)
+    .min(1, 'La nota requiere al menos una línea'),
+})
+
+export type SolicitudNotaCredito = z.infer<typeof SolicitudNotaCreditoSchema>

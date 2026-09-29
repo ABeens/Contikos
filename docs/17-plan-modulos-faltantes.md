@@ -6,6 +6,11 @@ de los tres módulos pendientes dejaron de estar bloqueados. **Bancos ya se
 construyó**; el documento se mantiene al día en vez de reescribirse, para que se
 vea qué se planificó y qué salió de otra manera.
 
+> **Actualización de fin de setiembre de 2026:** bancos, reportes (etapas 1 a
+> 6), autenticación con roles y recursos humanos están construidos. Lo que
+> queda está en [18](18-posible-y-bloqueado.md): las etapas 7 y 8 de reportes,
+> inventarios, y lo que espera una respuesta.
+
 Este documento planifica. El diseño de cada módulo ya existe y no se repite aquí:
 [06 bancos](06-modulo-bancos.md), [09 reportes](09-modulo-reportes.md),
 [08 recursos humanos](08-modulo-rh.md). Inventarios es el único que todavía no
@@ -65,7 +70,9 @@ localización fiscal, que es otro frente.
 
 ## 3. Bancos
 
-**Estado: construido.** Se hizo entero salvo la etapa 7, el flujo de efectivo
+**Estado: construido, entero.** La etapa 7, el flujo de efectivo proyectado,
+se terminó cuando existió `rh` ([06 §3](06-modulo-bancos.md#3-flujo-de-efectivo-proyectado)).
+Lo que sigue es cómo se planificó: se hizo entero salvo la etapa 7, el flujo de efectivo
 proyectado, que consulta a CxC, CxP y RH, y RH no existe.
 **Diseño:** [06-modulo-bancos](06-modulo-bancos.md), completo y sin decisiones
 abiertas.
@@ -118,7 +125,8 @@ texto, no qué se hace con las filas.
 
 ## 4. Reportes
 
-**Estado:** desbloqueado, y su primera parte es lo más rentable que queda.
+**Estado:** etapas 1 a 6 construidas ([09 §10](09-modulo-reportes.md#10-cómo-quedó-construido-setiembre-de-2026)).
+Quedan la 7, que espera D-09, y la 8, que espera la localización fiscal.
 **Diseño:** [09-modulo-reportes](09-modulo-reportes.md), completo.
 
 La frontera que hay que defender está en el propio diseño: reportes **no hace
@@ -163,8 +171,17 @@ en ninguna pantalla.
 
 ## 5. Recursos humanos
 
-**Estado:** bloqueado por dos cosas, una de decisión y otra de construcción.
+**Estado:** construido, con cálculo propio ([08 §9](08-modulo-rh.md#9-cómo-quedó-construido-setiembre-de-2026)).
+Lo que sigue es cómo estaba antes: bloqueado por dos cosas, una de decisión y otra de construcción.
 **Diseño:** [08-modulo-rh](08-modulo-rh.md).
+
+> **Actualización de setiembre de 2026:** D-06 se resolvió por el **cálculo
+> propio**, con todas las tasas y tablas como parámetros con vigencia
+> administrados dentro de la aplicación ([12 D-06](12-decisiones-pendientes.md)).
+> Los valores de 2026 están verificados en
+> [13 §6](13-localizacion-costa-rica.md#6-nómina-y-seguridad-social). Aplican
+> las etapas del cálculo propio, al final de esta sección, y el único bloqueo
+> que queda es la autenticación con roles.
 
 Es el módulo de mayor riesgo del sistema, y el propio diseño lo dice en su primera
 sección: un error aquí afecta a personas, genera multas y se ve de inmediato.
@@ -208,6 +225,14 @@ La verificación que lo detecta: el saldo de sueldos por pagar tiene que quedar 
 cero después de dispersar.
 
 ## 6. Autenticación y control de acceso
+
+**Estado: construido** en el frontend y el mock. Sesión con token (que se cierra
+sola ante un 401), rol por empresa, y una sola tabla de permisos por operación
+(`shared/auth/permisos.ts`) que leen el servidor para rechazar y la interfaz
+para no ofrecer. Los datos de planilla y el catálogo de usuarios piden permisos
+propios, que no vienen con ningún "ver todo". Usuarios en `Configuración →
+Usuarios`. Lo que queda para el backend es guardar la contraseña con un hash
+lento y emitir tokens de verdad.
 
 No es un módulo, es un prerrequisito, y es lo único de la Fase 0 que sigue sin
 empezar.

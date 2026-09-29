@@ -118,3 +118,70 @@ export function formatConsecutivo(consecutivo: string): string {
 export function formatearNumeroInterno(prefijo: string, n: number): string {
   return `${prefijo}-${String(n).padStart(6, '0')}`
 }
+
+/**
+ * Situación del comprobante al emitirse (docs/13 §4.2): normal, en
+ * contingencia (Hacienda no respondía) o sin internet.
+ */
+export const SITUACION_COMPROBANTE = {
+  normal: '1',
+  contingencia: '2',
+  sinInternet: '3',
+} as const
+
+export type SituacionComprobante =
+  (typeof SITUACION_COMPROBANTE)[keyof typeof SITUACION_COMPROBANTE]
+
+/** Código de país de Costa Rica en la clave. */
+const CODIGO_PAIS = '506'
+
+/**
+ * Clave numérica del comprobante: 50 dígitos (docs/13 §4.2).
+ *
+ *   [3 país][2 día][2 mes][2 año][12 cédula emisor]
+ *   [20 consecutivo][1 situación][8 código de seguridad]
+ *
+ * El código de seguridad lo pone quien emite, aleatorio; se recibe como
+ * parámetro para que la función sea pura y se pueda probar. La fecha es la de
+ * emisión del comprobante, no la de hoy.
+ */
+export function generarClaveNumerica({
+  fecha,
+  identificacionEmisor,
+  consecutivo,
+  situacion = SITUACION_COMPROBANTE.normal,
+  codigoSeguridad,
+}: {
+  fecha: string
+  identificacionEmisor: string
+  consecutivo: string
+  situacion?: SituacionComprobante
+  codigoSeguridad: string
+}): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+    throw new Error(`Fecha inválida para la clave: "${fecha}"`)
+  }
+  if (!/^\d{20}$/.test(consecutivo)) {
+    throw new Error(`El consecutivo de la clave tiene 20 dígitos (recibido "${consecutivo}")`)
+  }
+  if (!/^\d{8}$/.test(codigoSeguridad)) {
+    throw new Error('El código de seguridad tiene 8 dígitos')
+  }
+  const [anio, mes, dia] = fecha.split('-')
+  return (
+    CODIGO_PAIS +
+    dia +
+    mes +
+    anio.slice(2) +
+    soloDigitos(identificacionEmisor, 12, 'La identificación del emisor') +
+    consecutivo +
+    situacion +
+    codigoSeguridad
+  )
+}
+
+/** Ocho dígitos aleatorios, con el generador criptográfico del entorno. */
+export function codigoSeguridadAleatorio(): string {
+  const valor = crypto.getRandomValues(new Uint32Array(1))[0] % 100_000_000
+  return String(valor).padStart(8, '0')
+}

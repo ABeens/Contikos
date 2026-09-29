@@ -33,7 +33,7 @@ Antes de cualquier módulo:
 - [x] Decidir stack y país ([12-decisiones-pendientes](12-decisiones-pendientes.md))
 - [ ] Estructura del repositorio y de módulos
 - [ ] Base de datos, migraciones, entorno local
-- [ ] Autenticación y RBAC por empresa
+- [x] Autenticación y RBAC por empresa (en el frontend y el mock: sesión, rol por empresa, permisos por operación con la tabla de `shared/auth/permisos.ts`; el backend hereda el contrato)
 - [x] Multiempresa: filtro obligatorio a nivel de repositorio (en el frontend y
       el mock: cabecera de empresa obligatoria, catálogo de empresas, cambio de
       empresa y directorio de terceros del grupo; el backend hereda el contrato)
@@ -67,7 +67,7 @@ asientos, y una reversa deja el saldo en cero.
 
 - [ ] Clientes
 - [ ] Facturas: captura, validación, contabilización
-- [ ] Notas de crédito
+- [x] Notas de crédito
 - [ ] Cobros con aplicación N a N
 - [ ] Anticipos
 - [ ] Diferencia cambiaria realizada
@@ -108,20 +108,20 @@ tener cinco módulos construidos sobre él.
 - [x] Cierre de conciliación con verificación de diferencia cero
 - [x] Revaluación de moneda extranjera, enganchada al checklist de cierre
 - [x] Posición de tesorería
-- [ ] Flujo de efectivo proyectado — su tercera pata es la nómina, que no existe
+- [x] Flujo de efectivo proyectado
 
 ### Fase 5 — Reportes
 
 - [ ] Balanza de comprobación completa, con niveles
-- [ ] Auxiliar de cuenta con drill-down al documento origen
-- [ ] Libro diario y libro mayor
-- [ ] Balance General
-- [ ] Estado de Resultados
-- [ ] Comparativos entre periodos
+- [x] Auxiliar de cuenta con drill-down al documento origen
+- [x] Libro diario y libro mayor
+- [x] Balance General
+- [x] Estado de Resultados
+- [x] Comparativos entre periodos
 - [ ] Motor de plantillas configurables
-- [ ] Exportación a PDF y Excel
-- [ ] Estado de Flujo de Efectivo
-- [ ] Estado de Cambios en el Capital
+- [ ] Exportación a PDF y Excel (hoy: CSV para Excel e impresión del navegador)
+- [x] Estado de Flujo de Efectivo
+- [x] Estado de Cambios en el Capital
 - [ ] Exportación fiscal (depende del país)
 
 ### Fase 6 — Activos fijos
@@ -138,21 +138,21 @@ tener cinco módulos construidos sobre él.
 
 ### Fase 7 — RH / Nómina
 
-- [ ] Empleados
-- [ ] Catálogo de conceptos con cuentas
-- [ ] Periodos de nómina e incidencias
-- [ ] Motor de cálculo local (o integración con proveedor externo)
-- [ ] Revisión comparativa contra periodo anterior
-- [ ] Asiento de nómina con aportaciones patronales
-- [ ] Dispersión y archivo bancario
-- [ ] Provisiones de prestaciones
+- [x] Empleados
+- [x] Catálogo de conceptos con cuentas (mapeo contable fijo por concepto; conceptos configurables pendientes)
+- [x] Periodos de nómina e incidencias
+- [x] Motor de cálculo local (D-06: cálculo propio, parámetros con vigencia)
+- [x] Revisión comparativa contra periodo anterior
+- [x] Asiento de nómina con aportaciones patronales
+- [x] Dispersión y archivo bancario (CSV genérico; el formato de cada banco está pendiente)
+- [x] Provisiones de prestaciones
 - [ ] Recibo electrónico (depende del país)
-- [ ] Control de acceso reforzado
+- [x] Control de acceso reforzado
 
 ### Fase 8 — Cierre y consolidación
 
-- [ ] Checklist de cierre mensual con semáforos
-- [ ] Cierre de ejercicio y asiento de apertura
+- [x] Checklist de cierre mensual con semáforos
+- [x] Cierre de ejercicio (sin asiento de apertura: el mayor es continuo, ver doc 03 §6)
 - [ ] Verificaciones automáticas de integridad, programadas
 - [ ] Panel de control con indicadores clave
 

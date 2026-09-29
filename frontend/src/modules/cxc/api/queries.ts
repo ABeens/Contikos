@@ -6,6 +6,7 @@ import type {
   SolicitudCobro,
   SolicitudFacturaVenta,
   SolicitudItemCatalogo,
+  SolicitudNotaCredito,
 } from '@/shared/api/contracts/cxc'
 
 /**
@@ -33,6 +34,8 @@ export const clavesCxc = {
       filtro?.facturaId ?? 'todas',
     ] as const,
   cobro: (id: string) => ['cxc', 'cobro', id] as const,
+  notasCredito: (facturaId?: string) =>
+    ['cxc', 'notas-credito', facturaId ?? 'todas'] as const,
   asientoCobro: (id: string) => ['cxc', 'cobro', id, 'asiento'] as const,
 }
 
@@ -235,5 +238,34 @@ export function useAnularCobro() {
       solicitud: SolicitudAnulacionCobro
     }) => servicioCxc.anularCobro(id, solicitud),
     onSuccess: () => invalidarPorCobro(cliente),
+  })
+}
+
+/* ------------------------------------------------ Notas de crédito */
+
+/** Notas emitidas; con `facturaId`, las de esa factura. */
+export function useNotasCredito(facturaId?: string) {
+  return useQuery({
+    queryKey: clavesCxc.notasCredito(facturaId),
+    queryFn: ({ signal }) =>
+      servicioCxc.listarNotasCredito({ facturaId }, { signal }),
+  })
+}
+
+/**
+ * Emite una nota de crédito. Cambia lo mismo que una factura: el saldo de la
+ * factura, la cartera del cliente, el mayor y, con él, los reportes.
+ */
+export function useEmitirNotaCredito() {
+  const cliente = useQueryClient()
+  return useMutation({
+    meta: { exito: 'Nota de crédito emitida' },
+    mutationFn: (solicitud: SolicitudNotaCredito) =>
+      servicioCxc.emitirNotaCredito(solicitud),
+    onSuccess: () => {
+      void cliente.invalidateQueries({ queryKey: ['cxc'] })
+      void cliente.invalidateQueries({ queryKey: ['conta', 'asientos'] })
+      void cliente.invalidateQueries({ queryKey: ['conta', 'balanza'] })
+    },
   })
 }

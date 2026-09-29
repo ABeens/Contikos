@@ -83,6 +83,60 @@ export const ESTADOS_FINANCIEROS: readonly EstadoFinanciero[] = [
 ]
 
 /**
+ * Sección del estado financiero en la que cae un renglón.
+ *
+ * El renglón dice qué se presenta ("Inventarios"); el grupo, bajo qué subtotal
+ * ("Activo corriente"). Sin él, el Estado de Situación Financiera no sabe
+ * separar lo corriente de lo no corriente (NIIF para PYMES 4.4) y el de
+ * Resultados no sabe dónde cortar la utilidad bruta. Es un dato del renglón y
+ * no de la cuenta: dos empresas numeran sus cuentas como quieren, y una cuenta
+ * no debería poder sumar en un subtotal distinto del de su renglón.
+ *
+ * Solo lo llevan los renglones de los dos estados que se arman por grupos. El
+ * de cambios en el patrimonio y el de flujos se construyen con otro algoritmo
+ * (docs/09 §3.4 y §3.5) y no lo usan.
+ */
+export const GrupoPresentacionSchema = z.enum([
+  'activo_corriente',
+  'activo_no_corriente',
+  'pasivo_corriente',
+  'pasivo_no_corriente',
+  'patrimonio',
+  'ingresos',
+  'costo_ventas',
+  'gastos_operacion',
+  'otros_resultados',
+  'resultado_financiero',
+  'impuesto_renta',
+])
+
+export type GrupoPresentacion = z.infer<typeof GrupoPresentacionSchema>
+
+/** Los grupos que admite cada estado, en su orden de presentación. */
+export const GRUPOS_POR_ESTADO: Record<
+  EstadoFinanciero,
+  readonly GrupoPresentacion[]
+> = {
+  situacion: [
+    'activo_corriente',
+    'activo_no_corriente',
+    'pasivo_corriente',
+    'pasivo_no_corriente',
+    'patrimonio',
+  ],
+  resultados: [
+    'ingresos',
+    'costo_ventas',
+    'gastos_operacion',
+    'otros_resultados',
+    'resultado_financiero',
+    'impuesto_renta',
+  ],
+  patrimonio: [],
+  flujos: [],
+}
+
+/**
  * Clasificación NIIF: el renglón del estado financiero al que va una cuenta.
  *
  * El catálogo de cuentas responde "dónde se registra"; esta clasificación
@@ -108,6 +162,15 @@ export const ClasificacionNiifSchema = z.object({
   seccionNiif: z.string().nullable(),
   /** Orden de presentación dentro de su estado financiero. */
   orden: z.number().int(),
+  /**
+   * Subtotal bajo el que se presenta. Obligatorio en los renglones del Estado
+   * de Situación Financiera y del de Resultados; nulo en los demás.
+   *
+   * `.default(null)` y no solo `.nullable()`: una clasificación guardada antes
+   * de que existiera el campo no lo trae, y el contrato no puede dejarla
+   * ilegible por eso.
+   */
+  grupo: GrupoPresentacionSchema.nullable().default(null),
   activa: z.boolean(),
   /** Derivado: cuentas del catálogo clasificadas aquí. */
   cuentas: z.number().int(),
@@ -341,6 +404,50 @@ export const SolicitudCierreSchema = z.object({
 })
 
 export type SolicitudCierre = z.infer<typeof SolicitudCierreSchema>
+
+/* ---------------------------------------- Cierre de ejercicio (docs/03 §6) */
+
+/**
+ * Resultado del ejercicio en un libro, tal como lo va a trasladar el cierre.
+ *
+ * Va por libro porque el fiscal y el corporativo no ganan lo mismo: el asiento
+ * de cierre lleva a resultados acumulados la utilidad de cada contabilidad con
+ * sus propias líneas (D-11).
+ */
+export const ResultadoLibroSchema = z.object({
+  libro: LibroSchema,
+  resultado: Importe,
+})
+
+/**
+ * El checklist del cierre anual, con lo que el cierre va a hacer.
+ *
+ * Igual que el mensual: lo calcula el servidor al consultarlo y otra vez al
+ * cerrar, con los mismos datos, así que lo que se revisó es lo que se aplica.
+ */
+export const ChecklistCierreEjercicioSchema = z.object({
+  ejercicio: z.number().int(),
+  fechaReferencia: FechaISO,
+  /** Fecha del asiento de cierre: el último día del ejercicio. */
+  fechaCierre: FechaISO,
+  /** Cuenta de patrimonio que recibe el resultado. Nula si no se indicó. */
+  cuentaDestino: z.string().nullable(),
+  resultados: z.array(ResultadoLibroSchema),
+  verificaciones: z.array(VerificacionCierreSchema),
+  puedeCerrar: z.boolean(),
+  /** El ejercicio ya se cerró: el checklist se enseña, pero no hay nada que hacer. */
+  cerrado: z.boolean(),
+})
+
+export type ChecklistCierreEjercicio = z.infer<typeof ChecklistCierreEjercicioSchema>
+export type ResultadoLibro = z.infer<typeof ResultadoLibroSchema>
+
+export const SolicitudCierreEjercicioSchema = z.object({
+  /** Código de la cuenta de patrimonio que recibe el resultado del ejercicio. */
+  cuentaDestino: z.string().min(1, 'Indique la cuenta que recibe el resultado'),
+})
+
+export type SolicitudCierreEjercicio = z.infer<typeof SolicitudCierreEjercicioSchema>
 
 /* --------------------------------------------------------------- Asientos */
 

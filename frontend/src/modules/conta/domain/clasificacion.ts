@@ -9,7 +9,15 @@ import type {
   SolicitudNotaEeff,
   TipoCuenta,
 } from '@/shared/api/contracts/conta'
-import { ESTADOS_FINANCIEROS } from '@/shared/api/contracts/conta'
+import {
+  ESTADOS_FINANCIEROS,
+  GRUPOS_POR_ESTADO,
+} from '@/shared/api/contracts/conta'
+import {
+  ETIQUETA_GRUPO,
+  TIPOS_POR_GRUPO,
+  requiereGrupo,
+} from '@/shared/presentacion/grupos'
 
 /**
  * Reglas de los catálogos de presentación: clasificación NIIF y notas a los
@@ -86,6 +94,8 @@ export type CodigoErrorClasificacion =
   | 'CUENTA_NO_ENCONTRADA'
   | 'CUENTA_NO_DETALLE'
   | 'TIPO_INCOMPATIBLE'
+  | 'GRUPO_REQUERIDO'
+  | 'GRUPO_INCOMPATIBLE'
 
 export interface ErrorClasificacion {
   readonly codigo: CodigoErrorClasificacion
@@ -248,6 +258,8 @@ export function validarClasificacion(
     })
   }
 
+  errores.push(...validarGrupo(solicitud))
+
   if (!Number.isInteger(solicitud.orden) || solicitud.orden < 0) {
     errores.push({
       codigo: 'ORDEN_INVALIDO',
@@ -288,6 +300,68 @@ export function validarClasificacion(
   }
 
   return resultado(errores)
+}
+
+/**
+ * El grupo es obligatorio en los estados que se arman por grupos y prohibido en
+ * los demás, y tiene que admitir todos los tipos de cuenta del renglón.
+ *
+ * Sin grupo, el renglón se quedaría fuera de todo subtotal: el Estado de
+ * Situación Financiera dejaría de cuadrar sin decir por qué, que es exactamente
+ * lo que la obligatoriedad de la clasificación en la cuenta existe para evitar.
+ */
+function validarGrupo(
+  solicitud: Pick<
+    SolicitudClasificacionNiif,
+    'estadoFinanciero' | 'grupo' | 'tiposCuenta'
+  >,
+): ErrorClasificacion[] {
+  const { estadoFinanciero, grupo, tiposCuenta } = solicitud
+
+  if (!requiereGrupo(estadoFinanciero)) {
+    return grupo === null
+      ? []
+      : [
+          {
+            codigo: 'GRUPO_INCOMPATIBLE',
+            campo: 'grupo',
+            mensaje: `El ${ETIQUETA_ESTADO_FINANCIERO[estadoFinanciero]} no se arma por grupos: deje el grupo vacío`,
+          },
+        ]
+  }
+
+  if (grupo === null) {
+    return [
+      {
+        codigo: 'GRUPO_REQUERIDO',
+        campo: 'grupo',
+        mensaje: 'Indique bajo qué subtotal se presenta el renglón',
+      },
+    ]
+  }
+
+  if (!GRUPOS_POR_ESTADO[estadoFinanciero].includes(grupo)) {
+    return [
+      {
+        codigo: 'GRUPO_INCOMPATIBLE',
+        campo: 'grupo',
+        mensaje: `${ETIQUETA_GRUPO[grupo]} no es un grupo del ${ETIQUETA_ESTADO_FINANCIERO[estadoFinanciero]}`,
+      },
+    ]
+  }
+
+  const ajenos = tiposCuenta.filter((t) => !TIPOS_POR_GRUPO[grupo].includes(t))
+  if (ajenos.length > 0) {
+    return [
+      {
+        codigo: 'GRUPO_INCOMPATIBLE',
+        campo: 'grupo',
+        mensaje: `${ETIQUETA_GRUPO[grupo]} no admite cuentas de tipo ${ajenos.map((t) => ETIQUETA_TIPO_CUENTA[t]).join(', ')}`,
+      },
+    ]
+  }
+
+  return []
 }
 
 /** Reglas para retirar una clasificación del catálogo. */

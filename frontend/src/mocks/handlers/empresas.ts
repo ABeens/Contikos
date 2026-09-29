@@ -1,4 +1,6 @@
 import { http, HttpResponse } from 'msw'
+import { usuarioEnCursoGuardado } from './auth'
+import { persistirUsuarios } from '../seed/usuarios'
 import { rutaApi } from '@/shared/api/entorno'
 import { empresaActiva, leerDeEmpresa } from '@/shared/almacen/almacen'
 import { SolicitudEmpresaSchema } from '@/shared/api/contracts/empresas'
@@ -161,9 +163,16 @@ function directorio(): TerceroGrupo[] {
 }
 
 export const handlersEmpresas = [
+  /**
+   * Las empresas a las que el usuario puede entrar: las que le dan un rol.
+   * Las demás no existen para él, ni siquiera por nombre.
+   */
   http.get(rutaApi('/empresas'), async () => {
     await latencia(60)
-    return HttpResponse.json(empresasMock)
+    const permitidas = new Set(
+      usuarioEnCursoGuardado()?.roles.map((r) => r.empresaId) ?? [],
+    )
+    return HttpResponse.json(empresasMock.filter((e) => permitidas.has(e.id)))
   }),
 
   // Antes que `/empresas/:id` por si algún día existe: `directorio` no es un id.
@@ -191,6 +200,12 @@ export const handlersEmpresas = [
     }
     empresasMock.push(nueva)
     persistirEmpresas()
+    // Quien la crea la administra: sin rol en ella, no podría ni abrirla.
+    const creador = usuarioEnCursoGuardado()
+    if (creador) {
+      creador.roles.push({ empresaId: nueva.id, rol: 'administrador' })
+      persistirUsuarios()
+    }
     return HttpResponse.json(nueva, { status: 201 })
   }),
 

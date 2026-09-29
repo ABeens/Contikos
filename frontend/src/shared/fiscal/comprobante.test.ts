@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  codigoSeguridadAleatorio,
   descomponerConsecutivo,
+  generarClaveNumerica,
   formatConsecutivo,
   formatearConsecutivoHacienda,
   formatearNumeroInterno,
@@ -64,5 +66,35 @@ describe('Catálogo de ubicaciones', () => {
   it('nombra la ubicación para pantalla', () => {
     expect(nombreUbicacion('1', '02', '01')).toBe('Escazú, Escazú, San José')
     expect(nombreUbicacion('5', '03', '02')).toBe('Guanacaste')
+  })
+})
+
+describe('Clave numérica', () => {
+  it('arma los 50 dígitos en el orden de Hacienda', () => {
+    const clave = generarClaveNumerica({
+      fecha: '2026-08-05',
+      identificacionEmisor: '3101123456',
+      consecutivo: '00100001010000000113',
+      codigoSeguridad: '12345678',
+    })
+    expect(clave).toHaveLength(50)
+    expect(clave).toBe(
+      '506' + '050826' + '003101123456' + '00100001010000000113' + '1' + '12345678',
+    )
+  })
+
+  it('rechaza un consecutivo que no es de 20 dígitos', () => {
+    expect(() =>
+      generarClaveNumerica({
+        fecha: '2026-08-05',
+        identificacionEmisor: '3101123456',
+        consecutivo: '123',
+        codigoSeguridad: '12345678',
+      }),
+    ).toThrow()
+  })
+
+  it('el código de seguridad aleatorio tiene 8 dígitos', () => {
+    expect(codigoSeguridadAleatorio()).toMatch(/^\d{8}$/)
   })
 })

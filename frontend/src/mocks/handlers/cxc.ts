@@ -10,6 +10,7 @@ import type {
   FacturaVenta,
   ItemCatalogo,
   LineaFacturaVenta,
+  NotaCredito,
 } from '@/shared/api/contracts/cxc'
 import {
   SolicitudAnulacionCobroSchema,
@@ -17,6 +18,7 @@ import {
   SolicitudCobroSchema,
   SolicitudFacturaVentaSchema,
   SolicitudItemCatalogoSchema,
+  SolicitudNotaCreditoSchema,
 } from '@/shared/api/contracts/cxc'
 import type { SolicitudAsiento } from '@/shared/api/contracts/conta'
 import { monedaFuncional } from '@/shared/money/money'
@@ -39,8 +41,18 @@ import {
   type ContextoCobro,
 } from '@/modules/cxc/domain/cobro'
 import { validarItem } from '@/modules/cxc/domain/item'
+import {
+  lineasAsientoNotaCredito,
+  validarNotaCredito,
+} from '@/modules/cxc/domain/notaCredito'
 import { listoParaFe, validarCliente } from '@/modules/cxc/domain/cliente'
 import { normalizarIdentificacion } from '@/shared/fiscal/identificacion'
+import {
+  codigoSeguridadAleatorio,
+  generarClaveNumerica,
+} from '@/shared/fiscal/comprobante'
+import { empresaActiva } from '@/shared/almacen/almacen'
+import { empresasMock } from '../seed/empresas'
 import { normalizarTelefono } from '@/shared/fiscal/contacto'
 import { CUENTAS } from '../seed/cuentas'
 import { PERIODOS } from '../seed/periodos'
@@ -52,6 +64,10 @@ import {
   idDeNumeroCobro,
   itemsMock,
   MAPEO_CXC,
+  notasCreditoMock,
+  persistirNotasCredito,
+  siguienteConsecutivoNotaCredito,
+  siguienteNumeroNotaCredito,
   persistirClientes,
   persistirCobros,
   persistirFacturasVenta,
@@ -144,6 +160,24 @@ function contexto(clienteId: string): ContextoFacturaVenta {
     items,
     tarifas: tarifasImpuestoMock,
   }
+}
+
+/**
+ * Clave numérica de un comprobante emitido hoy por la empresa abierta.
+ *
+ * El XML, su firma y el envío a Hacienda siguen pendientes (docs/13 §4.3); la
+ * clave no depende de ellos y se genera ya, para que el comprobante nazca con
+ * el identificador con el que se consultará.
+ */
+function claveDe(fecha: string, consecutivo: string): string | null {
+  const emisor = empresasMock.find((e) => e.id === empresaActiva())
+  if (!emisor) return null
+  return generarClaveNumerica({
+    fecha,
+    identificacionEmisor: emisor.identificacion,
+    consecutivo,
+    codigoSeguridad: codigoSeguridadAleatorio(),
+  })
 }
 
 /** El id sale del número interno: es el que nunca cambia. */
@@ -373,7 +407,7 @@ export const handlersCxc = [
     const corte =
       url.searchParams.get('corte') ?? new Date().toISOString().slice(0, 10)
     return HttpResponse.json(
-      antiguedadDeFacturas(facturas, cobros, corte, monedaFuncional()),
+      antiguedadDeFacturas(facturas, cobros, corte, monedaFuncional(), notasCreditoMock),
     )
   }),
 
@@ -462,7 +496,7 @@ export const handlersCxc = [
       id,
       numeroInterno,
       consecutivo,
-      claveNumerica: null,
+      claveNumerica: claveDe(solicitud.fechaEmision, consecutivo),
       clienteId: solicitud.clienteId,
       clienteNombre: ctx.cliente?.razonSocial ?? solicitud.clienteId,
       fechaEmision: solicitud.fechaEmision,
@@ -484,6 +518,115 @@ export const handlersCxc = [
     facturas.push(factura)
     persistirFacturasVenta()
     return HttpResponse.json(factura, { status: 201 })
+  }),
+
+  /* -------------------------------------------------- Notas de crédito */
+
+  /** Notas emitidas, de la más reciente a la más antigua. `?facturaId=` filtra. */
+  http.get(rutaApi('/cxc/notas-credito'), async ({ request }) => {
+    await latencia(120)
+    const facturaId = new URL(request.url).searchParams.get('facturaId')
+    const lista = notasCreditoMock
+      .filter((n) => !facturaId || n.facturaId === facturaId)
+      .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.numeroInterno.localeCompare(a.numeroInterno))
+    return HttpResponse.json(lista)
+  }),
+
+  /**
+   * Emite una nota de crédito (docs/04 §2.3).
+   *
+   * Como la factura: el documento y su asiento son la misma operación, y el
+   * saldo de la factura baja solo después de que el mayor aceptó el asiento.
+   */
+  http.post(rutaApi('/cxc/notas-credito'), async ({ request }) => {
+    await latencia(400)
+
+    const parsed = SolicitudNotaCreditoSchema.safeParse(await request.json())
+    if (!parsed.success) {
+      return errorApi(
+        'SOLICITUD_INVALIDA',
+        'La solicitud no cumple el contrato',
+        parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`),
+      )
+    }
+
+    const solicitud = parsed.data
+    const factura = facturas.find((f) => f.id === solicitud.facturaId)
+    const resultado = validarNotaCredito(solicitud, {
+      factura,
+      notasPrevias: notasCreditoMock.filter((n) => n.facturaId === solicitud.facturaId),
+      periodos: PERIODOS,
+    })
+    if (!resultado.valido || !factura) {
+      const principal = resultado.errores[0]
+      return errorApi(
+        principal.codigo,
+        principal.mensaje,
+        resultado.errores.map((e) =>
+          e.linea === undefined ? e.mensaje : `Línea ${e.linea + 1}: ${e.mensaje}`,
+        ),
+      )
+    }
+
+    const numeroInterno = siguienteNumeroNotaCredito()
+    const consecutivo = siguienteConsecutivoNotaCredito()
+    const id = `nc-${Number(numeroInterno.replace(/\D/g, ''))}`
+    const emision = emitirAsiento({
+      fecha: solicitud.fecha,
+      concepto: `Nota de crédito ${numeroInterno} sobre ${factura.numeroInterno}: ${factura.clienteNombre}`,
+      // En la moneda y al tipo de cambio de la factura: revierte lo que ella
+      // reconoció, y medirlo a otro tipo dejaría una diferencia sin dueño.
+      moneda: factura.moneda,
+      tipoCambio: factura.tipoCambio,
+      origen: { modulo: 'cxc', tipo: 'nota_credito', id },
+      lineas: lineasAsientoNotaCredito(factura, resultado, MAPEO_CXC),
+    })
+    if (!emision.ok) {
+      return errorApi(emision.error.codigo, emision.error.mensaje, emision.error.detalles)
+    }
+
+    const nota: NotaCredito = {
+      id,
+      numeroInterno,
+      consecutivo,
+      claveNumerica: claveDe(solicitud.fecha, consecutivo),
+      facturaId: factura.id,
+      facturaNumero: factura.numeroInterno,
+      clienteId: factura.clienteId,
+      clienteNombre: factura.clienteNombre,
+      fecha: solicitud.fecha,
+      moneda: factura.moneda,
+      tipoCambio: factura.tipoCambio,
+      motivo: solicitud.motivo,
+      detalle: solicitud.detalle.trim(),
+      lineas: resultado.lineas.map((l, i) => ({
+        id: `${id}-l${i + 1}`,
+        lineaFacturaId: l.lineaFacturaId,
+        descripcion: l.descripcion,
+        cantidad: l.cantidad,
+        tarifa: l.tarifa,
+        cuentaIngreso: l.cuentaIngreso,
+        base: l.base.toFixed(2),
+        impuesto: l.impuesto.toFixed(2),
+        total: l.total.toFixed(2),
+      })),
+      subtotal: resultado.subtotal.toFixed(2),
+      impuesto: resultado.impuesto.toFixed(2),
+      total: resultado.total.toFixed(2),
+      asientoId: emision.asiento.id,
+      creadoEn: new Date().toISOString(),
+    }
+
+    // La factura acreditada entera deja de estar por cobrar: se trata como
+    // saldada, igual que la que se cobró completa.
+    const saldo = new Decimal(factura.saldo).minus(resultado.total)
+    factura.saldo = saldo.toFixed(2)
+    if (saldo.isZero()) factura.estado = 'pagada'
+
+    notasCreditoMock.push(nota)
+    persistirNotasCredito()
+    persistirFacturasVenta()
+    return HttpResponse.json(nota, { status: 201 })
   }),
 
   /* ------------------------------------------------------------ Cobros */

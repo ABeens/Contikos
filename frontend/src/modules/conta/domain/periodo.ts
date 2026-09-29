@@ -89,6 +89,17 @@ export interface ContextoCierre {
     /** Cuentas activas en moneda extranjera. Cero: nada que revaluar. */
     readonly cuentasEnMonedaExtranjera: number
   }
+  /**
+   * Estado de la planilla del mes (docs/08 §3).
+   *
+   * Llega calculado por la misma razón: `conta` no conoce a `rh`.
+   */
+  readonly nomina: {
+    /** true si la planilla del periodo ya tiene su asiento. */
+    readonly contabilizada: boolean
+    /** Empleados que entran en la planilla del mes. Cero: nada que pagar. */
+    readonly empleadosEnPlanilla: number
+  }
 }
 
 export interface ResultadoCierre {
@@ -454,20 +465,31 @@ function comprobarRevaluacion(
   )
 }
 
-/**
- * 9: el punto del checklist que todavía no tiene módulo.
- *
- * Se declara desde ahora, en `ok` y con el detalle que lo explica, para que el
- * checklist de docs/03 §5 esté completo en pantalla: el día que exista nómina,
- * lo único que cambia es de dónde sale la severidad. Un checklist al que le
- * falta un punto enseña un cierre más limpio de lo que es.
- */
-const PENDIENTES_DE_MODULO: readonly {
-  codigo: CodigoVerificacionCierre
-  mensaje: string
-}[] = [
-  { codigo: 'NOMINA_PENDIENTE', mensaje: 'La nómina del mes está contabilizada' },
-]
+/** 9: la planilla del mes está contabilizada (docs/08 §3). */
+function comprobarNomina(
+  periodo: Periodo,
+  contexto: ContextoCierre,
+): VerificacionCierre {
+  const { contabilizada, empleadosEnPlanilla } = contexto.nomina
+  if (contabilizada) {
+    return verificacion(
+      'NOMINA_PENDIENTE',
+      'ok',
+      `La planilla de ${etiquetaPeriodo(periodo)} está contabilizada`,
+    )
+  }
+  if (empleadosEnPlanilla === 0) {
+    return verificacion('NOMINA_PENDIENTE', 'ok', 'No hay empleados en planilla este mes')
+  }
+  // Aviso y no error: hay empresas que pagan la planilla del mes en los
+  // primeros días del siguiente, y el cierre no puede esperarlas siempre.
+  return verificacion(
+    'NOMINA_PENDIENTE',
+    'aviso',
+    `La planilla de ${etiquetaPeriodo(periodo)} no está contabilizada`,
+    `${empleadosEnPlanilla} empleado${empleadosEnPlanilla === 1 ? '' : 's'} en planilla este mes`,
+  )
+}
 
 /* ------------------------------------------------------ El checklist */
 
@@ -487,9 +509,7 @@ export function verificarCierre(
     comprobarDepreciacion(periodo, contexto),
     comprobarConciliacion(periodo, contexto),
     comprobarRevaluacion(periodo, contexto),
-    ...PENDIENTES_DE_MODULO.map((p) =>
-      verificacion(p.codigo, 'ok', p.mensaje, 'El módulo aún no existe'),
-    ),
+    comprobarNomina(periodo, contexto),
   ]
 
   return {

@@ -3,10 +3,9 @@
 Efectivo y equivalentes: dónde está el dinero, qué se movió y si el mayor
 coincide con lo que dice el banco.
 
-> **Estado: construido**, salvo el flujo de efectivo proyectado del §3, cuya
-> tercera pata es la nómina proyectada y espera a que exista `rh`. La
-> integración bancaria directa del §7 sigue fuera de alcance por decisión, no
-> por falta de tiempo.
+> **Estado: construido**, incluido el flujo de efectivo proyectado del §3, que
+> se terminó cuando existió `rh` (setiembre de 2026). La integración bancaria
+> directa del §7 sigue fuera de alcance por decisión, no por falta de tiempo.
 >
 > Con el catálogo de cuentas bancarias desapareció la solución provisional que
 > cobros y pagos usaban para el auxiliar `banco`: lo derivaban de la posición de
@@ -164,6 +163,21 @@ saldo actual (bancos)
 
 Es un reporte de **lectura**: consulta a los otros módulos por su API pública,
 no por sus tablas.
+
+**Cómo quedó construido.** `Bancos → Flujo proyectado`, trece semanas desde hoy:
+
+- **Por moneda**, con las cuentas bancarias y los documentos de esa moneda. No
+  convierte: una proyección en colones con los dólares a un tipo de cambio que
+  nadie conoce sería una cifra inventada.
+- **Lo vencido por cobrar no cuenta**, salvo que se pida: ya debió entrar y no
+  entró. Se dice cuánto es. Lo vencido por pagar sí cuenta, en la primera
+  semana.
+- **La planilla se estima** con la última calculada: el neto el último día de
+  cada mes, y las cargas sociales y el impuesto retenido el 15 del mes
+  siguiente, marcados como estimación. Si quien mira no tiene permiso para ver
+  la planilla, no entra, y la pantalla lo avisa.
+- Marca la semana del punto más bajo, que es la pregunta que se viene a
+  contestar aquí.
 
 ## 4. Reportes
 

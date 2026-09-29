@@ -11,6 +11,7 @@ import {
   Users,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import type { Permiso } from '@/shared/api/contracts/auth'
 
 export interface ItemMenu {
   ruta: string
@@ -24,7 +25,13 @@ export interface ItemMenu {
    * navegar: convierte el menú en un índice que hay que leer entero. Dentro de
    * un módulo, en cambio, sus pantallas son pocas y sí orientan.
    */
-  hijos?: { ruta: string; etiqueta: string }[]
+  hijos?: { ruta: string; etiqueta: string; permiso?: Permiso }[]
+  /**
+   * Permiso sin el cual la entrada no se ofrece. Solo en lo que un rol no
+   * puede ni leer (la planilla, los usuarios): lo demás se ve con cualquier
+   * rol, aunque no se pueda cambiar.
+   */
+  permiso?: Permiso
 }
 
 export const INICIO: ItemMenu = {
@@ -47,6 +54,7 @@ export const MODULOS: ItemMenu[] = [
       { ruta: '/conta/asientos', etiqueta: 'Asientos' },
       { ruta: '/conta/balanza', etiqueta: 'Balanza de comprobación' },
       { ruta: '/conta/periodos', etiqueta: 'Periodos' },
+      { ruta: '/conta/cierre-ejercicio', etiqueta: 'Cierre del ejercicio' },
     ],
   },
   {
@@ -57,6 +65,7 @@ export const MODULOS: ItemMenu[] = [
     hijos: [
       { ruta: '/cxc', etiqueta: 'Saldos por cobrar' },
       { ruta: '/cxc/facturas', etiqueta: 'Facturas de venta' },
+      { ruta: '/cxc/notas-credito', etiqueta: 'Notas de crédito' },
       { ruta: '/cxc/cobros', etiqueta: 'Cobros' },
       { ruta: '/cxc/clientes', etiqueta: 'Clientes' },
       { ruta: '/cxc/items', etiqueta: 'Productos y servicios' },
@@ -87,6 +96,7 @@ export const MODULOS: ItemMenu[] = [
       { ruta: '/bancos/estado-cuenta', etiqueta: 'Importar estado de cuenta' },
       { ruta: '/bancos/conciliacion', etiqueta: 'Conciliación' },
       { ruta: '/bancos/revaluacion', etiqueta: 'Revaluación' },
+      { ruta: '/bancos/proyeccion', etiqueta: 'Flujo proyectado' },
     ],
   },
   {
@@ -120,12 +130,28 @@ export const MODULOS: ItemMenu[] = [
     etiqueta: 'Recursos humanos',
     icono: Users,
     descripcion: 'Empleados y planilla',
+    permiso: 'planilla.ver',
+    hijos: [
+      { ruta: '/rh/planilla', etiqueta: 'Planilla del mes' },
+      { ruta: '/rh/empleados', etiqueta: 'Empleados' },
+      { ruta: '/rh/parametros', etiqueta: 'Parámetros de ley' },
+    ],
   },
   {
     ruta: '/reportes',
     etiqueta: 'Reportes',
     icono: ChartColumn,
-    descripcion: 'Estados financieros',
+    descripcion: 'Estados financieros y libros',
+    hijos: [
+      { ruta: '/reportes', etiqueta: 'Todos los reportes' },
+      { ruta: '/reportes/situacion', etiqueta: 'Situación financiera' },
+      { ruta: '/reportes/resultados', etiqueta: 'Resultados' },
+      { ruta: '/reportes/flujos', etiqueta: 'Flujos de efectivo' },
+      { ruta: '/reportes/patrimonio', etiqueta: 'Cambios en el patrimonio' },
+      { ruta: '/reportes/diario', etiqueta: 'Libro diario' },
+      { ruta: '/reportes/mayor', etiqueta: 'Libro mayor' },
+      { ruta: '/reportes/fiscal-corporativo', etiqueta: 'Fiscal y corporativo' },
+    ],
   },
 ]
 
@@ -140,6 +166,7 @@ export const CONFIGURACION: ItemMenu = {
     { ruta: '/configuracion/monedas', etiqueta: 'Monedas' },
     { ruta: '/configuracion/tipos-cambio', etiqueta: 'Tipos de cambio' },
     { ruta: '/configuracion/impuestos', etiqueta: 'Impuestos' },
+    { ruta: '/configuracion/usuarios', etiqueta: 'Usuarios', permiso: 'usuarios' },
   ],
 }
 

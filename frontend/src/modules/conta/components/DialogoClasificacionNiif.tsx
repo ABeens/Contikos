@@ -14,8 +14,15 @@ import type {
 } from '@/shared/api/contracts/conta'
 import {
   ESTADOS_FINANCIEROS,
+  GRUPOS_POR_ESTADO,
   TipoCuentaSchema,
+  type GrupoPresentacion,
 } from '@/shared/api/contracts/conta'
+import {
+  ETIQUETA_GRUPO,
+  grupoPropuesto,
+  requiereGrupo,
+} from '@/shared/presentacion/grupos'
 import {
   ETIQUETA_ESTADO_FINANCIERO,
   ETIQUETA_TIPO_CUENTA,
@@ -32,6 +39,7 @@ const NUEVA: SolicitudClasificacionNiif = {
   tiposCuenta: [],
   seccionNiif: null,
   orden: 0,
+  grupo: grupoPropuesto('situacion', []),
   activa: true,
 }
 
@@ -74,6 +82,7 @@ export function DialogoClasificacionNiif({
           tiposCuenta: [...clasificacion.tiposCuenta],
           seccionNiif: clasificacion.seccionNiif,
           orden: clasificacion.orden,
+          grupo: clasificacion.grupo,
           activa: clasificacion.activa,
         }
       : { ...NUEVA },
@@ -238,9 +247,20 @@ export function DialogoClasificacionNiif({
             <Select
               {...p}
               value={form.estadoFinanciero}
-              onChange={(e) =>
-                cambiar('estadoFinanciero', e.target.value as EstadoFinanciero)
-              }
+              onChange={(e) => {
+                const estado = e.target.value as EstadoFinanciero
+                limpiarErrorServidor()
+                // El grupo es de un estado concreto: al cambiar de estado, el
+                // que había deja de tener sentido y se propone uno del nuevo.
+                setForm((prev) => ({
+                  ...prev,
+                  estadoFinanciero: estado,
+                  grupo:
+                    prev.grupo && GRUPOS_POR_ESTADO[estado].includes(prev.grupo)
+                      ? prev.grupo
+                      : grupoPropuesto(estado, prev.tiposCuenta),
+                }))
+              }}
             >
               {ESTADOS_FINANCIEROS.map((estado) => (
                 <option key={estado} value={estado}>
@@ -250,6 +270,31 @@ export function DialogoClasificacionNiif({
             </Select>
           )}
         </Field>
+
+        {requiereGrupo(form.estadoFinanciero) && (
+          <Field
+            label="Se presenta bajo"
+            requerido
+            error={errorDe('grupo')}
+            ayuda="El subtotal del estado financiero en el que suma"
+          >
+            {(p) => (
+              <Select
+                {...p}
+                value={form.grupo ?? ''}
+                onChange={(e) =>
+                  cambiar('grupo', (e.target.value || null) as GrupoPresentacion | null)
+                }
+              >
+                {GRUPOS_POR_ESTADO[form.estadoFinanciero].map((grupo) => (
+                  <option key={grupo} value={grupo}>
+                    {ETIQUETA_GRUPO[grupo]}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+        )}
 
         <Field
           label="Sección NIIF para PYMES"

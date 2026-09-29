@@ -199,3 +199,49 @@ Ver [12-decisiones-pendientes](12-decisiones-pendientes.md).
 - Los reportes pesados se generan de forma asíncrona con notificación al terminar
 - Todo reporte lleva su fecha y hora de generación impresa; sin eso, dos copias
   del mismo reporte con cifras distintas son imposibles de explicar
+
+## 10. Cómo quedó construido (setiembre de 2026)
+
+Pantallas bajo `Reportes`, todas de un libro elegido en la URL, con el periodo
+de la cabecera, exportación a CSV (punto y coma, coma decimal, para Excel en
+español) e impresión con encabezado de empresa, libro y hora de generación.
+
+| Reporte | Verificación que hace solo |
+|---|---|
+| Estado de Situación Financiera, con comparativo | Activo igual a pasivo más patrimonio |
+| Estado de Resultados, del mes o acumulado, con comparativo | Su utilidad es el resultado del ejercicio del balance |
+| Estado de Flujos de Efectivo, método indirecto | La variación calculada es la de caja y bancos |
+| Estado de Cambios en el Patrimonio | Su saldo final es el patrimonio del balance |
+| Libro diario | Cargos igual a abonos |
+| Libro mayor y auxiliar de cuenta | El saldo final de cada cuenta es el de la balanza |
+| Comparativo fiscal contra corporativo | Cuenta las cuentas con diferencia |
+
+Decisiones:
+
+- **Reportes no tiene endpoints.** Lee la balanza, los asientos y los catálogos
+  por la API pública de `conta` y arma los estados en su dominio
+  (`modules/reportes/domain`). Así no puede escribir en el mayor aunque quiera.
+- **La clasificación NIIF ganó un campo: el grupo** (activo corriente, pasivo
+  no corriente, costo de ventas...). Sin él no había forma de separar lo
+  corriente de lo no corriente ni de cortar la utilidad bruta. Es obligatorio
+  en los renglones del Balance y de Resultados.
+- **Las cuentas sin renglón válido no se esconden.** Se presentan aparte,
+  marcadas, con un aviso que lleva al catálogo. El estado sigue cuadrando y el
+  problema se ve.
+- **El flujo de efectivo clasifica por el grupo del renglón.** Capital de
+  trabajo, inversión y financiamiento salen del grupo; la depreciación acumulada
+  (activo no corriente de saldo acreedor) vuelve a operación como partida que no
+  movió caja.
+- **El drill-down** va de renglón a cuentas, de cuenta a su auxiliar en el
+  mayor, y de cada movimiento al asiento, que ya enlaza el documento de origen.
+- Las invariantes se prueban sobre el mayor de demostración, mes por mes y en
+  los dos libros (`test/reportes.test.tsx`).
+
+Queda fuera, a propósito:
+
+- **Motor de plantillas configurables (§6):** espera D-09.
+- **Exportaciones fiscales D-101 y D-104 (§8), PDF firmado y Excel con
+  fórmulas:** esperan la interfaz de localización fiscal. Hoy hay CSV e
+  impresión del navegador.
+- **Saldos materializados (§9):** los estados siguen sumando movimientos, igual
+  que la balanza.

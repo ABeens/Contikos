@@ -16,7 +16,12 @@ import { nombreTarifa } from '@/shared/fiscal/impuestos'
 import { useTarifasImpuesto } from '@/shared/api/catalogos'
 import { useAsientosDeDocumento } from '@/shared/api/trazabilidad'
 import type { FacturaVenta } from '@/shared/api/contracts/cxc'
-import { useAsientoDeFactura, useCobros, useFacturasVenta } from '../api/queries'
+import {
+  useAsientoDeFactura,
+  useCobros,
+  useFacturasVenta,
+  useNotasCredito,
+} from '../api/queries'
 import { DocumentoNoEncontrado, SeccionDetalle } from '@/shared/ui/Detalle'
 
 /**
@@ -199,6 +204,10 @@ function DetalleFactura({
   // Quién bajó este saldo. La relación es N a N (docs/04 §1), así que el dato
   // no está en la factura: se le pregunta a los cobros por esta factura.
   const { data: cobros = [] } = useCobros({ facturaId: factura.id })
+  // Lo otro que baja el saldo: las notas de crédito (docs/04 §2.3).
+  const { data: notas = [] } = useNotasCredito(factura.id)
+  const acreditable =
+    factura.estado === 'contabilizada' && Number(factura.saldo) > 0
 
   // El asiento que la generó ya se enseña completo arriba: aquí van los
   // manuales que la mencionan, que son los que nadie ve si no se listan.
@@ -211,9 +220,19 @@ function DetalleFactura({
           titulo={`Factura ${factura.numeroInterno}`}
           descripcion={`${factura.clienteNombre} · vence el ${formatFecha(factura.fechaVencimiento)}`}
           acciones={
-            <Button tamano="sm" onClick={onCerrar}>
-              Cerrar
-            </Button>
+            <>
+              {acreditable && (
+                <LinkBoton
+                  tamano="sm"
+                  to={`/cxc/notas-credito/nueva?factura=${encodeURIComponent(factura.id)}`}
+                >
+                  Nota de crédito
+                </LinkBoton>
+              )}
+              <Button tamano="sm" onClick={onCerrar}>
+                Cerrar
+              </Button>
+            </>
           }
         />
 
@@ -324,6 +343,28 @@ function DetalleFactura({
           </p>
         )}
       </Card>
+
+      {notas.length > 0 && (
+        <Card className="mt-4">
+          <CardHeader
+            titulo="Notas de crédito"
+            descripcion="Lo acreditado sobre esta factura. Cada nota bajó el saldo y reversó su parte del ingreso y del IVA."
+          />
+          <ul className="divide-y divide-slate-100 text-sm">
+            {notas.map((n) => (
+              <li key={n.id} className="flex items-center justify-between gap-3 px-4 py-2">
+                <span>
+                  <span className="font-medium text-slate-800">{n.numeroInterno}</span>
+                  <span className="ml-2 text-xs text-slate-500">
+                    {formatFecha(n.fecha)} · {n.detalle}
+                  </span>
+                </span>
+                <MoneyCell valor={n.total} moneda={n.moneda} />
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       {cobros.length > 0 && (
         <Card className="mt-4">

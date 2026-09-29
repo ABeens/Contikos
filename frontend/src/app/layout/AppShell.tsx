@@ -11,6 +11,8 @@ import {
 import { cn } from '@/shared/ui/cn'
 import { formatPeriodo } from '@/shared/format/fecha'
 import { useEmpresa } from '../empresa'
+import { useAcceso } from '../acceso'
+import { MenuUsuario } from './MenuUsuario'
 import { SelectorEmpresa } from '@/modules/empresas/components/SelectorEmpresa'
 import { CONFIGURACION, INICIO, MODULOS, type ItemMenu } from './menu'
 import { PaletaComandos } from './PaletaComandos'
@@ -67,7 +69,7 @@ export function AppShell() {
   }
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-slate-50">
+    <div className="flex h-dvh overflow-hidden bg-slate-50 print:block print:h-auto print:overflow-visible print:bg-white">
       {/* Fondo del menú en móvil: un toque fuera lo cierra. */}
       {menuMovil && (
         <div
@@ -89,7 +91,7 @@ export function AppShell() {
         />
         <main
           ref={principal}
-          className="flex-1 overflow-auto px-4 py-5 sm:px-6 lg:px-8 lg:py-6"
+          className="flex-1 overflow-auto px-4 py-5 sm:px-6 lg:px-8 lg:py-6 print:overflow-visible print:p-0"
         >
           {/* La clave reinicia la animación de entrada en cada pantalla. */}
           <div key={pathname} className="animate-subir">
@@ -114,6 +116,7 @@ function Sidebar({
   onCerrarMovil: () => void
 }) {
   const { pathname } = useLocation()
+  const { puede } = useAcceso()
   // Un módulo está abierto cuando se está dentro de él. No hay estado que
   // recordar: la ruta ya dice dónde está el usuario.
   const enModulo = (ruta: string) =>
@@ -125,7 +128,7 @@ function Sidebar({
     <aside
       aria-label="Menú principal"
       className={cn(
-        'flex shrink-0 flex-col bg-slate-900 text-slate-300 transition-[width,transform,visibility] duration-200 ease-out',
+        'flex shrink-0 flex-col bg-slate-900 text-slate-300 transition-[width,transform,visibility] duration-200 ease-out print:hidden',
         // Móvil: cajón que entra desde la izquierda.
         'fixed inset-y-0 left-0 z-40 w-64 lg:static lg:z-auto lg:translate-x-0',
         // Cerrado en el móvil tampoco recibe el foco: invisible, no solo fuera.
@@ -168,7 +171,7 @@ function Sidebar({
         <ItemNav {...INICIO} exacto compacto={compacto} />
         <Seccion compacto={compacto}>Módulos</Seccion>
         <div className="flex flex-col gap-0.5">
-          {MODULOS.map((m) => (
+          {MODULOS.filter((m) => !m.permiso || puede(m.permiso)).map((m) => (
             <Modulo
               key={m.ruta}
               modulo={m}
@@ -234,6 +237,7 @@ function Modulo({
   compacto: boolean
 }) {
   const hijos = modulo.hijos
+  const { puede } = useAcceso()
   return (
     <div>
       <ItemNav {...modulo} compacto={compacto} />
@@ -249,7 +253,7 @@ function Modulo({
           <div className="overflow-hidden">
             {abierto && (
               <div className="mt-1 mb-2 ml-[1.35rem] flex flex-col gap-px border-l border-white/10 pl-3">
-                {hijos.map((h) => (
+                {hijos.filter((h) => !h.permiso || puede(h.permiso)).map((h) => (
                   <SubItemNav
                     key={h.ruta}
                     {...h}
@@ -370,7 +374,7 @@ function Topbar({
     typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-slate-200/80 bg-white/80 px-3 backdrop-blur sm:gap-3 sm:px-6">
+    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-slate-200/80 bg-white/80 px-3 backdrop-blur sm:gap-3 sm:px-6 print:hidden">
       <button
         type="button"
         onClick={onAbrirMenu}
@@ -432,6 +436,8 @@ function Topbar({
           </span>
         )}
       </div>
+
+      <MenuUsuario />
     </header>
   )
 }

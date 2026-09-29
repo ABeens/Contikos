@@ -8,6 +8,7 @@ import type {
   Antiguedad,
   Cobro,
   FacturaVenta,
+  NotaCredito,
 } from '@/shared/api/contracts/cxc'
 
 /**
@@ -56,6 +57,7 @@ export function saldoALaFecha(
   factura: FacturaVenta,
   cobros: readonly Cobro[],
   corte: string,
+  notas: readonly NotaCredito[] = [],
 ): Decimal {
   const aplicado = cobros
     .filter((c) => c.clienteId === factura.clienteId && vigenteAlCorte(c, corte))
@@ -63,20 +65,30 @@ export function saldoALaFecha(
     .filter((a) => a.facturaId === factura.id)
     .reduce((acc, a) => acc.plus(new Decimal(a.importeAplicado)), new Decimal(0))
 
-  return Decimal.max(new Decimal(factura.total).minus(aplicado), new Decimal(0))
+  // Las notas de crédito bajan el saldo desde su fecha, igual que un cobro:
+  // una nota de setiembre no existía en el corte de agosto.
+  const acreditado = notas
+    .filter((n) => n.facturaId === factura.id && n.fecha <= corte)
+    .reduce((acc, n) => acc.plus(new Decimal(n.total)), new Decimal(0))
+
+  return Decimal.max(
+    new Decimal(factura.total).minus(aplicado).minus(acreditado),
+    new Decimal(0),
+  )
 }
 
 function comoDocumento(
   factura: FacturaVenta,
   cobros: readonly Cobro[],
   corte: string,
+  notas: readonly NotaCredito[],
 ): DocumentoCartera & { fechaEmision: string } {
   return {
     entidadId: factura.clienteId,
     entidadNombre: factura.clienteNombre,
     fechaEmision: factura.fechaEmision,
     fechaVencimiento: factura.fechaVencimiento,
-    saldo: aFuncional(saldoALaFecha(factura, cobros, corte), factura).toFixed(2),
+    saldo: aFuncional(saldoALaFecha(factura, cobros, corte, notas), factura).toFixed(2),
   }
 }
 
@@ -85,11 +97,12 @@ export function antiguedadDeFacturas(
   cobros: readonly Cobro[],
   corte: string,
   moneda: Moneda,
+  notas: readonly NotaCredito[] = [],
 ): Antiguedad {
   const { filas, totales } = antiguedadPorEntidad(
     facturas
       .filter((f) => f.estado !== 'cancelada')
-      .map((f) => comoDocumento(f, cobros, corte)),
+      .map((f) => comoDocumento(f, cobros, corte, notas)),
     corte,
     moneda,
   )

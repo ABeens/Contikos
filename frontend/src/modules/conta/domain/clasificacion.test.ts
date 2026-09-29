@@ -27,6 +27,7 @@ const CLASIFICACIONES: ClasificacionNiifBase[] = [
     tiposCuenta: ['activo'],
     seccionNiif: 'Sección 7',
     orden: 10,
+    grupo: 'activo_corriente',
     activa: true,
   },
   {
@@ -37,6 +38,7 @@ const CLASIFICACIONES: ClasificacionNiifBase[] = [
     tiposCuenta: ['ingreso', 'gasto'],
     seccionNiif: 'Sección 30',
     orden: 20,
+    grupo: 'resultado_financiero',
     activa: true,
   },
   {
@@ -47,6 +49,7 @@ const CLASIFICACIONES: ClasificacionNiifBase[] = [
     tiposCuenta: ['activo'],
     seccionNiif: 'Sección 4',
     orden: 15,
+    grupo: 'activo_corriente',
     activa: true,
   },
   {
@@ -57,6 +60,7 @@ const CLASIFICACIONES: ClasificacionNiifBase[] = [
     tiposCuenta: ['activo'],
     seccionNiif: null,
     orden: 99,
+    grupo: 'activo_corriente',
     activa: false,
   },
 ]
@@ -137,6 +141,7 @@ const NUEVA: SolicitudClasificacionNiif = {
   tiposCuenta: ['activo'],
   seccionNiif: 'Sección 18',
   orden: 70,
+  grupo: 'activo_corriente',
   activa: true,
 }
 
@@ -187,6 +192,37 @@ describe('Clasificación NIIF', () => {
     expect(r.errores.map((e) => e.codigo)).toContain('TIPOS_CUENTA_REQUERIDOS')
   })
 
+  it('exige el grupo en los renglones del Balance y de Resultados', () => {
+    const r = validarClasificacion({ ...NUEVA, grupo: null }, contexto())
+    expect(r.errores.map((e) => e.codigo)).toContain('GRUPO_REQUERIDO')
+  })
+
+  it('rechaza un grupo de otro estado financiero', () => {
+    const r = validarClasificacion({ ...NUEVA, grupo: 'ingresos' }, contexto())
+    expect(r.errores.map((e) => e.codigo)).toContain('GRUPO_INCOMPATIBLE')
+  })
+
+  it('rechaza un grupo que no admite los tipos del renglón', () => {
+    const r = validarClasificacion(
+      { ...NUEVA, grupo: 'pasivo_corriente' },
+      contexto(),
+    )
+    expect(r.errores.map((e) => e.codigo)).toContain('GRUPO_INCOMPATIBLE')
+  })
+
+  it('no admite grupo en los estados que no se arman por grupos', () => {
+    const r = validarClasificacion(
+      { ...NUEVA, estadoFinanciero: 'flujos', grupo: 'activo_corriente' },
+      contexto(),
+    )
+    expect(r.errores.map((e) => e.codigo)).toContain('GRUPO_INCOMPATIBLE')
+    const sinGrupo = validarClasificacion(
+      { ...NUEVA, estadoFinanciero: 'flujos', grupo: null },
+      contexto(),
+    )
+    expect(sinGrupo.valido).toBe(true)
+  })
+
   it('no deja quitar un tipo que ya tiene cuentas clasificadas', () => {
     const clasificada = cuenta({
       id: 'cta-perdida',
@@ -202,6 +238,7 @@ describe('Clasificación NIIF', () => {
         tiposCuenta: ['ingreso'],
         seccionNiif: 'Sección 30',
         orden: 20,
+        grupo: 'resultado_financiero',
         activa: true,
       },
       contexto([clasificada]),
@@ -223,6 +260,7 @@ describe('Clasificación NIIF', () => {
         tiposCuenta: ['activo'],
         seccionNiif: 'Sección 7',
         orden: 10,
+        grupo: 'activo_corriente',
         activa: false,
       },
       contexto([clasificada]),

@@ -1,6 +1,7 @@
 import type { z } from 'zod'
-import { request } from '../client'
+import { ApiError, request } from '../client'
 import { empresaActiva } from '@/shared/almacen/almacen'
+import { cerrarSesionLocal, sesionActual } from '@/shared/auth/sesion'
 
 /**
  * Base común de los servicios.
@@ -40,7 +41,7 @@ export interface OpcionesLectura {
 export type Params = Record<string, string | number | undefined>
 
 /**
- * Petición al servidor con el contexto de empresa siempre puesto.
+ * Petición al servidor con el contexto de empresa y la sesión siempre puestos.
  *
  * La empresa no es opcional: el rol se asigna por empresa y los datos no se
  * cruzan nunca (docs/01 §4.1). Va aquí y no en cada llamada para que no exista
@@ -56,5 +57,19 @@ export function pedir<S extends z.ZodTypeAny>(
     signal?: AbortSignal
   } = {},
 ): Promise<z.infer<S>> {
-  return request(ruta, schema, { ...opciones, empresaId: empresaActiva() })
+  const sesion = sesionActual()
+  return request(ruta, schema, {
+    ...opciones,
+    empresaId: empresaActiva(),
+    token: sesion?.token,
+  }).catch((error: unknown) => {
+    // 401 con una sesión abierta es que el servidor ya no la reconoce: venció
+    // o la cerraron en otro sitio. Se cierra aquí también, y la aplicación
+    // vuelve sola a la pantalla de inicio. Sin sesión, el 401 es la respuesta a
+    // un intento de entrar, y lo contesta quien lo intentó.
+    if (error instanceof ApiError && error.status === 401 && sesion) {
+      cerrarSesionLocal('Su sesión venció. Vuelva a entrar para continuar.')
+    }
+    throw error
+  })
 }

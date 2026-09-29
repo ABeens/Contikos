@@ -119,6 +119,7 @@ const FILAS: Fila[] = [
   ['6.1.01.002', 'Cargas sociales patronales', 'gasto', true],
   ['6.1.01.003', 'Aguinaldo', 'gasto', true],
   ['6.1.01.004', 'Vacaciones', 'gasto', true],
+  ['6.1.01.005', 'Cesantía', 'gasto', true],
   ['6.1.02', 'Gastos generales', 'gasto', false],
   ['6.1.02.001', 'Alquileres', 'gasto', true],
   ['6.1.02.002', 'Servicios públicos', 'gasto', true],
@@ -193,6 +194,7 @@ const PRESENTACION: Record<string, [clasificacion: string, nota: string]> = {
   '6.1.01.002': ['R.04', '15'],
   '6.1.01.003': ['R.04', '15'],
   '6.1.01.004': ['R.04', '15'],
+  '6.1.01.005': ['R.04', '15'],
   '6.1.02.001': ['R.05', '16'],
   '6.1.02.002': ['R.05', '16'],
   '6.1.02.003': ['R.05', '16'],
@@ -269,12 +271,39 @@ function indexar(filas: readonly Cuenta[]): void {
 }
 
 const tablaCuentas = tabla<Cuenta>('conta.cuentas', construirCuentas, {
-  alCambiar: indexar,
+  // Al cambiar de empresa se lee otro catálogo guardado, quizá de antes de
+  // que la plantilla ganara cuentas.
+  alCambiar: (filas) => {
+    indexar(filas)
+    completarCatalogo()
+  },
 })
 
 export const CUENTAS: Cuenta[] = tablaCuentas.filas
 
 indexar(CUENTAS)
+
+/**
+ * Cuentas que la plantilla ganó después de que alguien ya guardara su
+ * catálogo: se añaden si faltan, con su presentación, para que el módulo que
+ * las necesita no falle con un catálogo de antes. Nunca se tocan las que el
+ * usuario ya tiene.
+ */
+const AGREGADAS_DESPUES = ['6.1.01.005']
+
+function completarCatalogo(): void {
+  const plantilla = construirCuentas()
+  for (const codigo of AGREGADAS_DESPUES) {
+    if (CUENTA_POR_CODIGO.has(codigo)) continue
+    const cuenta = plantilla.find((c) => c.codigo === codigo)
+    // Solo si su madre existe: en un catálogo muy cambiado no se inventa.
+    if (cuenta && cuenta.cuentaPadreId && CUENTAS.some((c) => c.id === cuenta.cuentaPadreId)) {
+      registrarCuenta(cuenta)
+    }
+  }
+}
+
+completarCatalogo()
 
 /** Guarda el catálogo tras editar una cuenta en su sitio. */
 export function persistirCuentas(): void {

@@ -185,15 +185,37 @@ Ver [07-modulo-activos §5](07-modulo-activos.md#5-depreciación-fiscal-vs-conta
 
 ## D-06 Nómina propia vs proveedor externo
 
-**Estado:** abierta — resolver antes de Fase 7
+**Estado:** resuelta en setiembre de 2026. **La nómina se calcula dentro de
+Contikos.**
 
 Calcular la nómina internamente implica mantener tablas fiscales y de seguridad
 social de forma permanente, con responsabilidad legal si hay un error.
 
-**Recomendación:** salvo que la nómina sea el diferenciador del producto,
-integrarse con un proveedor local y quedarse solo con la contabilización, las
-provisiones y los reportes. El módulo RH sigue existiendo; solo delega el
-cálculo.
+**Recomendación original:** salvo que la nómina sea el diferenciador del
+producto, integrarse con un proveedor local y quedarse solo con la
+contabilización, las provisiones y los reportes.
+
+**Decisión:** cálculo propio, con una condición que reduce el costo de
+mantenerlo. Ninguna tasa, tramo, crédito, base mínima ni tabla de prestaciones
+vive en el código: todos son **parámetros con vigencia por fecha, administrados
+dentro de la aplicación**, igual que la tabla de impuestos. Cuando la CCSS o
+Hacienda cambian algo, se captura la fila nueva con su fecha de inicio; no hace
+falta una versión nueva del sistema, y un periodo viejo se sigue recalculando
+con los valores de su fecha.
+
+Lo que la decisión deja a cargo del usuario es capturar esos cambios a tiempo.
+El sistema debería avisar cuando empieza un año sin tramos de renta cargados
+para él.
+
+Consecuencias:
+
+- El motor va tras la interfaz `MotorNominaLocal`
+  ([08 §1](08-modulo-rh.md#1-advertencia-de-alcance)) y lee sus parámetros de
+  las tablas, nunca de constantes.
+- Los valores de 2026, verificados, y lo que falta confirmar están en
+  [13 §6](13-localizacion-costa-rica.md#6-nómina-y-seguridad-social).
+- Recursos humanos queda bloqueado solo por la autenticación con roles
+  ([17 §6](17-plan-modulos-faltantes.md)).
 
 Ver [08-modulo-rh §1](08-modulo-rh.md#1-advertencia-de-alcance).
 

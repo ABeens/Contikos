@@ -212,6 +212,22 @@ sigue siendo un punto de partida editable, no una imposición.
 Devoluciones, descuentos posteriores, correcciones. Es el inverso de la factura
 y se aplica contra una o varias facturas, reduciendo su saldo.
 
+**Cómo quedó construido (setiembre de 2026).** Se emite desde el detalle de una
+factura, y es de esa factura sola:
+
+- Se captura **por cantidad sobre las líneas de la factura**, al precio neto de
+  la línea original. La nota que agota una línea toma el remanente exacto, sin
+  residuos de redondeo.
+- En la moneda y al tipo de cambio de la factura: revierte lo que ella
+  reconoció, así que no hay diferencial cambiario.
+- **No acredita más que el saldo por cobrar.** Con la factura cobrada, primero
+  se anula el cobro, o se devuelve el dinero por tesorería.
+- Asiento: cargo a ingresos por cuenta y al IVA trasladado, abono a clientes
+  con el auxiliar del cliente. Lleva su consecutivo de comprobante (tipo 03) y
+  su clave numérica.
+- La antigüedad de saldos la resta desde su fecha, igual que un cobro, así que
+  un corte pasado sigue siendo reproducible.
+
 ### 2.4 Cancelación
 
 Solo con factura **no cobrada** (o cancelando antes los cobros). Genera reversa

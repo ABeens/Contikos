@@ -58,6 +58,8 @@ interface OpcionesPeticion {
   params?: Record<string, string | number | undefined>
   /** Empresa activa. Multiempresa: nunca se omite (docs/01 §4.1). */
   empresaId?: string
+  /** Token de la sesión. Viaja como `Authorization: Bearer`. */
+  token?: string
   signal?: AbortSignal
 }
 
@@ -98,7 +100,7 @@ export async function request<S extends z.ZodTypeAny>(
   schema: S,
   opciones: OpcionesPeticion = {},
 ): Promise<z.infer<S>> {
-  const { metodo = 'GET', cuerpo, params, empresaId, signal } = opciones
+  const { metodo = 'GET', cuerpo, params, empresaId, token, signal } = opciones
 
   const url = new URL(`${API_URL}${ruta}`, window.location.origin)
   if (params) {
@@ -110,6 +112,7 @@ export async function request<S extends z.ZodTypeAny>(
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (cuerpo !== undefined) headers['Content-Type'] = 'application/json'
   if (empresaId) headers['X-Empresa-Id'] = empresaId
+  if (token) headers.Authorization = `Bearer ${token}`
 
   const limite = conTiempoLimite(signal, TIEMPO_LIMITE_MS)
 

@@ -14,6 +14,7 @@ import {
   establecerEmpresaActiva,
 } from '@/shared/almacen/almacen'
 import { restablecerMonedas } from '@/shared/money/money'
+import { sesionActual } from '@/shared/auth/sesion'
 
 /**
  * Multiempresa de punta a punta (docs/01 §4.1, docs/12 D-03 y D-12).
@@ -47,9 +48,14 @@ function montar(rutaInicial: string) {
 
 const url = (ruta: string) => new URL(`/api${ruta}`, window.location.origin)
 
+/** Las peticiones a mano llevan la sesión, como las del cliente. */
+const autorizacion = (): Record<string, string> => ({
+  Authorization: `Bearer ${sesionActual()!.token}`,
+})
+
 describe('Guardia de empresa', () => {
   it('rechaza toda petición que no diga de qué empresa es', async () => {
-    const respuesta = await fetch(url('/conta/cuentas'))
+    const respuesta = await fetch(url('/conta/cuentas'), { headers: autorizacion() })
 
     expect(respuesta.status).toBe(400)
     expect((await respuesta.json()).codigo).toBe('EMPRESA_REQUERIDA')
@@ -57,7 +63,7 @@ describe('Guardia de empresa', () => {
 
   it('rechaza una petición de una empresa distinta de la abierta', async () => {
     const respuesta = await fetch(url('/conta/cuentas'), {
-      headers: { 'X-Empresa-Id': 'emp-otra' },
+      headers: { 'X-Empresa-Id': 'emp-otra', ...autorizacion() },
     })
 
     expect(respuesta.status).toBe(409)
@@ -66,7 +72,7 @@ describe('Guardia de empresa', () => {
 
   it('con la empresa abierta en la cabecera, sirve', async () => {
     const respuesta = await fetch(url('/conta/cuentas'), {
-      headers: { 'X-Empresa-Id': empresaActiva() },
+      headers: { 'X-Empresa-Id': empresaActiva(), ...autorizacion() },
     })
 
     expect(respuesta.ok).toBe(true)
@@ -226,6 +232,7 @@ describe('Cambio de empresa', () => {
       headers: {
         'Content-Type': 'application/json',
         'X-Empresa-Id': 'emp-002',
+        ...autorizacion(),
       },
       body: JSON.stringify({
         fecha: '2026-08-20',
@@ -247,7 +254,7 @@ describe('Cambio de empresa', () => {
 describe('Directorio de terceros del grupo', () => {
   it('reúne por identificación a los terceros de todas las empresas activas', async () => {
     const respuesta = await fetch(url('/empresas/directorio'), {
-      headers: { 'X-Empresa-Id': empresaActiva() },
+      headers: { 'X-Empresa-Id': empresaActiva(), ...autorizacion() },
     })
     const directorio: {
       identificacion: string
@@ -356,7 +363,7 @@ describe('Catálogo de empresas', () => {
     await usuario.click(screen.getByRole('button', { name: 'Abrir NOR' }))
     await waitFor(() => expect(empresaActiva()).toBe('emp-003'))
     const respuesta = await fetch(url('/cxc/clientes'), {
-      headers: { 'X-Empresa-Id': 'emp-003' },
+      headers: { 'X-Empresa-Id': 'emp-003', ...autorizacion() },
     })
     expect(await respuesta.json()).toEqual([])
   })
